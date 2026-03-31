@@ -1,0 +1,167 @@
+name: publish-release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: publish-release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'chore(release):')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - uses: pnpm/action-setup@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Sync main and tags
+        run: |
+          git fetch origin main --tags
+          git checkout main
+          git reset --hard origin/main
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Resolve package metadata
+        id: package
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          NAME="$(node -p "require('./package.json').name")"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Verify release state
+        id: verify
+        run: |
+          VERSION="${{ steps.package.outputs.version }}"
+          NAME="${{ steps.package.outputs.name }}"
+          HEAD_SUBJECT="$(git log -1 --pretty=%s)"
+
+          if [[ "$HEAD_SUBJECT" != chore\(release\):* ]]; then
+            echo "HEAD commit is not a release commit: $HEAD_SUBJECT"
+            echo "Run the prepare-release workflow first."
+            exit 1
+          fi
+
+          TAG_EXISTS="false"
+          NPM_PUBLISHED="false"
+          GH_RELEASE_EXISTS="false"
+
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then TAG_EXISTS="true"; fi
+          PUBLISHED_VERSION="$(npm view "$NAME" version 2>/dev/null || true)"
+          if [ "$PUBLISHED_VERSION" = "$VERSION" ]; then NPM_PUBLISHED="true"; fi
+          if gh release view "v$VERSION" >/dev/null 2>&1; then GH_RELEASE_EXISTS="true"; fi
+
+          echo "npm_published=$NPM_PUBLISHED" >> "$GITHUB_OUTPUT"
+          echo "tag_exists=$TAG_EXISTS" >> "$GITHUB_OUTPUT"
+          echo "gh_release_exists=$GH_RELEASE_EXISTS" >> "$GITHUB_OUTPUT"
+
+          if [ "$TAG_EXISTS" = "true" ] && [ "$NPM_PUBLISHED" = "true" ] && [ "$GH_RELEASE_EXISTS" = "true" ]; then
+            echo "v$VERSION is already fully published (npm + tag + GitHub release). Nothing to do."
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "should_publish=true" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - if: steps.verify.outputs.should_publish == 'true'
+        run: pnpm pack:artifact
+      - if: steps.verify.outputs.should_publish == 'true'
+        run: node scripts/verify-packed-artifact.mjs
+
+      - name: Resolve tarball path
+        id: tarball
+        if: steps.verify.outputs.should_publish == 'true'
+        run: |
+          TAR_PATH="$(find .artifacts -maxdepth 1 -name '*.tgz' -print -quit)"
+
+          if [ -z "$TAR_PATH" ]; then
+            echo "No tarball was produced."
+            exit 1
+          fi
+
+          echo "path=$TAR_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to npm
+        if: steps.verify.outputs.should_publish == 'true' && steps.verify.outputs.npm_published != 'true'
+        run: npm publish "${{ steps.tarball.outputs.path }}" --access public --provenance
+
+      - name: Create release tag
+        if: steps.verify.outputs.should_publish == 'true' && steps.verify.outputs.tag_exists != 'true'
+        run: |
+          VERSION="${{ steps.package.outputs.version }}"
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+
+      - name: Create or update GitHub release
+        if: steps.verify.outputs.should_publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.package.outputs.version }}"
+
+          if [ "${{ steps.verify.outputs.gh_release_exists }}" = "true" ]; then
+            gh release upload "v$VERSION" "${{ steps.tarball.outputs.path }}" --clobber
+          else
+            gh release create "v$VERSION" "${{ steps.tarball.outputs.path }}" \
+              --title "v$VERSION" \
+              --generate-notes
+          fi
+
+      # ── Homebrew formula update ──────────────────────────
+      # The formula SHA must match the tarball served by npm, so it is
+      # computed here after publication rather than in the prepare workflow.
+
+      - name: Update Homebrew formula
+        if: steps.verify.outputs.should_publish == 'true'
+        # MERGE_PAT requires repo scope and its actor must be allowed to bypass
+        # the main branch ruleset (the prepare workflow validates this upfront).
+        env:
+          GH_TOKEN: ${{ secrets.MERGE_PAT }}
+        run: |
+          VERSION="${{ steps.package.outputs.version }}"
+          TARBALL_URL="https://registry.npmjs.org/@th3mouk/maestro/-/maestro-${VERSION}.tgz"
+
+          curl -sSfL --retry 3 --retry-delay 5 -o /tmp/maestro-"${VERSION}".tgz "$TARBALL_URL"
+          TAR_SHA256="$(sha256sum /tmp/maestro-"${VERSION}".tgz | awk '{print $1}')"
+
+          FORMULA_PATH="Formula/maestro.rb"
+          perl -0pi -e 's{url "https://registry\.npmjs\.org/@th3mouk/maestro/-/maestro-[^"]+\.tgz"}{url "'"$TARBALL_URL"'"}' "$FORMULA_PATH"
+          perl -0pi -e 's{sha256 "[0-9a-f]{64}"}{sha256 "'"$TAR_SHA256"'"}' "$FORMULA_PATH"
+
+          echo "Homebrew formula updated:"
+          grep -E '^\s{2}url ' "$FORMULA_PATH"
+          grep -E '^\s{2}sha256 ' "$FORMULA_PATH"
+
+          if git diff --quiet Formula/maestro.rb; then
+            echo "Homebrew formula already up to date."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            gh auth setup-git
+            git add Formula/maestro.rb
+            git commit -m "chore(homebrew): update formula for v${VERSION}"
+            git push origin main
+          fi
