@@ -17,15 +17,19 @@ import { getRepositorySparseIncludePaths } from "../../src/workspace/repositorie
 import type { RepositoryRef, ResolvedWorkspace } from "../../src/workspace/types.js";
 import { createManagedTempDir } from "../utils/test-lifecycle.js";
 
+function mockFn<T extends (...args: any[]) => any = (...args: any[]) => any>() {
+  return vi.fn<T>();
+}
+
 vi.mock("execa", () => ({
-  execa: vi.fn(),
+  execa: mockFn(),
 }));
 
 vi.mock(import("../../src/core/workspace-service.js"), async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
-    resolveWorkspace: vi.fn(),
+    resolveWorkspace: mockFn(),
   };
 });
 
@@ -199,8 +203,8 @@ describe("execution service", () => {
     );
 
     const gitAdapter: ExecutionGitAdapter = {
-      ensureWorktree: vi.fn().mockResolvedValue("created"),
-      hasGitMetadata: vi.fn().mockResolvedValue(true),
+      ensureWorktree: mockFn().mockResolvedValue("created"),
+      hasGitMetadata: mockFn().mockResolvedValue(true),
     };
 
     const report = await prepareTaskWorktree(workspaceRoot, "Feature / ABC", {}, { gitAdapter });

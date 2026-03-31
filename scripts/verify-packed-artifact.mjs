@@ -73,13 +73,22 @@ async function main() {
     await assertFileContains(path.join(initWorkspace, "README.md"), "maestro.json");
 
     await assertFileContains(
-      path.join(tempRoot, "node_modules", "maestro", "framework-packs", "starter", "pack.yaml"),
+      path.join(
+        tempRoot,
+        "node_modules",
+        "@th3mouk",
+        "maestro",
+        "framework-packs",
+        "starter",
+        "pack.yaml",
+      ),
       "@maestro/starter-pack",
     );
 
     const exampleWorkspace = path.join(
       tempRoot,
       "node_modules",
+      "@th3mouk",
       "maestro",
       "examples",
       "ops-workspace",

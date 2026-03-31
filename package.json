@@ -59,7 +59,7 @@
   },
   "scripts": {
     "assets:banner": "node scripts/generate-banner.js",
-    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && node scripts/prepare-bin.mjs",
     "lint": "oxlint --config .oxlintrc.json --deny-warnings src tests scripts",
     "lint:fix": "oxlint --config .oxlintrc.json --fix --fix-suggestions src tests scripts",
     "format": "oxfmt --config .oxfmtrc.json --write .",
@@ -89,19 +89,19 @@
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",
-    "@types/node": "^24.3.0",
+    "@types/node": "^25.5.0",
     "@types/proper-lockfile": "^4.1.4",
     "@types/semver": "^7.7.0",
     "@types/shell-quote": "^1.7.5",
-    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/coverage-v8": "^4.1.2",
     "knip": "^6.0.1",
-    "oxfmt": "^0.41.0",
+    "oxfmt": "^0.43.0",
     "oxlint": "^1.56.0",
     "satori": "^0.26.0",
-    "typescript": "^5.9.2",
-    "vitest": "^3.2.4"
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.2"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12"
   }
 }

@@ -2,6 +2,13 @@
 
 This path is for a first run of the published CLI. It shows the practical workspace lifecycle we validated: `init`, edit `maestro.yaml`, `install`, generate `maestro.code-workspace`, open the workspace root for contract edits, open a task worktree for active work, run `bootstrap`, then finish with `doctor`.
 
+Prerequisites:
+
+- Node.js `>=22.12` if you install or run the CLI through npm, pnpm, npx, or pnpm dlx
+- `git` available on `PATH`
+
+The generated `maestro` command is still a Node program after installation, so Node is part of the runtime requirement, not just the development toolchain.
+
 ## 1. Install or run once
 
 Use any of these entry points:

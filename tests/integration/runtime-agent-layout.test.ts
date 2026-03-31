@@ -1,36 +1,145 @@
-import { lstat, readFile } from "node:fs/promises";
+import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { execa } from "execa";
 import { describe, expect, test } from "vitest";
+import { installWorkspace } from "../../src/core/commands.js";
+import { createManagedTempDir } from "../utils/test-lifecycle.js";
 
-describe("runtime agent layout", () => {
-  test("keeps Claude project agents as symlinks to the canonical role files", async () => {
-    const plannerLink = path.join(process.cwd(), ".claude", "agents", "planner.md");
-    const stats = await lstat(plannerLink);
+async function createRuntimeProjectionScenario(): Promise<string> {
+  const workspaceRoot = await createManagedTempDir("maestro-runtime-projection-");
 
-    expect(stats.isSymbolicLink()).toBe(true);
+  await writeFile(
+    path.join(workspaceRoot, "maestro.yaml"),
+    [
+      "apiVersion: maestro/v1",
+      "kind: Workspace",
+      "metadata:",
+      "  name: test-workspace",
+      "spec:",
+      "  agents:",
+      "    codex:",
+      "      - planner",
+      "    claude-code:",
+      "      - planner",
+      "  skills:",
+      "    - local-runbook",
+      "  runtimes:",
+      "    codex:",
+      "      enabled: true",
+      "    claude-code:",
+      "      enabled: true",
+      "  repositories: []",
+    ].join("\n"),
+    "utf8",
+  );
+
+  await mkdir(path.join(workspaceRoot, "agents", "codex"), { recursive: true });
+  await writeFile(
+    path.join(workspaceRoot, "agents", "codex", "planner.toml"),
+    [
+      'name = "planner"',
+      'description = "Plan workspace changes before implementation."',
+      'model = "gpt-5.4"',
+      'model_reasoning_effort = "high"',
+      'sandbox_mode = "read-only"',
+      'developer_instructions = """',
+      "Stay in planning mode.",
+      "Split work into bounded steps with clear success criteria.",
+      "State dependencies and what is out of scope.",
+      '"""',
+      "",
+      "[[skills.config]]",
+      'path = ".maestro/skills/local-runbook/SKILL.md"',
+      "enabled = true",
+    ].join("\n"),
+    "utf8",
+  );
+
+  await mkdir(path.join(workspaceRoot, "agents", "claude-code"), { recursive: true });
+  await writeFile(
+    path.join(workspaceRoot, "agents", "claude-code", "planner.md"),
+    [
+      "---",
+      "name: planner",
+      "description: Plan workspace changes before implementation.",
+      "---",
+      "",
+      "# Planner",
+      "",
+      "Plan workspace changes before implementation.",
+      "",
+      "- Break the work into bounded steps.",
+      "- State dependencies and success criteria.",
+      "- Keep the plan short and actionable.",
+    ].join("\n"),
+    "utf8",
+  );
+
+  await mkdir(path.join(workspaceRoot, "skills", "local-runbook"), { recursive: true });
+  await writeFile(
+    path.join(workspaceRoot, "skills", "local-runbook", "SKILL.md"),
+    ["---", "name: local-runbook", "description: Local runbook skill.", "---"].join("\n"),
+    "utf8",
+  );
+
+  await execa("git", ["init", "--initial-branch=main"], { cwd: workspaceRoot });
+  await execa("git", ["config", "user.name", "Test User"], { cwd: workspaceRoot });
+  await execa("git", ["config", "user.email", "test@example.invalid"], { cwd: workspaceRoot });
+
+  return workspaceRoot;
+}
+
+describe("runtime agent layout projection", () => {
+  test("projects codex agent with required TOML fields and skill attachment", async () => {
+    const workspaceRoot = await createRuntimeProjectionScenario();
+    await installWorkspace(workspaceRoot);
+
+    const content = await readFile(
+      path.join(workspaceRoot, ".codex", "agents", "planner.toml"),
+      "utf8",
+    );
+
+    expect(content).toContain('name = "planner"');
+    expect(content).toContain("description =");
+    expect(content).toContain('sandbox_mode = "read-only"');
+    expect(content).toContain('developer_instructions = """');
+    expect(content).toContain("[[skills.config]]");
+    expect(content).toContain(".maestro/skills/local-runbook/SKILL.md");
+    expect(content).not.toContain("docs/internals/");
   });
 
-  test("keeps Codex project agents self-contained and native", async () => {
-    const slotAgents = [
-      ["default", "Triage broad repository work and route it into planner-first orchestration."],
-      ["worker", "Execute bounded repository changes and keep the diff small."],
-      ["explorer", "Read the repository, gather evidence, and avoid making changes."],
-    ] as const;
+  test("projects claude-code agent with correct markdown frontmatter and body", async () => {
+    const workspaceRoot = await createRuntimeProjectionScenario();
+    await installWorkspace(workspaceRoot);
 
-    for (const [name, summary] of slotAgents) {
-      const content = await readFile(
-        path.join(process.cwd(), ".codex", "agents", `${name}.toml`),
-        "utf8",
-      );
+    const content = await readFile(
+      path.join(workspaceRoot, ".claude", "agents", "planner.md"),
+      "utf8",
+    );
 
-      expect(content).toContain(`name = "${name}"`);
-      expect(content).toContain('developer_instructions = """');
-      expect(content).toContain(summary);
-      expect(content).toContain("Repository rules:");
-      expect(content).toContain("[[skills.config]]");
-      expect(content).toContain(path.join(process.cwd(), ".codex", "skills", "v1"));
-      expect(content).not.toContain("Role contract:");
-      expect(content).not.toContain("docs/internals/");
-    }
+    expect(content.startsWith("---\n")).toBe(true);
+    expect(content).toContain("name: planner");
+    expect(content).toContain("description:");
+    expect(content).toContain("# Planner");
+    expect(content).not.toContain("docs/internals/");
+  });
+
+  test("projects codex config and claude side-effects", async () => {
+    const workspaceRoot = await createRuntimeProjectionScenario();
+    await installWorkspace(workspaceRoot);
+
+    const codexConfig = await readFile(path.join(workspaceRoot, ".codex", "config.toml"), "utf8");
+    expect(codexConfig).toContain("test-workspace");
+
+    const claudeMd = await readFile(path.join(workspaceRoot, "CLAUDE.md"), "utf8");
+    expect(claudeMd).toContain("<!-- Generated by Maestro");
+
+    const claudeSettings = JSON.parse(
+      await readFile(path.join(workspaceRoot, ".claude", "settings.json"), "utf8"),
+    );
+    expect(claudeSettings).toMatchObject({ generated: true, workspace: "test-workspace" });
+
+    const commandsDirStat = await stat(path.join(workspaceRoot, ".claude", "commands"));
+    expect(commandsDirStat.isDirectory()).toBe(true);
   });
 });

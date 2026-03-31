@@ -6,7 +6,8 @@ It complements [`overview.md`](./overview.md) with runtime, tooling, dependency 
 
 ## Runtime baseline
 
-- Node.js `>=20`
+- Node.js `>=22.12` for the published CLI and local development
+- CI and release validation run on a matrix of supported LTS lines: `22.12.x` and `24.x`
 - TypeScript for shipped source
 - pnpm for development and release validation
 
