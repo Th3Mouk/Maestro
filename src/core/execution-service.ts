@@ -707,12 +707,24 @@ function prefixWorkingDirectory(command: string, workingDirectory: string): stri
 }
 
 function sanitizeSegment(value: string): string {
-  return (
-    value
-      .toLowerCase()
-      .replace(/[^a-z0-9._-]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "task"
-  );
+  const normalized = value.toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
+  const trimmed = trimEdgeCharacters(normalized, "-");
+  return trimmed || "task";
+}
+
+function trimEdgeCharacters(value: string, character: string): string {
+  let start = 0;
+  let end = value.length;
+
+  while (start < end && value[start] === character) {
+    start += 1;
+  }
+
+  while (end > start && value[end - 1] === character) {
+    end -= 1;
+  }
+
+  return value.slice(start, end);
 }
 
 function dedupe(values: string[]): string[] {
