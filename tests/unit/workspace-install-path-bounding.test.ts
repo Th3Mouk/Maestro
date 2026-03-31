@@ -9,21 +9,25 @@ import { getRepositorySparseIncludePaths } from "../../src/workspace/repositorie
 import type { RepositoryRef, ResolvedWorkspace } from "../../src/workspace/types.js";
 import { createManagedTempDir } from "../utils/test-lifecycle.js";
 
+function mockFn<T extends (...args: any[]) => any = (...args: any[]) => any>() {
+  return vi.fn<T>();
+}
+
 vi.mock("../../src/core/workspace-service.js", () => ({
-  ensureWorkspaceSkeleton: vi.fn(),
-  resolveWorkspace: vi.fn(),
+  ensureWorkspaceSkeleton: mockFn(),
+  resolveWorkspace: mockFn(),
 }));
 
 vi.mock("../../src/core/execution-service.js", () => ({
-  projectExecutionSupport: vi.fn(),
+  projectExecutionSupport: mockFn(),
 }));
 
 vi.mock("../../src/core/commands/pack-hooks.js", () => ({
-  runPackHooks: vi.fn(),
+  runPackHooks: mockFn(),
 }));
 
 vi.mock("../../src/adapters/runtimes/index.js", () => ({
-  createBuiltInProjectors: vi.fn(),
+  createBuiltInProjectors: mockFn(),
 }));
 
 const mockedResolveWorkspace = vi.mocked(resolveWorkspace);
@@ -80,19 +84,19 @@ function createCommandContextFixture(
   } = {},
 ): CommandContext {
   const defaultGitAdapter: GitCommandAdapter = {
-    checkoutBranch: vi.fn().mockResolvedValue({ branch: "main", status: "unchanged" }),
-    ensureWorkspaceRepository: vi.fn().mockResolvedValue("unchanged"),
-    ensureRepository: vi.fn().mockResolvedValue("unchanged"),
-    ensureWorktree: vi.fn().mockResolvedValue("unchanged"),
-    commitAll: vi.fn().mockResolvedValue(false),
-    isUnbornRepository: vi.fn().mockResolvedValue(false),
-    getChangedFiles: vi.fn().mockResolvedValue([]),
-    getCommittedChangedFiles: vi.fn().mockResolvedValue([]),
-    getCurrentBranch: vi.fn().mockResolvedValue("main"),
-    getRemoteUrl: vi.fn().mockResolvedValue("git@github.com:org/repo.git"),
-    hasGitMetadata: vi.fn().mockResolvedValue(true),
-    isClean: vi.fn().mockResolvedValue(true),
-    pullCurrentBranch: vi.fn().mockResolvedValue({ branch: "main", status: "unchanged" }),
+    checkoutBranch: mockFn().mockResolvedValue({ branch: "main", status: "unchanged" }),
+    ensureWorkspaceRepository: mockFn().mockResolvedValue("unchanged"),
+    ensureRepository: mockFn().mockResolvedValue("unchanged"),
+    ensureWorktree: mockFn().mockResolvedValue("unchanged"),
+    commitAll: mockFn().mockResolvedValue(false),
+    isUnbornRepository: mockFn().mockResolvedValue(false),
+    getChangedFiles: mockFn().mockResolvedValue([]),
+    getCommittedChangedFiles: mockFn().mockResolvedValue([]),
+    getCurrentBranch: mockFn().mockResolvedValue("main"),
+    getRemoteUrl: mockFn().mockResolvedValue("git@github.com:org/repo.git"),
+    hasGitMetadata: mockFn().mockResolvedValue(true),
+    isClean: mockFn().mockResolvedValue(true),
+    pullCurrentBranch: mockFn().mockResolvedValue({ branch: "main", status: "unchanged" }),
   };
   return {
     gitAdapter: { ...defaultGitAdapter, ...overrides.gitAdapter },
@@ -124,7 +128,7 @@ describe("workspace install path bounding", () => {
       ]),
     );
 
-    const ensureRepository = vi.fn();
+    const ensureRepository = mockFn();
     await expect(
       installWorkspace(
         workspaceRoot,
@@ -139,9 +143,9 @@ describe("workspace install path bounding", () => {
 
   test("initializes the workspace root before repository installation", async () => {
     const workspaceRoot = await createManagedTempDir("maestro-install-workspace-init-");
-    const ensureWorkspaceRepository = vi.fn().mockResolvedValue("created");
-    const ensureRepository = vi.fn().mockResolvedValue("created");
-    const isUnbornRepository = vi.fn().mockResolvedValue(false);
+    const ensureWorkspaceRepository = mockFn().mockResolvedValue("created");
+    const ensureRepository = mockFn().mockResolvedValue("created");
+    const isUnbornRepository = mockFn().mockResolvedValue(false);
 
     mockedResolveWorkspace.mockResolvedValue(
       createResolvedWorkspaceFixture([
@@ -186,7 +190,7 @@ describe("workspace install path bounding", () => {
           reportName: "../outside-report.json",
         },
         createCommandContextFixture({
-          gitAdapter: { ensureRepository: vi.fn() },
+          gitAdapter: { ensureRepository: mockFn() },
         }),
       ),
     ).rejects.toThrow("install report path escapes");

@@ -128,7 +128,7 @@ export function createProgram(): Command {
         { dryRun: options.dryRun },
         commandContext,
       );
-      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      await writeJsonStdout(report);
     });
 
   program
@@ -155,7 +155,7 @@ export function createProgram(): Command {
         dryRun: options.dryRun,
         repository: options.repository,
       });
-      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      await writeJsonStdout(report);
       process.exitCode = report.status === "error" ? 1 : 0;
     });
 
@@ -170,7 +170,7 @@ export function createProgram(): Command {
         { dryRun: options.dryRun },
         commandContext,
       );
-      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      await writeJsonStdout(report);
     });
 
   program
@@ -184,7 +184,7 @@ export function createProgram(): Command {
         { dryRun: options.dryRun },
         commandContext,
       );
-      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      await writeJsonStdout(report);
     });
 
   program
@@ -228,7 +228,7 @@ export function createProgram(): Command {
         { dryRun: options.dryRun },
         commandContext,
       );
-      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      await writeJsonStdout(report);
       process.exitCode = report.status === "error" ? 1 : 0;
     });
 
@@ -250,7 +250,7 @@ export function createProgram(): Command {
         path.resolve(process.cwd(), options.workspace),
         commandContext,
       );
-      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      await writeJsonStdout(report);
       process.exitCode = report.status === "error" ? 1 : 0;
     });
 
@@ -267,7 +267,7 @@ export function createProgram(): Command {
         path.resolve(process.cwd(), options.workspace),
         commandContext,
       );
-      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      await writeJsonStdout(report);
       process.exitCode = report.status === "ok" ? 0 : 1;
     });
 
@@ -280,7 +280,7 @@ export function createProgram(): Command {
         path.resolve(process.cwd(), options.workspace),
         commandContext,
       );
-      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      await writeJsonStdout(report);
       process.exitCode = report.status === "ok" ? 0 : 1;
     });
 
@@ -293,7 +293,7 @@ export function createProgram(): Command {
         path.resolve(process.cwd(), options.workspace),
         commandContext,
       );
-      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      await writeJsonStdout(report);
       process.exitCode = report.status === "ok" ? 0 : 1;
     });
 
@@ -321,6 +321,19 @@ function parseRuntimeNames(value?: string): RuntimeName[] | undefined {
   }
 
   return runtimes.length > 0 ? Array.from(new Set(runtimes as RuntimeName[])) : undefined;
+}
+
+function writeJsonStdout(value: unknown): Promise<void> {
+  return new Promise((resolve, reject) => {
+    process.stdout.write(`${JSON.stringify(value, null, 2)}\n`, (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve();
+    });
+  });
 }
 
 const isEntrypoint =

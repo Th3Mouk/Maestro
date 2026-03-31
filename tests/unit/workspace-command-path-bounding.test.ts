@@ -6,8 +6,12 @@ import { getRepositorySparseIncludePaths } from "../../src/workspace/repositorie
 import type { RepositoryRef, ResolvedWorkspace } from "../../src/workspace/types.js";
 import { createManagedTempDir } from "../utils/test-lifecycle.js";
 
+function mockFn<T extends (...args: any[]) => any = (...args: any[]) => any>() {
+  return vi.fn<T>();
+}
+
 vi.mock("../../src/core/workspace-service.js", () => ({
-  resolveWorkspace: vi.fn(),
+  resolveWorkspace: mockFn(),
 }));
 
 const mockedResolveWorkspace = vi.mocked(resolveWorkspace);
@@ -60,19 +64,19 @@ function createCommandContextFixture(
   } = {},
 ): CommandContext {
   const defaultGitAdapter: GitCommandAdapter = {
-    checkoutBranch: vi.fn().mockResolvedValue({ branch: "main", status: "unchanged" }),
-    ensureWorkspaceRepository: vi.fn().mockResolvedValue("unchanged"),
-    ensureRepository: vi.fn().mockResolvedValue("unchanged"),
-    ensureWorktree: vi.fn().mockResolvedValue("unchanged"),
-    commitAll: vi.fn().mockResolvedValue(false),
-    isUnbornRepository: vi.fn().mockResolvedValue(false),
-    getChangedFiles: vi.fn().mockResolvedValue([]),
-    getCommittedChangedFiles: vi.fn().mockResolvedValue([]),
-    getCurrentBranch: vi.fn().mockResolvedValue("main"),
-    getRemoteUrl: vi.fn().mockResolvedValue("git@github.com:org/repo.git"),
-    hasGitMetadata: vi.fn().mockResolvedValue(true),
-    isClean: vi.fn().mockResolvedValue(true),
-    pullCurrentBranch: vi.fn().mockResolvedValue({ branch: "main", status: "unchanged" }),
+    checkoutBranch: mockFn().mockResolvedValue({ branch: "main", status: "unchanged" }),
+    ensureWorkspaceRepository: mockFn().mockResolvedValue("unchanged"),
+    ensureRepository: mockFn().mockResolvedValue("unchanged"),
+    ensureWorktree: mockFn().mockResolvedValue("unchanged"),
+    commitAll: mockFn().mockResolvedValue(false),
+    isUnbornRepository: mockFn().mockResolvedValue(false),
+    getChangedFiles: mockFn().mockResolvedValue([]),
+    getCommittedChangedFiles: mockFn().mockResolvedValue([]),
+    getCurrentBranch: mockFn().mockResolvedValue("main"),
+    getRemoteUrl: mockFn().mockResolvedValue("git@github.com:org/repo.git"),
+    hasGitMetadata: mockFn().mockResolvedValue(true),
+    isClean: mockFn().mockResolvedValue(true),
+    pullCurrentBranch: mockFn().mockResolvedValue({ branch: "main", status: "unchanged" }),
   };
   return {
     gitAdapter: { ...defaultGitAdapter, ...overrides.gitAdapter },
@@ -100,10 +104,10 @@ describe("workspace command path bounding", () => {
       workspaceRoot,
       createCommandContextFixture({
         gitAdapter: {
-          checkoutBranch: vi.fn(),
-          getCurrentBranch: vi.fn(),
-          hasGitMetadata: vi.fn(),
-          pullCurrentBranch: vi.fn(),
+          checkoutBranch: mockFn(),
+          getCurrentBranch: mockFn(),
+          hasGitMetadata: mockFn(),
+          pullCurrentBranch: mockFn(),
         },
       }),
     );

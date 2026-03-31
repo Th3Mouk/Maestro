@@ -4,8 +4,10 @@ Maestro publishes a `maestro` command. Install it with the package manager that 
 
 Prerequisites:
 
-- Node.js `>= 20`
+- Node.js `>=22.12` for npm, pnpm, npx, and pnpm dlx installs
 - `git` available on `PATH`
+
+The published CLI is a Node program, not a standalone binary, so the installed command still runs through Node at runtime. Homebrew handles that dependency for you through its formula.
 
 ## Choose an install path
 
@@ -46,14 +48,14 @@ Auto mode already detects `composer`, `uv`, `npm`, `pnpm`, `yarn`, and `bun` fro
 
 ## Troubleshooting
 
-| Problem                                                     | What to check                                                                                                                                                                                              |
-| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Problem                                                     | What to check                                                                                                                                                                                                                |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `maestro: command not found` after a global install         | Open a new shell, confirm your global package-manager bin directory is on `PATH`, or use `npx @th3mouk/maestro@latest init my-workspace` / `pnpm dlx @th3mouk/maestro@latest init my-workspace` to verify the package works. |
-| Homebrew install is ambiguous                               | Use the tap-qualified path: `brew tap th3mouk/maestro https://github.com/Th3Mouk/maestro` then `brew install th3mouk/maestro/maestro`.                                                                     |
-| You only want to evaluate the CLI once                      | Prefer `npx @th3mouk/maestro@latest init my-workspace` or `pnpm dlx @th3mouk/maestro@latest init my-workspace` instead of a global install.                                                             |
-| You want the Maestro CLI map for agents                     | Open the generated `AGENTS.md` in the workspace root. It explains `init`, `install`, `bootstrap`, `sync`, `update`, `doctor`, `git checkout`, `git pull`, `git sync`, and `worktree`.                      |
-| `maestro init` succeeded but you are not sure what happened | Run `cd my-workspace && maestro install --workspace . --dry-run` and compare the generated files with [5-minute quickstart](./quickstart.md).                                                              |
-| You are working on the repository itself                    | Use the source workflow below, not the published package flow above.                                                                                                                                       |
+| Homebrew install is ambiguous                               | Use the tap-qualified path: `brew tap th3mouk/maestro https://github.com/Th3Mouk/maestro` then `brew install th3mouk/maestro/maestro`.                                                                                       |
+| You only want to evaluate the CLI once                      | Prefer `npx @th3mouk/maestro@latest init my-workspace` or `pnpm dlx @th3mouk/maestro@latest init my-workspace` instead of a global install.                                                                                  |
+| You want the Maestro CLI map for agents                     | Open the generated `AGENTS.md` in the workspace root. It explains `init`, `install`, `bootstrap`, `sync`, `update`, `doctor`, `git checkout`, `git pull`, `git sync`, and `worktree`.                                        |
+| `maestro init` succeeded but you are not sure what happened | Run `cd my-workspace && maestro install --workspace . --dry-run` and compare the generated files with [5-minute quickstart](./quickstart.md).                                                                                |
+| You are working on the repository itself                    | Use the source workflow below, not the published package flow above.                                                                                                                                                         |
 
 ## If you are developing the package
 

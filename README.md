@@ -100,6 +100,9 @@ Architecture decisions and implementation constraints are documented in the arch
 
 ## Install
 
+Prerequisite for npm, pnpm, npx, and pnpm dlx installs: Node.js `>=22.12`.
+The published CLI is a Node program, so the installed command still runs through Node at runtime.
+
 Choose the simplest path for your machine.
 
 | Path                 | Command                                                                                                 |
@@ -307,8 +310,8 @@ This repository contains a practical public foundation.
 The package must install cleanly, the documented flow must run, and the published artifact must match the documented features.
 
 The pull request automation lives in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) and runs the full validation checks on every non-draft PR update.
-It installs dependencies with `pnpm install --frozen-lockfile`, runs the repository validation checks, and uploads the generated npm tarball as a workflow artifact after the packed artifact has been installed and smoke-tested.
+It installs dependencies with `pnpm install --frozen-lockfile`, runs the repository validation checks in a matrix on Node `22.12.x` and `24.x`, and uploads the generated npm tarball as a workflow artifact after the packed artifact has been installed and smoke-tested.
 
 The release automation lives in [`.github/workflows/release.yml`](./.github/workflows/release.yml).
-It is started manually from GitHub Actions with a `patch`, `minor`, or `major` choice, runs on Node `24`, bumps the package version on `main`, publishes the already-validated tarball to npm under `@th3mouk/maestro` through GitHub Actions OIDC trusted publishing, updates the Homebrew formula, creates the matching release tag, and attaches that same tarball to the GitHub release.
+It is started manually from GitHub Actions with a `patch`, `minor`, or `major` choice, validates the repository on Node `22.12.x` and `24.x`, then publishes from Node `24.x` by bumping the package version on `main`, publishing the tarball to npm under `@th3mouk/maestro` through GitHub Actions OIDC trusted publishing, updating the Homebrew formula, creating the matching release tag, and attaching that same tarball to the GitHub release.
 npm requires the package to exist before a trusted publisher can be attached, so the first npm release still needs a one-time bootstrap before the OIDC trust relationship can take over.

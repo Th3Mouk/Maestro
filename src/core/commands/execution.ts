@@ -5,7 +5,7 @@ import {
 import type { CommandContext } from "../command-context.js";
 import { createCommandContext } from "../command-context.js";
 
-export interface LoopProgressReporter {
+interface LoopProgressReporter {
   complete: () => void;
   itemCompleted: () => void;
   itemStarted: (label: string, index: number) => void;
