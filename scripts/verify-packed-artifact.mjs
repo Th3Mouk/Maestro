@@ -52,15 +52,22 @@ async function main() {
     /^package\/framework-packs\/starter\/pack\.yaml$/,
     "starter pack manifest must be shipped in the npm package",
   );
+  assertMatch(
+    contents,
+    /^package\/npm-shrinkwrap\.json$/,
+    "npm-shrinkwrap.json must be shipped in the npm package",
+  );
 
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "maestro-pack-"));
 
   try {
     await execa("npm", ["init", "-y"], { cwd: tempRoot, stdio: "pipe" });
     await execa("npm", ["install", tarball], { cwd: tempRoot, stdio: "pipe" });
+    await execa("npm", ["audit", "signatures"], { cwd: tempRoot, stdio: "pipe" });
 
     const binPath = path.join(tempRoot, "node_modules", ".bin", "maestro");
     await execa(binPath, ["--help"], { cwd: tempRoot, stdio: "pipe" });
+    await assertShrinkwrapMatchesInstalledTree(tempRoot);
 
     const initWorkspace = path.join(tempRoot, "sample-workspace");
     await execa(binPath, ["init", initWorkspace], { cwd: tempRoot, stdio: "pipe" });
@@ -146,6 +153,35 @@ async function assertFileContains(targetPath, expected) {
   const content = await readFile(targetPath, "utf8");
   if (!content.includes(expected)) {
     throw new Error(`Expected ${targetPath} to contain ${expected}`);
+  }
+}
+
+async function assertShrinkwrapMatchesInstalledTree(tempRoot) {
+  const shrinkwrap = JSON.parse(await readFile(path.join(repoRoot, "npm-shrinkwrap.json"), "utf8"));
+  const installedLock = JSON.parse(
+    await readFile(path.join(tempRoot, "package-lock.json"), "utf8"),
+  );
+
+  const shrinkwrapPackages = Object.entries(shrinkwrap.packages)
+    .filter(([entryPath, entry]) => entryPath && entryPath !== "" && !entry.dev)
+    .map(([entryPath, entry]) => [entryPath, entry.version]);
+  const mismatches = [];
+
+  for (const [entryPath, expectedVersion] of shrinkwrapPackages) {
+    const installedEntry = installedLock.packages[entryPath];
+    if (!installedEntry) {
+      mismatches.push(`${entryPath}: missing from installed tree`);
+      continue;
+    }
+    if (installedEntry.version !== expectedVersion) {
+      mismatches.push(
+        `${entryPath}: expected ${expectedVersion}, received ${installedEntry.version}`,
+      );
+    }
+  }
+
+  if (mismatches.length > 0) {
+    throw new Error(`packed install did not honor npm-shrinkwrap.json:\n${mismatches.join("\n")}`);
   }
 }
 

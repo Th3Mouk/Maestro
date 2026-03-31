@@ -1,2 +1,8 @@
 packages:
   - .
+minimumReleaseAge: 1440
+strictDepBuilds: true
+onlyBuiltDependencies:
+  # `esbuild` is pulled in transitively by the Vite/Vitest toolchain.
+  # Maestro does not use it as a direct runtime or release bundler.
+  - esbuild

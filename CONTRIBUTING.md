@@ -19,16 +19,23 @@ TypeScript semantic checks still run through `tsc`.
 
 Use `pnpm check` to run the full delivery validation path:
 
+- `pnpm sync:npm-shrinkwrap`
 - `pnpm knip`
 - `pnpm lint`
 - `pnpm format:check`
 - `pnpm typecheck`
+- `pnpm test:audit-prod`
+- `pnpm test:npm-shrinkwrap`
 - `pnpm test`
+- `pnpm test:runtime-dependencies`
 - `pnpm build`
 - `pnpm test:smoke`
 - `pnpm test:pack`
+- `pnpm test:release-provenance`
 
 Use `pnpm lint:fix` or `pnpm format` to normalize local changes before review.
+`pnpm check` also refreshes `npm-shrinkwrap.json` automatically before validation, so dependency changes do not require a separate manual sync step.
+The sync step normalizes npm-version-specific lockfile noise, so local runs and GitHub Actions check the same contract.
 
 ## Working on the repository
 
@@ -60,6 +67,7 @@ maestro doctor --workspace ./examples/ops-workspace
 
 - Add or update tests for every behavior change
 - Open pull requests only after the branch passes the same `pnpm check` run in GitHub Actions
+- Keep release workflow changes covered by the provenance contract check instead of test-publishing to npm or Homebrew
 
 ## Rules
 
