@@ -221,6 +221,45 @@ describe("execution service", () => {
     );
   });
 
+  test("normalizes task names with repeated edge hyphens without changing the branch slug", async () => {
+    const workspaceRoot = await createManagedTempDir("maestro-worktree-hyphen-sanitizer-");
+
+    mockedResolveWorkspace.mockResolvedValue(
+      createResolvedWorkspaceFixture({
+        execution: {
+          devcontainer: { enabled: false },
+          worktrees: {
+            branchPrefix: "task",
+            enabled: true,
+            rootDir: ".maestro/worktrees",
+          },
+        },
+      }),
+    );
+
+    const gitAdapter: ExecutionGitAdapter = {
+      ensureWorktree: mockFn().mockResolvedValue("created"),
+      hasGitMetadata: mockFn().mockResolvedValue(true),
+    };
+
+    const report = await prepareTaskWorktree(
+      workspaceRoot,
+      "---Feature / ABC---",
+      {},
+      { gitAdapter },
+    );
+
+    const expectedTaskRoot = path.join(workspaceRoot, ".maestro", "worktrees", "feature-abc");
+    expect(report.status).toBe("ok");
+    expect(report.root).toBe(expectedTaskRoot);
+    expect(gitAdapter.ensureWorktree).toHaveBeenCalledWith(
+      workspaceRoot,
+      expectedTaskRoot,
+      "task/feature-abc/demo-workspace",
+      "HEAD",
+    );
+  });
+
   test("projectExecutionSupport does not create the optional editor workspace file", async () => {
     const workspaceRoot = await createManagedTempDir("maestro-editor-workspace-");
 
