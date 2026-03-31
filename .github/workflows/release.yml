@@ -1,0 +1,120 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: Release level
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Sync main and tags
+        run: |
+          git fetch origin main --tags
+          git checkout main
+          git reset --hard origin/main
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Compute next version
+        id: version
+        run: |
+          NEXT_VERSION="$(npm version "${{ inputs.release_type }}" --no-git-tag-version)"
+          VERSION="${NEXT_VERSION#v}"
+
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "Tag v$VERSION already exists."
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm knip
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm test:smoke
+      - run: pnpm test:pack
+
+      - name: Resolve tarball path
+        id: tarball
+        run: |
+          TAR_PATH="$(find .artifacts -maxdepth 1 -name '*.tgz' -print -quit)"
+
+          if [ -z "$TAR_PATH" ]; then
+            echo "No tarball was produced."
+            exit 1
+          fi
+
+          echo "path=$TAR_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to npm
+        run: npm publish "${{ steps.tarball.outputs.path }}" --access public --provenance
+
+      - name: Update Homebrew formula
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAR_SHA256="$(sha256sum "${{ steps.tarball.outputs.path }}" | awk '{print $1}')"
+          FORMULA_PATH="Formula/maestro.rb"
+
+          perl -0pi -e 's{url "https://registry\.npmjs\.org/@th3mouk/maestro/-/maestro-[^"]+\.tgz"}{url "https://registry.npmjs.org/@th3mouk/maestro/-/maestro-'"$VERSION"'.tgz"}' "$FORMULA_PATH"
+          perl -0pi -e 's{sha256 "[0-9a-f]{64}"}{sha256 "'"$TAR_SHA256"'"}' "$FORMULA_PATH"
+
+          grep -E '^\s{2}url ' "$FORMULA_PATH"
+          grep -E '^\s{2}sha256 ' "$FORMULA_PATH"
+
+      - name: Commit release version
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json Formula/maestro.rb
+          git commit -m "chore(release): 🚀 v${{ steps.version.outputs.version }}"
+          git tag "v${{ steps.version.outputs.version }}"
+
+      - name: Publish to origin
+        run: |
+          git push origin HEAD:main
+          git push origin "v${{ steps.version.outputs.version }}"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: ${{ steps.tarball.outputs.path }}

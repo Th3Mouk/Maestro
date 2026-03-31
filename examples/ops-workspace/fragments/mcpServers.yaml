@@ -1,0 +1,16 @@
+apiVersion: maestro/v1
+kind: WorkspaceFragment
+metadata:
+  name: ops-workspace-mcp
+spec:
+  mcpServers:
+    - name: shared-docs
+      transport: stdio
+      command: npx
+      args:
+        - -y
+        - "@upstash/context7-mcp"
+    - name: sentry
+      transport: http
+      url: https://mcp.sentry.dev/mcp
+      bearerTokenEnvVar: SENTRY_AUTH_TOKEN

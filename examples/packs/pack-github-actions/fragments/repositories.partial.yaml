@@ -1,0 +1,9 @@
+repositories:
+  - name: sample-ci
+    remote: git@github.com:org/sample-ci.git
+    branch: main
+    sparse:
+      mode: cone
+      includePaths:
+        - .github/
+        - deploy/

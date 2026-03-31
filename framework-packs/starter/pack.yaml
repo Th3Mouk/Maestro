@@ -1,0 +1,26 @@
+apiVersion: maestro/v1
+kind: Pack
+metadata:
+  name: "@maestro/starter-pack"
+  version: 1.0.0
+  visibility: public
+spec:
+  compatibility:
+    framework: ">=0.1.0 <1.0.0"
+  provides:
+    agents:
+      codex:
+        - default
+        - planner
+        - executor
+        - repo-auditor
+      claude-code:
+        - default
+        - planner
+        - executor
+      opencode:
+        - default
+        - planner
+        - executor
+    skills:
+      - gha-normalizer

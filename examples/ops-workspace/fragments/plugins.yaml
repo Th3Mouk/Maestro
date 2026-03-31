@@ -1,0 +1,17 @@
+apiVersion: maestro/v1
+kind: WorkspaceFragment
+metadata:
+  name: ops-workspace-plugins
+spec:
+  plugins:
+    codex:
+      enabled:
+        "release-helper@ops-workspace": true
+    claude-code:
+      enabled:
+        "release-helper@ops-workspace": true
+      marketplaces:
+        ops-workspace:
+          source:
+            source: directory
+            path: ./plugins

@@ -1,0 +1,17 @@
+.DS_Store
+dist/
+node_modules/
+*.tgz
+bin/
+
+# Internal maintenance and generated harness state
+.agents/
+.claude/
+.codex/
+.local/
+.workspace/
+docs/internals/
+maestro*.md
+INTERNAL.md
+AGENTS.md
+REVIEW.md

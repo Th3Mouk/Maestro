@@ -1,0 +1,9 @@
+name: allowed-paths
+spec:
+  writable:
+    - .github/**
+    - deploy/**
+    - docker/**
+    - helm/**
+    - k8s/**
+    - composer.json

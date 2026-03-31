@@ -1,0 +1,15 @@
+{
+  "plugins": ["import", "node", "vitest"],
+  "categories": {},
+  "rules": {},
+  "settings": {
+    "vitest": {
+      "typecheck": false
+    }
+  },
+  "env": {
+    "builtin": true
+  },
+  "globals": {},
+  "ignorePatterns": ["dist/**", ".artifacts/**", "node_modules/**"]
+}

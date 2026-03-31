@@ -1,0 +1,5 @@
+name: diff-size-limit
+spec:
+  maxChangedFiles: 20
+  maxAddedLines: 800
+  maxDeletedLines: 400

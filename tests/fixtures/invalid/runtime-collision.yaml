@@ -1,0 +1,17 @@
+apiVersion: maestro/v1
+kind: Workspace
+metadata:
+  name: collision-workspace
+spec:
+  framework:
+    version: ^1.0.0
+  runtimes:
+    codex:
+      enabled: true
+    claude-code:
+      enabled: true
+  agents:
+    codex:
+      - planner
+    claude-code:
+      - planner

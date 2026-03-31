@@ -1,0 +1,25 @@
+apiVersion: maestro/v1
+kind: Workspace
+metadata:
+  name: ops-workspace
+  description: Workspace for maintaining GitHub workflows and infrastructure components.
+spec:
+  framework:
+    version: ^0.1.0
+  includes:
+    - fragments/packs.yaml
+    - fragments/plugins.yaml
+    - fragments/mcpServers.yaml
+    - fragments/repositories.yaml
+    - fragments/execution.yaml
+    - fragments/runtimes.yaml
+    - fragments/policies.yaml
+  agents:
+    codex:
+      - planner
+      - repo-auditor
+    claude-code:
+      - planner
+      - executor
+    opencode:
+      - planner

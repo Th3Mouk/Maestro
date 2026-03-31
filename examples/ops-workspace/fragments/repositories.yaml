@@ -1,0 +1,61 @@
+apiVersion: maestro/v1
+kind: WorkspaceFragment
+metadata:
+  name: ops-workspace-repositories
+spec:
+  repositories:
+    - name: sur-api
+      remote: git@github.com:org/sur-api.git
+      branch: main
+      sparse:
+        mode: cone
+        includePaths:
+          - .github/
+          - deploy/
+          - docker/
+          - helm/
+          - k8s/
+          - composer.json
+      bootstrap:
+        strategy: auto
+      permissions:
+        writablePaths:
+          - .github/**
+          - deploy/**
+          - docker/**
+          - helm/**
+          - k8s/**
+          - composer.json
+        forbiddenPaths:
+          - src/**
+          - tests/**
+          - templates/**
+      metadata:
+        domain: ops
+        criticality: high
+        ownerTeam: platform
+    - name: admin
+      remote: git@github.com:org/admin.git
+      branch: main
+      sparse:
+        mode: cone
+        includePaths:
+          - .github/
+          - package.json
+          - eslint.config.js
+          - Dockerfile
+      bootstrap:
+        strategy: auto
+      permissions:
+        writablePaths:
+          - .github/**
+          - package.json
+          - eslint.config.js
+          - Dockerfile
+        forbiddenPaths:
+          - src/**
+          - tests/**
+      metadata:
+        domain: frontend
+        criticality: medium
+        ownerTeam: web

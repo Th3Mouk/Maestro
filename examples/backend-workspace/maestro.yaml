@@ -1,0 +1,70 @@
+apiVersion: maestro/v1
+kind: Workspace
+metadata:
+  name: backend-workspace
+  description: Workspace Symfony for tooling updates and quality gate reviews.
+spec:
+  framework:
+    version: ^0.1.0
+  execution:
+    devcontainer:
+      enabled: true
+      workspaceFolder: /workspace/backend-workspace
+    worktrees:
+      enabled: true
+      rootDir: .maestro/worktrees
+      branchPrefix: backend-task
+  runtimes:
+    codex:
+      enabled: true
+      installProjectConfig: true
+      installAgents: true
+      useAgentsFile: AGENTS.md
+  packs:
+    - name: "@maestro/pack-core"
+      version: ^0.1.0
+      visibility: public
+      source: ../packs/pack-core
+    - name: "@maestro/pack-symfony"
+      version: ^0.1.0
+      visibility: public
+      source: ../packs/pack-symfony
+  repositories:
+    - name: sur-api
+      remote: git@github.com:org/sur-api.git
+      branch: main
+      sparse:
+        mode: cone
+        includePaths:
+          - composer.json
+          - composer.lock
+          - symfony.lock
+          - config/
+          - src/
+        excludePaths:
+          - src/Secret.php
+          - src/Legacy/
+          - config/packages/dev/
+          - config/
+          - bin/
+          - src/Kernel.php
+          - .github/
+      bootstrap:
+        strategy: auto
+      permissions:
+        writablePaths:
+          - composer.json
+          - composer.lock
+          - symfony.lock
+          - config/**
+          - bin/**
+          - src/Kernel.php
+          - .github/**
+        forbiddenPaths:
+          - src/**
+          - tests/**
+          - templates/**
+      metadata:
+        domain: backend
+        framework: symfony
+        versionHint: "7"

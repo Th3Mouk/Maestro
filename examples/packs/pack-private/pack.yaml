@@ -1,0 +1,12 @@
+apiVersion: maestro/v1
+kind: Pack
+metadata:
+  name: "@foodpilot/pack-ops-private"
+  version: 0.1.0
+  visibility: private
+spec:
+  compatibility:
+    framework: ">=0.1.0 <1.0.0"
+  provides:
+    skills:
+      - registry-auth-audit

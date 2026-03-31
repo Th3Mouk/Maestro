@@ -1,0 +1,107 @@
+{
+  "name": "@th3mouk/maestro",
+  "version": "0.1.0",
+  "description": "Maestro: partial or complete multi-repository workspaces for AI-assisted engineering environments.",
+  "keywords": [
+    "ai",
+    "automation",
+    "claude-code",
+    "cli",
+    "codex",
+    "devcontainer",
+    "devtools",
+    "git",
+    "github-actions",
+    "multi-repo",
+    "opencode",
+    "orchestration",
+    "platform-engineering",
+    "repository-management",
+    "sparse-checkout",
+    "typescript",
+    "workspace",
+    "worktree"
+  ],
+  "homepage": "https://github.com/Th3Mouk/maestro",
+  "bugs": {
+    "url": "https://github.com/Th3Mouk/maestro/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Th3Mouk/maestro.git"
+  },
+  "bin": {
+    "maestro": "./bin/maestro.js"
+  },
+  "files": [
+    "bin/**",
+    "dist/**",
+    "docs/architecture/**",
+    "docs/assets/**",
+    "docs/cli/**",
+    "docs/manifests/**",
+    "examples/**",
+    "framework-packs/**",
+    "README.md",
+    "LICENSE",
+    "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./dist/src/index.js",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "assets:banner": "node scripts/generate-banner.js",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "lint": "oxlint --config .oxlintrc.json --deny-warnings src tests scripts",
+    "lint:fix": "oxlint --config .oxlintrc.json --fix --fix-suggestions src tests scripts",
+    "format": "oxfmt --config .oxfmtrc.json --write .",
+    "format:check": "oxfmt --config .oxfmtrc.json --check .",
+    "knip": "knip --cache",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:coverage:ci": "pnpm test:coverage",
+    "test:smoke": "node bin/maestro.js --help",
+    "pack:artifact": "pnpm pack --pack-destination .artifacts",
+    "test:pack": "rm -rf .artifacts && pnpm pack:artifact && node scripts/verify-packed-artifact.mjs",
+    "check": "pnpm knip && pnpm lint && pnpm format:check && pnpm typecheck && pnpm build && pnpm test && pnpm test:smoke && pnpm test:pack",
+    "prepack": "pnpm build"
+  },
+  "dependencies": {
+    "commander": "^14.0.1",
+    "deepmerge": "^4.3.1",
+    "execa": "^9.6.0",
+    "picomatch": "^4.0.2",
+    "proper-lockfile": "^4.1.2",
+    "safe-regex2": "^5.0.0",
+    "semver": "^7.7.2",
+    "shell-quote": "^1.8.3",
+    "yaml": "^2.8.1",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/node": "^24.3.0",
+    "@types/proper-lockfile": "^4.1.4",
+    "@types/semver": "^7.7.0",
+    "@types/shell-quote": "^1.7.5",
+    "@vitest/coverage-v8": "^3.2.4",
+    "knip": "^6.0.1",
+    "oxfmt": "^0.41.0",
+    "oxlint": "^1.56.0",
+    "satori": "^0.26.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "workspaceRoot": ".",
+  "agentsDir": ".opencode/agents",
+  "skillsDir": ".opencode/skills"
+}

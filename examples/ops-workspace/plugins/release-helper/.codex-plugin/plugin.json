@@ -1,0 +1,5 @@
+{
+  "name": "release-helper",
+  "version": "0.1.0",
+  "description": "Helps prepare release changes across the workspace."
+}

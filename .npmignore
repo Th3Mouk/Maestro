@@ -1,0 +1,4 @@
+examples/**/.workspace/
+docs/internals/
+.codex/
+.claude/

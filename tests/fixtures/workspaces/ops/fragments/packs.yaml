@@ -1,0 +1,9 @@
+apiVersion: maestro/v1
+kind: WorkspaceFragment
+metadata:
+  name: ops-workspace-packs
+spec:
+  packs:
+    - name: "@maestro/pack-core"
+      version: ^1.0.0
+      visibility: public

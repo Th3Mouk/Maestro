@@ -1,0 +1,13 @@
+apiVersion: maestro/v1
+kind: WorkspaceFragment
+metadata:
+  name: ops-workspace-execution
+spec:
+  execution:
+    devcontainer:
+      enabled: true
+      workspaceFolder: /workspace/ops-workspace
+    worktrees:
+      enabled: true
+      rootDir: .maestro/worktrees
+      branchPrefix: task

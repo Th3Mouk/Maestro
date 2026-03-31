@@ -1,0 +1,9 @@
+apiVersion: maestro/v1
+kind: WorkspaceFragment
+metadata:
+  name: ops-workspace-runtimes
+spec:
+  runtimes:
+    codex:
+      enabled: true
+      installProjectConfig: true

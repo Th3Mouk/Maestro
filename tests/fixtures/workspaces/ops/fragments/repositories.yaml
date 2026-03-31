@@ -1,0 +1,18 @@
+apiVersion: maestro/v1
+kind: WorkspaceFragment
+metadata:
+  name: ops-workspace-repositories
+spec:
+  repositories:
+    - name: sur-api
+      remote: git@github.com:org/sur-api.git
+      branch: main
+      sparse:
+        mode: cone
+        includePaths:
+          - .github/
+          - deploy/
+          - docker/
+          - helm/
+          - k8s/
+          - composer.json

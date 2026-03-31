@@ -1,0 +1,4 @@
+name = "planner"
+runtime = "codex"
+model = "gpt-5.4"
+reasoning = "high"

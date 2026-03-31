@@ -1,0 +1,29 @@
+{
+  "$schema": "https://unpkg.com/knip@6.0.1/schema.json",
+  "entry": [
+    "src/index.ts",
+    "src/cli/main.ts",
+    "tests/**/*.test.ts",
+    "tests/utils/**/*.ts",
+    "examples/packs/**/scripts/*.js"
+  ],
+  "project": [
+    "src/**/*.{ts,tsx,mts,cts,js,mjs,cjs}",
+    "src/**/*.d.ts",
+    "tests/**/*.{ts,tsx,mts,cts,js,mjs,cjs}",
+    "scripts/**/*.{js,mjs}",
+    "examples/packs/**/scripts/**/*.{js,mjs}"
+  ],
+  "ignoreIssues": {
+    "examples/packs/**/scripts/*.js": ["exports"],
+    "src/cli/main.ts": ["exports"],
+    "src/core/commands.ts": ["exports"],
+    "src/core/types.ts": ["types"],
+    "src/index.ts": ["exports"],
+    "src/policy/types.ts": ["types"],
+    "src/runtime/types.ts": ["types"],
+    "src/types.ts": ["types"],
+    "src/workspace/types.ts": ["types"]
+  },
+  "ignoreBinaries": ["tar"]
+}

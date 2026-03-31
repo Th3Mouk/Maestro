@@ -1,0 +1,32 @@
+apiVersion: maestro/v1
+kind: WorkspaceFragment
+metadata:
+  name: ops-workspace-policies
+spec:
+  policies:
+    - name: allowed-paths
+      spec:
+        writable:
+          - .github/**
+          - deploy/**
+          - docker/**
+          - helm/**
+          - k8s/**
+          - composer.json
+          - package.json
+          - eslint.config.js
+    - name: no-source-changes-in-ops
+      spec:
+        forbidden:
+          - src/**
+          - tests/**
+          - templates/**
+          - assets/**
+    - name: diff-size-limit
+      spec:
+        maxChangedFiles: 20
+        maxAddedLines: 800
+        maxDeletedLines: 400
+    - name: branch-naming
+      spec:
+        pattern: "^chore/(ops|backend|frontend)-[a-z0-9._-]+$"

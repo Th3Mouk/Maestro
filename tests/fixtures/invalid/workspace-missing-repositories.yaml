@@ -1,0 +1,10 @@
+apiVersion: maestro/v1
+kind: Workspace
+metadata:
+  name: invalid-workspace
+spec:
+  framework:
+    version: ^1.0.0
+  runtimes:
+    codex:
+      enabled: true

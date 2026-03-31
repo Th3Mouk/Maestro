@@ -1,0 +1,19 @@
+apiVersion: maestro/v1
+kind: WorkspaceFragment
+metadata:
+  name: ops-workspace-runtimes
+spec:
+  runtimes:
+    codex:
+      enabled: true
+      installProjectConfig: true
+      installAgents: true
+      useAgentsFile: AGENTS.md
+    claude-code:
+      enabled: true
+      installProjectInstructions: true
+      instructionsFile: CLAUDE.md
+    opencode:
+      enabled: true
+      installProjectConfig: true
+      projectConfigPath: .opencode/opencode.json

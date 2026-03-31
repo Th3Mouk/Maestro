@@ -1,0 +1,15 @@
+apiVersion: maestro/v1
+kind: WorkspaceFragment
+metadata:
+  name: ops-workspace-policies
+spec:
+  policies:
+    - name: allowed-paths
+      spec:
+        writable:
+          - .github/**
+          - deploy/**
+          - docker/**
+          - helm/**
+          - k8s/**
+          - composer.json

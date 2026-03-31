@@ -1,0 +1,18 @@
+apiVersion: maestro/v1
+kind: Workspace
+metadata:
+  name: ops-workspace
+  description: Fixture de workspace valide pour les tests d'installation et de projection.
+spec:
+  framework:
+    version: ^1.0.0
+  includes:
+    - fragments/packs.yaml
+    - fragments/repositories.yaml
+    - fragments/runtimes.yaml
+    - fragments/policies.yaml
+  agents:
+    codex:
+      - planner
+  skills:
+    - gha-normalizer
