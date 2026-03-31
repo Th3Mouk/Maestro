@@ -67,6 +67,7 @@ maestro doctor --workspace ./examples/ops-workspace
 
 - Add or update tests for every behavior change
 - Open pull requests only after the branch passes the same `pnpm check` run in GitHub Actions
+- Treat the `main` branch CI gate as the release gate; the release workflow publishes from an already-validated `main`
 - Keep release workflow changes covered by the provenance contract check instead of test-publishing to npm or Homebrew
 
 ## Rules

@@ -27,6 +27,7 @@ The published package also ships `npm-shrinkwrap.json`, so npm-based installs re
 The Homebrew formula installs that same npm tarball, so Homebrew users consume the same published artifact instead of a separate Homebrew-only build.
 For maintainers, `npm-shrinkwrap.json` is synchronized automatically by `pnpm check` and `prepack`; contributors do not need a separate manual step in the normal workflow.
 The sync step also strips npm-version-only lockfile noise, so the checked-in shrinkwrap stays stable across local and CI environments.
+The release job does not rerun the full pull-request validation matrix; the `main` branch CI gate already covers that before a publish can be cut.
 
 ## First run
 
