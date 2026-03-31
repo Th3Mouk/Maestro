@@ -17,7 +17,8 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 jobs:
   prepare:
@@ -82,19 +83,6 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "release_branch=release/v$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Validate release PAT access
-        env:
-          GH_TOKEN: ${{ secrets.MERGE_PAT }}
-        run: |
-          RULESET_JSON="$(gh api repos/${{ github.repository }}/rulesets)"
-          CURRENT_USER_CAN_BYPASS="$(printf '%s' "$RULESET_JSON" | jq -r '.[] | select(.name == "main") | .current_user_can_bypass // "never"' | head -n 1)"
-
-          if [ "$CURRENT_USER_CAN_BYPASS" != "always" ]; then
-            echo "MERGE_PAT actor cannot bypass the protected main ruleset."
-            echo "Expected current_user_can_bypass=always, got: $CURRENT_USER_CAN_BYPASS"
-            exit 1
-          fi
-
       - run: pnpm pack:artifact
       - run: node scripts/verify-packed-artifact.mjs
 
@@ -109,7 +97,7 @@ jobs:
 
       - name: Publish release branch
         env:
-          GH_TOKEN: ${{ secrets.MERGE_PAT }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           RELEASE_BRANCH="${{ steps.version.outputs.release_branch }}"
           gh auth setup-git
@@ -117,7 +105,7 @@ jobs:
 
       - name: Open release PR
         env:
-          GH_TOKEN: ${{ secrets.MERGE_PAT }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           RELEASE_BRANCH="${{ steps.version.outputs.release_branch }}"
           PR_URL="$(gh pr list --head "$RELEASE_BRANCH" --state open --json url --jq 'if length > 0 then .[0].url else empty end')"

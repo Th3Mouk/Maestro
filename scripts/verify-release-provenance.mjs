@@ -47,9 +47,14 @@ assertMatch(
   "prepare workflow must enable auto-merge for the release PR",
 );
 assertMatch(
-  /^permissions:\s*[\s\S]*?^\s*contents:\s*read\s*$/m,
+  /^permissions:\s*[\s\S]*?^\s*contents:\s*write\s*$/m,
   prepareWorkflow,
-  "prepare workflow must keep contents: read (least privilege)",
+  "prepare workflow must keep contents: write for branch pushes and PR creation",
+);
+assertMatch(
+  /^permissions:\s*[\s\S]*?^\s*pull-requests:\s*write\s*$/m,
+  prepareWorkflow,
+  "prepare workflow must keep pull-requests: write for release PR creation",
 );
 assertAbsent(
   /git push origin HEAD:main/m,
@@ -65,11 +70,6 @@ assertAbsent(
   /id-token:\s*write/m,
   prepareWorkflow,
   "prepare workflow must not request id-token: write (least privilege)",
-);
-assertAbsent(
-  /contents:\s*write/m,
-  prepareWorkflow,
-  "prepare workflow must not request contents: write (least privilege)",
 );
 assertAbsent(
   /npm version/m,
