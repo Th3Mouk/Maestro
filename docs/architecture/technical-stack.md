@@ -3,6 +3,7 @@
 This document is the source of truth for Maestro's implemented stack and architecture constraints.
 
 It complements [`overview.md`](./overview.md) with runtime, tooling, dependency roles, and guardrails.
+For the dependency update and pinning policy used by the published CLI, see [`dependency-governance.md`](./dependency-governance.md).
 
 ## Runtime baseline
 
@@ -21,6 +22,10 @@ It complements [`overview.md`](./overview.md) with runtime, tooling, dependency 
 - `@vitest/coverage-v8` for deterministic Node-native coverage reporting
 - `pnpm test:smoke` for packed CLI smoke validation
 - `pnpm test:pack` for tarball verification
+- `pnpm audit --prod` for shipped runtime vulnerability checks
+- `npm audit signatures` on the packed-install verification path
+- `pnpm test:npm-shrinkwrap` for consumer lock validation
+- `pnpm test:runtime-dependencies` for production dependency surface checks
 
 Coverage policy:
 
@@ -49,6 +54,14 @@ Current runtime dependencies:
 - `yaml`: manifest parsing
 - `zod`: runtime schema validation and type derivation
 
+Runtime dependency posture:
+
+- Maestro ships as a Node CLI, not a standalone binary.
+- The runtime dependency surface should stay intentionally small.
+- Routine freshness alone is not a release driver; major security fixes, supported Node LTS compatibility, and install/runtime regressions take priority.
+- `pnpm-lock.yaml` is the maintainer truth; broad exact pinning in `package.json` is not the default posture.
+- `npm-shrinkwrap.json` is the pinned consumer artifact for npm-based installs of the published package.
+
 Validation tool roles:
 
 - `knip`: repository graph hygiene across source, tests, scripts, and example pack scripts
@@ -76,6 +89,8 @@ Dependency simplification decisions (Review section 3 closure):
 
 ### Security and safety
 
+- The main operational risk is not only dependency CVEs; the CLI also orchestrates `git`, `bash`, and dependency bootstrap commands in downstream repositories.
+- Runtime dependencies with install scripts are rejected by default unless they are explicitly justified and allowlisted.
 - Dynamic Git arguments must enforce explicit option boundaries.
 - Git working-tree cleanliness gates use `git status --porcelain --untracked-files=no` by policy, so tracked changes block operations while untracked local scratch files do not.
 - Shell command composition must use approved escaping primitives.
@@ -126,6 +141,7 @@ Dependency simplification decisions (Review section 3 closure):
 Any stack-affecting delivery must review and update the relevant subset of:
 
 - [`docs/architecture/overview.md`](./overview.md)
+- [`docs/architecture/dependency-governance.md`](./dependency-governance.md)
 - [`docs/cli/commands.md`](../cli/commands.md)
 - [`docs/manifests/workspace.md`](../manifests/workspace.md)
 - [`README.md`](../../README.md)

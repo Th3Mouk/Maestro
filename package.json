@@ -43,6 +43,7 @@
     "docs/manifests/**",
     "examples/**",
     "framework-packs/**",
+    "npm-shrinkwrap.json",
     "README.md",
     "LICENSE",
     "CODE_OF_CONDUCT.md",
@@ -65,15 +66,20 @@
     "format": "oxfmt --config .oxfmtrc.json --write .",
     "format:check": "oxfmt --config .oxfmtrc.json --check .",
     "knip": "knip --cache",
+    "sync:npm-shrinkwrap": "node scripts/sync-npm-shrinkwrap.mjs --write",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:audit-prod": "pnpm audit --prod",
+    "test:npm-shrinkwrap": "node scripts/sync-npm-shrinkwrap.mjs --check",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:coverage:ci": "pnpm test:coverage",
     "test:smoke": "node bin/maestro.js --help",
     "pack:artifact": "pnpm pack --pack-destination .artifacts",
     "test:pack": "rm -rf .artifacts && pnpm pack:artifact && node scripts/verify-packed-artifact.mjs",
-    "check": "pnpm knip && pnpm lint && pnpm format:check && pnpm typecheck && pnpm build && pnpm test && pnpm test:smoke && pnpm test:pack",
-    "prepack": "pnpm build"
+    "test:release-provenance": "node scripts/verify-release-provenance.mjs",
+    "test:runtime-dependencies": "node scripts/verify-runtime-dependencies.mjs",
+    "check": "pnpm sync:npm-shrinkwrap && pnpm knip && pnpm lint && pnpm format:check && pnpm typecheck && pnpm test:audit-prod && pnpm test:npm-shrinkwrap && pnpm build && pnpm test && pnpm test:runtime-dependencies && pnpm test:smoke && pnpm test:pack && pnpm test:release-provenance",
+    "prepack": "pnpm sync:npm-shrinkwrap && pnpm build"
   },
   "dependencies": {
     "commander": "^14.0.1",
@@ -103,5 +109,6 @@
   },
   "engines": {
     "node": ">=22.12"
-  }
+  },
+  "packageManager": "pnpm@10.33.0"
 }

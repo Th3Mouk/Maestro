@@ -10,7 +10,7 @@
 
 > Multi-repository workspaces for AI engineering teams
 
-[Architecture](./docs/architecture/overview.md) • [Technical stack](./docs/architecture/technical-stack.md) • [CLI install](./docs/cli/install.md) • [5-minute quickstart](./docs/cli/quickstart.md) • [CLI](./docs/cli/commands.md) • [Workspace Manifest](./docs/manifests/workspace.md) • [Manifest Fragments](./docs/manifests/fragments.md)
+[Architecture](./docs/architecture/overview.md) • [Technical stack](./docs/architecture/technical-stack.md) • [Dependency policy](./docs/architecture/dependency-governance.md) • [CLI install](./docs/cli/install.md) • [5-minute quickstart](./docs/cli/quickstart.md) • [CLI](./docs/cli/commands.md) • [Workspace Manifest](./docs/manifests/workspace.md) • [Manifest Fragments](./docs/manifests/fragments.md)
 
 ## Why this exists
 
@@ -102,6 +102,7 @@ Architecture decisions and implementation constraints are documented in the arch
 
 Prerequisite for npm, pnpm, npx, and pnpm dlx installs: Node.js `>=22.12`.
 The published CLI is a Node program, so the installed command still runs through Node at runtime.
+Releases are published from GitHub Actions with npm provenance, and the Homebrew formula installs that same npm tarball.
 
 Choose the simplest path for your machine.
 

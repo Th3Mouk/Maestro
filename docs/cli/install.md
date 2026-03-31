@@ -22,6 +22,11 @@ The published CLI is a Node program, not a standalone binary, so the installed c
 The Homebrew core namespace already has an unrelated `maestro` cask, so use the tap-qualified formula name to avoid ambiguity with the unrelated cask.
 
 For npm publication, the release workflow uses GitHub Actions OIDC trusted publishing. npm requires the package to exist before you can attach a trusted publisher, so the very first publish still needs a one-time bootstrap before the OIDC trust relationship can be enabled.
+Published npm releases also use `npm publish --provenance`, so the public package carries GitHub Actions provenance from the release workflow rather than an ad hoc local publish.
+The published package also ships `npm-shrinkwrap.json`, so npm-based installs resolve the exact dependency tree validated in release rather than a fresh semver re-resolution at install time.
+The Homebrew formula installs that same npm tarball, so Homebrew users consume the same published artifact instead of a separate Homebrew-only build.
+For maintainers, `npm-shrinkwrap.json` is synchronized automatically by `pnpm check` and `prepack`; contributors do not need a separate manual step in the normal workflow.
+The sync step also strips npm-version-only lockfile noise, so the checked-in shrinkwrap stays stable across local and CI environments.
 
 ## First run
 
@@ -73,3 +78,4 @@ pnpm build
 TypeScript semantic validation still runs through `pnpm typecheck`.
 
 Those commands are for working on Maestro itself. They are not required for users who install the published package.
+They also keep release validation internal to the repository: local pack checks, shrinkwrap validation, registry-signature verification, and workflow validation run before publication without pushing test releases to npm or Homebrew.
