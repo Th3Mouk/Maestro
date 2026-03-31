@@ -313,7 +313,10 @@ The package must install cleanly, the documented flow must run, and the publishe
 The pull request automation lives in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) and runs the full validation checks on every non-draft PR update.
 It installs dependencies with `pnpm install --frozen-lockfile`, runs the repository validation checks in a matrix on Node `22.12.x` and `24.x`, and uploads the generated npm tarball as a workflow artifact after the packed artifact has been installed and smoke-tested.
 
-The release automation lives in [`.github/workflows/release.yml`](./.github/workflows/release.yml).
-It is started manually from GitHub Actions with a `patch`, `minor`, or `major` choice, then publishes from Node `24.x` by bumping the package version on `main`, publishing the tarball to npm under `@th3mouk/maestro` through GitHub Actions OIDC trusted publishing, updating the Homebrew formula, creating the matching release tag, and attaching that same tarball to the GitHub release.
-The release job assumes the `main` branch already passed the PR CI gate, so it does not rerun the full validation matrix before publishing.
+The release preparation automation lives in [`.github/workflows/release.yml`](./.github/workflows/release.yml).
+It is started manually from GitHub Actions with a `patch`, `minor`, or `major` choice, then bumps the package version, opens a release PR, and enables auto-merge.
+The publication automation lives in [`.github/workflows/publish-release.yml`](./.github/workflows/publish-release.yml).
+It runs only after that release PR is merged into `main`, then publishes the tarball to npm under `@th3mouk/maestro` through GitHub Actions OIDC trusted publishing, creates the matching release tag, attaches that same tarball to the GitHub release, and updates the Homebrew formula with the SHA of the published tarball.
+If a partial failure happens after the merge, rerun the publication workflow instead of preparing another release PR.
+The publish job assumes the release PR already passed the PR CI gate, so it does not rerun the full validation matrix before publishing.
 npm requires the package to exist before a trusted publisher can be attached, so the first npm release still needs a one-time bootstrap before the OIDC trust relationship can take over.
