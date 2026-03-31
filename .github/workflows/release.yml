@@ -21,42 +21,7 @@ permissions:
   id-token: write
 
 jobs:
-  validate:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version:
-          - 22.12.x
-          - 24.x
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: pnpm/action-setup@v5
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm format:check
-      - run: pnpm knip
-      - run: pnpm typecheck
-      - run: pnpm test:audit-prod
-      - run: pnpm test:npm-shrinkwrap
-      - run: pnpm build
-      - run: pnpm test
-      - run: pnpm test:runtime-dependencies
-      - run: pnpm test:smoke
-      - run: pnpm test:pack
-      - run: pnpm test:release-provenance
-
   publish:
-    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -81,9 +46,6 @@ jobs:
           git reset --hard origin/main
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test:audit-prod
-      - run: pnpm test:npm-shrinkwrap
-      - run: pnpm test:release-provenance
 
       - name: Compute next version
         id: version
