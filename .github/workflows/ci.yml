@@ -7,6 +7,9 @@ on:
       - synchronize
       - reopened
       - ready_for_review
+  push:
+    branches:
+      - main
 
 concurrency:
   group: pr-ci-${{ github.event.pull_request.number || github.ref }}
@@ -17,7 +20,7 @@ permissions:
 
 jobs:
   validate:
-    if: github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release/')
+    if: github.event_name == 'push' || (github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release/'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
