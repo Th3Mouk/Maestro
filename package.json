@@ -1,7 +1,7 @@
 {
   "name": "@th3mouk/maestro",
   "version": "0.1.2",
-  "description": "Multi-repository workspaces for engineering teams.",
+  "description": "Git-backed multi-repository workspaces for engineering teams.",
   "keywords": [
     "ai",
     "automation",
