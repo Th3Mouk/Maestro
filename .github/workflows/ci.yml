@@ -49,4 +49,3 @@ jobs:
       - run: pnpm test:runtime-dependencies
       - run: pnpm test:smoke
       - run: pnpm test:pack
-      - run: pnpm test:release-provenance

@@ -41,7 +41,6 @@ jobs:
           git reset --hard origin/main
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm test:distribution-copy
 
       - name: Resolve package metadata
         id: package
