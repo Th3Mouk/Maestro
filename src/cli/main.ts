@@ -22,6 +22,7 @@ import { getFrameworkVersion } from "../version.js";
 
 const VERBOSE_ERROR_ENV_KEYS = ["MAESTRO_VERBOSE", "MAESTRO_VERBOSE_ERRORS"] as const;
 const VERBOSE_ERROR_ENV_TRUE_VALUES = new Set(["1", "true", "yes", "on"]);
+const CLI_CATCHLINE = "Multi-repository workspaces for engineering teams";
 
 export function isVerboseErrorMode(env: NodeJS.ProcessEnv = process.env): boolean {
   return VERBOSE_ERROR_ENV_KEYS.some((key) => {
@@ -51,24 +52,21 @@ export function createProgram(): Command {
   const program = new Command();
   const commandContext = createCommandContext();
 
-  program
-    .name("maestro")
-    .description("Maestro: partial or complete multi-repository workspaces")
-    .version(getFrameworkVersion());
+  program.name("maestro").description(CLI_CATCHLINE).version(getFrameworkVersion());
   program.configureHelp({ sortSubcommands: false });
-  program.showHelpAfterError();
+  program.showHelpAfterError("Use --help to inspect available commands.");
   program.showSuggestionAfterError();
   program.addHelpText(
     "after",
     [
       "",
-      "Getting started:",
-      "  maestro init my-workspace",
-      "  cd my-workspace",
-      "  maestro install --workspace . --dry-run",
-      "  maestro install --workspace .",
-      "  maestro bootstrap --workspace .",
-      "  maestro doctor --workspace .",
+      "Quick start:",
+      "  1. maestro init my-workspace",
+      "  2. cd my-workspace",
+      "  3. maestro install --workspace . --dry-run",
+      "  4. maestro install --workspace .",
+      "  5. maestro bootstrap --workspace .",
+      "  6. maestro doctor --workspace .",
       "",
       "Workspace model:",
       "  - maestro install initializes the workspace Git repository when needed, then clones managed repositories and projects runtime artifacts.",
@@ -76,12 +74,16 @@ export function createProgram(): Command {
       "  - maestro code-workspace generates the optional VS Code multi-root file.",
       "  - managed repositories live under repos/<name>.",
       "",
+      "Output model:",
+      "  - install, bootstrap, sync, update, worktree, doctor, and git commands print JSON reports to stdout.",
+      "",
       "Need install options? See docs/cli/install.md in this repository.",
     ].join("\n"),
   );
 
   program
     .command("init")
+    .summary("Scaffold a workspace from the default manifest template")
     .description(
       "Scaffold a partial or complete multi-repository workspace from the default manifest template",
     )
@@ -108,6 +110,7 @@ export function createProgram(): Command {
 
   program
     .command("install")
+    .summary("Initialize the workspace and materialize managed repositories")
     .description(
       "Initialize the workspace Git repository, materialize managed repositories, and generate workspace artifacts",
     )
@@ -133,6 +136,7 @@ export function createProgram(): Command {
 
   program
     .command("bootstrap")
+    .summary("Detect toolchains and prepare dependencies in managed repositories")
     .description("Detect managed repository toolchains and prepare dependencies")
     .option("--workspace <path>", "workspace root", ".")
     .option("--repository <name>", "repository to bootstrap")
@@ -161,6 +165,7 @@ export function createProgram(): Command {
 
   program
     .command("sync")
+    .summary("Reconcile the materialized workspace with the manifest")
     .description("Reconcile the materialized workspace with the workspace manifest")
     .option("--workspace <path>", "workspace root", ".")
     .option("--dry-run", "preview without writing", false)
@@ -175,6 +180,7 @@ export function createProgram(): Command {
 
   program
     .command("update")
+    .summary("Regenerate workspace projections from the current manifest")
     .description("Rerun resolution and regenerate workspace projections")
     .option("--workspace <path>", "workspace root", ".")
     .option("--dry-run", "preview without writing", false)
@@ -189,6 +195,7 @@ export function createProgram(): Command {
 
   program
     .command("code-workspace")
+    .summary("Generate the optional VS Code multi-root workspace file")
     .description("Generate the optional multi-root editor workspace file")
     .option("--workspace <path>", "workspace root", ".")
     .option("--dry-run", "preview without writing", false)
@@ -207,6 +214,7 @@ export function createProgram(): Command {
 
   program
     .command("worktree")
+    .summary("Create an isolated task worktree across the managed repositories")
     .description("Create an isolated task worktree for the workspace and its managed repositories")
     .requiredOption("--task <name>", "task or worktree name")
     .option("--workspace <path>", "workspace root", ".")
@@ -234,6 +242,7 @@ export function createProgram(): Command {
 
   program
     .command("doctor")
+    .summary("Validate workspace contract, repositories, and generated artifacts")
     .description("Validate the workspace contract, managed repositories, and generated artifacts")
     .option("--workspace <path>", "workspace root", ".")
     .addHelpText(
@@ -256,10 +265,22 @@ export function createProgram(): Command {
 
   const git = program
     .command("git")
-    .description("Run bulk Git operations across managed repositories in the workspace");
+    .summary("Run workspace-scoped Git operations across managed repositories")
+    .description("Run bulk Git operations across managed repositories in the workspace")
+    .addHelpText(
+      "after",
+      [
+        "",
+        "Examples:",
+        "  maestro git checkout --workspace .",
+        "  maestro git pull --workspace .",
+        "  maestro git sync --workspace ./examples/ops-workspace",
+      ].join("\n"),
+    );
 
   git
     .command("checkout")
+    .summary("Check out each managed repository onto its reference branch")
     .description("Check out each managed repository onto its reference branch")
     .option("--workspace <path>", "workspace root", ".")
     .action(async (options: { workspace: string }) => {
@@ -273,6 +294,7 @@ export function createProgram(): Command {
 
   git
     .command("pull")
+    .summary("Pull the current branch in each managed repository")
     .description("Pull the currently checked out branch in each managed repository")
     .option("--workspace <path>", "workspace root", ".")
     .action(async (options: { workspace: string }) => {
@@ -286,6 +308,7 @@ export function createProgram(): Command {
 
   git
     .command("sync")
+    .summary("Check out reference branches, then pull each managed repository")
     .description("Check out reference branches, then pull each managed repository")
     .option("--workspace <path>", "workspace root", ".")
     .action(async (options: { workspace: string }) => {
