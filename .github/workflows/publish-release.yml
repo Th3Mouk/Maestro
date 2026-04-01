@@ -80,6 +80,16 @@ jobs:
           echo "tag_exists=$TAG_EXISTS" >> "$GITHUB_OUTPUT"
           echo "gh_release_exists=$GH_RELEASE_EXISTS" >> "$GITHUB_OUTPUT"
 
+          HOMEBREW_UP_TO_DATE="false"
+          FORMULA_PATH="Formula/maestro.rb"
+          if [ -f "$FORMULA_PATH" ]; then
+            EXPECTED_URL="https://registry.npmjs.org/@th3mouk/maestro/-/maestro-${VERSION}.tgz"
+            if grep -qF "$EXPECTED_URL" "$FORMULA_PATH"; then
+              HOMEBREW_UP_TO_DATE="true"
+            fi
+          fi
+          echo "homebrew_up_to_date=$HOMEBREW_UP_TO_DATE" >> "$GITHUB_OUTPUT"
+
           if [ "$TAG_EXISTS" = "true" ] && [ "$NPM_PUBLISHED" = "true" ] && [ "$GH_RELEASE_EXISTS" = "true" ]; then
             echo "v$VERSION is already fully published (npm + tag + GitHub release). Nothing to do."
             echo "should_publish=false" >> "$GITHUB_OUTPUT"
@@ -139,7 +149,7 @@ jobs:
       # computed here after publication rather than in the prepare workflow.
 
       - name: Update Homebrew formula
-        if: steps.verify.outputs.should_publish == 'true'
+        if: steps.verify.outputs.homebrew_up_to_date != 'true'
         env:
           GH_TOKEN: ${{ secrets.MERGE_PAT }}
         run: |
