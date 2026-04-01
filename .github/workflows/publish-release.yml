@@ -189,5 +189,6 @@ jobs:
                 --body "Automated Homebrew formula update for v${VERSION}.")"
             fi
 
-            gh pr merge "$PR_URL" --auto --squash --delete-branch
+            gh pr merge "$PR_URL" --auto --squash --delete-branch || \
+              gh pr merge "$PR_URL" --squash --delete-branch
           fi
