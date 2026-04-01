@@ -34,6 +34,43 @@ describe("end-to-end workspace lifecycle", () => {
     expect(agentsGuide).toContain("maestro worktree --workspace . --task <task-name>");
   });
 
+  test("init creates README.md with Maestro installation guidance", async () => {
+    const root = await createManagedTempDir("maestro-init-readme-maestro-");
+    const workspaceRoot = path.join(root, "workspace");
+
+    await initWorkspace(workspaceRoot);
+
+    const readme = await readFile(path.join(workspaceRoot, "README.md"), "utf8");
+    expect(readme).toContain("## Maestro");
+    expect(readme).toContain("This project uses Maestro to manage the workspace.");
+    expect(readme).toContain(
+      "[CLI install guide](https://github.com/Th3Mouk/maestro/blob/main/docs/cli/install.md)",
+    );
+    expect(readme).toContain("maestro install --workspace .");
+  });
+
+  test("init appends the Maestro guidance to an existing README.md", async () => {
+    const root = await createManagedTempDir("maestro-init-readme-append-");
+    const workspaceRoot = root;
+
+    await writeFile(
+      path.join(workspaceRoot, "README.md"),
+      ["# Existing workspace", "", "Original project notes.", ""].join("\n"),
+      "utf8",
+    );
+
+    await initWorkspace(workspaceRoot);
+
+    const readme = await readFile(path.join(workspaceRoot, "README.md"), "utf8");
+    expect(readme).toContain("# Existing workspace");
+    expect(readme).toContain("Original project notes.");
+    expect(readme).toContain("## Maestro");
+    expect(readme).toContain(
+      "[CLI install guide](https://github.com/Th3Mouk/maestro/blob/main/docs/cli/install.md)",
+    );
+    expect(readme.match(/## Maestro/g) ?? []).toHaveLength(1);
+  });
+
   test("init does not scaffold a repo-local plugin marketplace", async () => {
     const root = await createManagedTempDir("maestro-init-plugin-marketplace-");
     const workspaceRoot = path.join(root, "workspace");

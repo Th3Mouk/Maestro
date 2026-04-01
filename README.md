@@ -8,17 +8,19 @@
 
 # Maestro
 
-> Multi-repository workspaces for AI engineering teams
+> Multi-repository workspaces for engineering teams
 
 [Architecture](./docs/architecture/overview.md) • [Technical stack](./docs/architecture/technical-stack.md) • [Dependency policy](./docs/architecture/dependency-governance.md) • [CLI install](./docs/cli/install.md) • [5-minute quickstart](./docs/cli/quickstart.md) • [CLI](./docs/cli/commands.md) • [Workspace Manifest](./docs/manifests/workspace.md) • [Manifest Fragments](./docs/manifests/fragments.md)
 
+[Project language](./docs/internals/project-language/README.md)
+
 ## Why this exists
 
-Most AI coding tools still assume one runtime working inside one repository.
+Most engineering work still spans several repositories, while many AI coding tools still assume one runtime working inside one repository.
 That model breaks down when the real task is a coordinated rollout across several repositories with different scopes, policies, and operational risks.
 
 Maestro prepares partial or complete multi-repository workspaces.
-It lets teams expose only the code they need, keep AI runtimes efficient, share plugins, skills, and agents across teams, and run the same workspace locally or in the cloud without forcing a monorepo.
+It lets teams expose only the code they need, reduce unnecessary context for AI runtimes, share packs across teams, and run the same workspace locally or in the cloud without forcing a monorepo.
 
 Maestro sits upstream of agent tools, execution harnesses, and IDEs.
 It prepares a governed workspace that a developer, an agent, or an editor can consume from the same folder without guessing the scope, layout, or rules.
@@ -85,24 +87,22 @@ flowchart LR
 
 ## Core capabilities
 
-| Capability                  | What it gives you                                                                                                     |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Multi-repo workspaces       | One source of truth for a workspace repo plus the Git repositories it installs and governs                            |
-| Partial or complete scope   | Expose only the code a task needs, or keep full repositories when broad context is required                           |
-| Runtime efficiency          | Smaller context windows, less irrelevant code, and better input quality for AI runtimes                               |
-| Shared AI building blocks   | Packs and plugin bundles for distributing agents, skills, policies, templates, and runtime-specific assets            |
-| Runtime adapters            | Optional projections for specific tools without making Maestro the runtime or editor itself                           |
-| Framework-managed execution | Bootstrap scripts, isolated worktrees, and optional DevContainer artifacts generated from the workspace configuration |
-| Cloud-ready workspaces      | The same workspace contract can be prepared for local use, remote execution, or controlled autonomous environments    |
-| Policy-backed operations    | Guardrails for branch naming, path restrictions, diff size, and workflow safety                                       |
+| Capability                       | What it gives you                                                                                                                                              |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Multi-repo workspaces            | One source of truth for a workspace repo plus the Git repositories it installs and governs                                                                     |
+| Partial or complete scope        | Expose only the code a task needs, or keep full repositories when broad context is required ([workspace manifest](./docs/manifests/workspace.md))              |
+| Controlled context               | Smaller context windows and less irrelevant code for AI runtimes                                                                                               |
+| Shared packs                     | Packs and plugin bundles for distributing agents, skills, policies, templates, and runtime-specific assets ([Pack core](./examples/packs/pack-core/pack.yaml)) |
+| Runtime adapters                 | Optional projections for specific tools without making Maestro the runtime or editor itself                                                                    |
+| Framework-managed execution      | Bootstrap scripts, isolated worktrees, and optional DevContainer artifacts generated from the workspace configuration                                          |
+| Local or cloud-hosted workspaces | The same workspace contract can be prepared for local use or controlled remote execution                                                                       |
+| Policy-backed operations         | Guardrails for branch naming, path restrictions, diff size, and workflow safety                                                                                |
 
 Architecture decisions and implementation constraints are documented in the architecture pages linked above.
 
 ## Install
 
-Prerequisite for npm, pnpm, npx, and pnpm dlx installs: Node.js `>=22.12`.
-The published CLI is a Node program, so the installed command still runs through Node at runtime.
-Releases are published from GitHub Actions with npm provenance, and the Homebrew formula installs that same npm tarball.
+Node.js `>=22.12` is required for npm, pnpm, npx, and pnpm dlx installs. The published CLI is a Node program, so the installed command still runs through Node at runtime. For the full matrix and Homebrew notes, see [CLI install](./docs/cli/install.md).
 
 Choose the simplest path for your machine.
 
@@ -121,11 +121,8 @@ After installation, start here:
 ```bash
 maestro --help
 maestro init my-workspace
-maestro worktree --workspace ./examples/ops-workspace --task release-prep
 maestro doctor --workspace ./examples/ops-workspace
 ```
-
-For the full install matrix and Homebrew notes, see [CLI install](./docs/cli/install.md).
 
 ## 5-minute quickstart
 
@@ -134,127 +131,17 @@ Start from an empty directory and let `maestro init` create the workspace skelet
 ```bash
 maestro init my-workspace
 cd my-workspace
-```
-
-You should now have:
-
-```text
-my-workspace/
-|- maestro.yaml
-|- package.json
-|- README.md
-|- AGENTS.md
-|- maestro.json
-|- .gitignore
-`- .maestro/
-```
-
-From there, inspect the scaffold safely before any real install:
-
-```bash
 maestro install --workspace . --dry-run
-```
-
-That dry run shows the install plan only. It does not initialize Git, create the boot commit, clone repositories, or install repository dependencies.
-On a real install, Maestro also initializes the workspace root as a Git repository when needed, which makes task worktree flows available from the start.
-
-When the repositories are materialized, run the dependency bootstrap explicitly:
-
-```bash
 maestro bootstrap --workspace .
+maestro doctor --workspace .
 ```
 
-Open the workspace root in the editor or harness of your choice for setup and workspace-level edits.
-For active task work, open the task worktree root that Maestro generates.
-
-If you want named multi-root folders in editors that support `.code-workspace`, generate one first:
-
-```bash
-maestro code-workspace
-code maestro.code-workspace
-```
-
-`maestro.code-workspace` is an editor convenience file. It does not run repository instantiation or dependency installation.
-
-When you need isolated parallel work, run:
-
-```bash
-maestro worktree --workspace . --task release-prep
-```
-
-Then open the generated `.maestro/worktrees/release-prep/` folder. It contains the workspace root worktree plus one worktree for each managed repository.
-
-If an AI agent needs the local Maestro command map before acting, read:
-
-```bash
-sed -n '1,200p' AGENTS.md
-```
-
-If a script, harness, or agent needs the neutral machine-readable contract, read:
-
-```bash
-cat maestro.json
-```
-
-If you want the structural meaning of `maestro.yaml`, `repos/`, generated files, projections, and fragment layering, read [Workspace Manifest](./docs/manifests/workspace.md) and [Manifest Fragments](./docs/manifests/fragments.md).
-
-If you want to inspect a fuller example before cloning repositories, dry-run the shipped ops workspace:
-
-```bash
-maestro install --workspace ../examples/ops-workspace --dry-run
-```
-
-The full walkthrough is in [5-minute quickstart](./docs/cli/quickstart.md).
-
-Run `maestro doctor --workspace .` after a real install when you want to validate materialized repositories and generated artifacts.
+That quick path shows the expected lifecycle without duplicating the full walkthrough. For the generated files, task worktree flow, and editor-specific steps, see [5-minute quickstart](./docs/cli/quickstart.md).
 
 ## Contributing
 
 Contribution and repository-development guidance lives in [CONTRIBUTING.md](./CONTRIBUTING.md).
 This README stays focused on the framework itself.
-
-## What this framework includes
-
-Maestro provides the workspace framework itself:
-
-- the CLI and manifest model;
-- pack resolution and workspace projection;
-- sparse Git materialization, repository bootstrap planning, and optional local execution artifacts;
-- runtime projection for Codex, Claude Code, and OpenCode, plus a workspace shape that downstream harnesses can reuse;
-- isolated worktrees and workspace-managed Git operations;
-- runnable examples and tests that prove those behaviors.
-
-The package prepares the workspace contract and filesystem layout first, then lets downstream agent tools and harnesses execute against that prepared environment.
-
-### Workspace authoring and packs
-
-Maestro keeps workspace authoring, generated projections, and explicit packs in one governed root.
-
-- The workspace can keep writable override directories under `overrides/agents/`, `overrides/skills/`, and `overrides/policies/` when the workspace author adds them.
-- `maestro.json` is the canonical machine-readable description of the workspace directory and managed repositories; `.maestro/` stores generated state, lockfiles, and reports.
-- `AGENTS.md` is the workspace-level CLI map that helps downstream tools use Maestro commands safely.
-- The workspace repository owns files such as `maestro.yaml`, `AGENTS.md`, and generated artifacts under `.maestro/`.
-- Native plugin bundles can live under `plugins/`, and a repo-local Codex marketplace can live at `.agents/plugins/marketplace.json` when you intentionally want one.
-- Managed Git repositories are materialized under `repos/` and remain the repositories Maestro installs and updates from the manifest.
-- `maestro.code-workspace` is an optional convenience file for compatible editors generated by `maestro code-workspace`; the workspace root itself remains the primary portable entrypoint for workspace-contract edits, while task worktrees are the normal entrypoint for active work.
-- Workspace-local agent files are resolved from `agents/<runtime>/` when present.
-- Workspace-local skill material is projected into `.maestro/skills/`, and OpenCode is pointed at that shared folder through `skills.paths` instead of receiving a second copy under `.opencode/skills/`.
-- Project-scoped MCP servers declared in the manifest are projected into `.codex/config.toml` and `.mcp.json`.
-- Generated runtime projections end up in `.codex/agents/`, `.claude/agents/`, and `.opencode/agents/`, alongside the runtime config files for each adapter.
-- Packs are the explicit way to provide shared agents, skills, policies, templates, and hooks. The repository ships example packs under [`examples/packs/`](./examples/packs/) so users can compose the shared inputs they need, such as [`Pack core`](./examples/packs/pack-core/pack.yaml), without any framework-provided baseline.
-
-If you are authoring a workspace after installation, use the manifest to declare only the packs you want, then add workspace-local agent overrides and skill material where you need custom behavior.
-
-## Commands
-
-- `init`: scaffold a versioned workspace repository with the manifest, descriptors, scripts, and an example skill
-- `install`: resolve packs, write the lockfile, initialize the workspace Git repository when needed, create the initial `🪄 booted by Maestro` commit when the workspace is unborn, clone repositories, and project workspace/runtime artifacts into the materialized folder
-- `bootstrap`: detect repo toolchains and prepare dependencies (`composer`, `uv`, `npm`, `pnpm`, `yarn`, `bun`)
-- `sync`: reconcile disk state with the manifest and remove clean repositories that were dropped
-- `update`: rerun resolution and regenerate projected artifacts
-- `doctor`: validate lockfile, remotes, branches, sparse paths, runtime artifacts, execution artifacts, and hooks
-- `git`: workspace-managed Git operations for checking out repository reference branches, pulling the current branch, or running the explicit `checkout -> pull` sync flow
-- `worktree`: materialize an isolated task worktree for one task, with one worktree for the workspace root when available and one worktree per managed repository
 
 ## What This Is Not
 

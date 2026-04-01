@@ -3,13 +3,15 @@ import path from "node:path";
 import YAML from "yaml";
 import type { RuntimeName } from "../../runtime/types.js";
 import type { WorkspaceManifest } from "../../workspace/types.js";
-import { writeText } from "../../utils/fs.js";
+import { pathExists, readText, writeText } from "../../utils/fs.js";
 import { getFrameworkRange } from "../../version.js";
 import { renderWorkspaceDescriptor, workspaceDescriptorFileName } from "../workspace-descriptor.js";
 import { renderDefaultWorkspaceGitignore } from "../workspace-gitignore.js";
 import { workspaceManifestFileName } from "../workspace-manifest.js";
 
 const defaultRuntimeSelection: RuntimeName[] = ["codex", "claude-code"];
+const maestroInstallGuideUrl = "https://github.com/Th3Mouk/maestro/blob/main/docs/cli/install.md";
+const maestroReadmeSectionMarker = "This project uses Maestro to manage the workspace.";
 
 export async function initWorkspace(
   targetDirectory: string,
@@ -79,34 +81,7 @@ export async function initWorkspace(
   );
   await writeText(
     path.join(workspaceRoot, "README.md"),
-    [
-      `# ${manifest.metadata.name}`,
-      "",
-      "Workspace initialized by Maestro.",
-      "",
-      "This repository versions the workspace contract and the generated workspace descriptor.",
-      "Add repositories to `maestro.yaml`, then run `maestro install --workspace .` to initialize the workspace Git repository when needed, create the `🪄 booted by Maestro` commit when the repository is unborn, and materialize them under `repos/`.",
-      "",
-      "## Workspace contract",
-      "",
-      `- \`${workspaceDescriptorFileName}\` is the canonical workspace descriptor for agents, harnesses, and scripts.`,
-      "- `AGENTS.md` gives AI agents the Maestro command map for this workspace.",
-      "- `maestro.yaml` is the source of truth for repositories, runtimes, execution, and policies.",
-      "- `maestro.code-workspace` is optional and can be generated on demand for VS Code multi-root use.",
-      "",
-      "## Edit these files",
-      "",
-      "- `maestro.yaml` for the workspace contract.",
-      "- `AGENTS.md` for the workspace CLI map.",
-      "- `package.json` for workspace scripts.",
-      "- `README.md` for the workspace-facing overview.",
-      "",
-      "## Generated directories",
-      "",
-      "- `repos/` for materialized repositories.",
-      "- `.maestro/` for workspace state and reports.",
-      "- `.codex/`, `.claude/`, and `.opencode/` only when the corresponding runtimes are enabled in the manifest.",
-    ].join("\n"),
+    await renderWorkspaceReadme(workspaceRoot, manifest.metadata.name),
   );
   await writeText(
     path.join(workspaceRoot, "AGENTS.md"),
@@ -196,4 +171,69 @@ function runtimeConfigFor(runtimeName: RuntimeName) {
         projectConfigPath: ".opencode/opencode.json",
       };
   }
+}
+
+async function renderWorkspaceReadme(
+  workspaceRoot: string,
+  workspaceName: string,
+): Promise<string> {
+  const readmePath = path.join(workspaceRoot, "README.md");
+  const baseReadme = [
+    `# ${workspaceName}`,
+    "",
+    "Workspace initialized by Maestro.",
+    "",
+    "This repository versions the workspace contract and the generated workspace descriptor.",
+    "Add repositories to `maestro.yaml`, then run `maestro install --workspace .` to initialize the workspace Git repository when needed, create the `🪄 booted by Maestro` commit when the repository is unborn, and materialize them under `repos/`.",
+    "",
+    "## Workspace contract",
+    "",
+    `- \`${workspaceDescriptorFileName}\` is the canonical workspace descriptor for agents, harnesses, and scripts.`,
+    "- `AGENTS.md` gives AI agents the Maestro command map for this workspace.",
+    "- `maestro.yaml` is the source of truth for repositories, runtimes, execution, and policies.",
+    "- `maestro.code-workspace` is optional and can be generated on demand for VS Code multi-root use.",
+    "",
+    "## Edit these files",
+    "",
+    "- `maestro.yaml` for the workspace contract.",
+    "- `AGENTS.md` for the workspace CLI map.",
+    "- `package.json` for workspace scripts.",
+    "- `README.md` for the workspace-facing overview.",
+    "",
+    "## Generated directories",
+    "",
+    "- `repos/` for materialized repositories.",
+    "- `.maestro/` for workspace state and reports.",
+    "- `.codex/`, `.claude/`, and `.opencode/` only when the corresponding runtimes are enabled in the manifest.",
+  ].join("\n");
+
+  if (!(await pathExists(readmePath))) {
+    return `${baseReadme}\n\n${renderMaestroReadmeSection()}\n`;
+  }
+
+  const existingReadme = await readText(readmePath);
+  if (existingReadme.includes(maestroReadmeSectionMarker)) {
+    return existingReadme;
+  }
+
+  return appendReadmeSection(existingReadme, renderMaestroReadmeSection());
+}
+
+function renderMaestroReadmeSection(): string {
+  return [
+    "## Maestro",
+    "",
+    maestroReadmeSectionMarker,
+    `Install or update Maestro by following the [CLI install guide](${maestroInstallGuideUrl}).`,
+    "After installation, run `maestro install --workspace .` from the workspace root.",
+  ].join("\n");
+}
+
+function appendReadmeSection(existingContent: string, section: string): string {
+  if (existingContent.length === 0) {
+    return `${section}\n`;
+  }
+
+  const separator = existingContent.endsWith("\n") ? "\n" : "\n\n";
+  return `${existingContent}${separator}${section}\n`;
 }

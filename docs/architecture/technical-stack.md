@@ -145,5 +145,5 @@ Any stack-affecting delivery must review and update the relevant subset of:
 - [`docs/cli/commands.md`](../cli/commands.md)
 - [`docs/manifests/workspace.md`](../manifests/workspace.md)
 - [`README.md`](../../README.md)
-- [`docs/project-language/release-framing.md`](../project-language/release-framing.md)
-- [`docs/project-language/repository-framing.md`](../project-language/repository-framing.md)
+- [`docs/internals/project-language/release-framing.md`](../internals/project-language/release-framing.md)
+- [`docs/internals/project-language/repository-framing.md`](../internals/project-language/repository-framing.md)

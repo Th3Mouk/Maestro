@@ -88,9 +88,7 @@ describe("workspace resolution", () => {
 
     await writeFile(
       path.join(root, "packs", "pack-core", "agents", "codex", "planner.toml"),
-      ['# Planner agent', 'name = "planner"', 'prompt = "Plan workspace maintenance."'].join(
-        "\n",
-      ),
+      ["# Planner agent", 'name = "planner"', 'prompt = "Plan workspace maintenance."'].join("\n"),
       "utf8",
     );
     await writeFile(

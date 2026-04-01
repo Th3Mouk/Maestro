@@ -1,7 +1,7 @@
 {
   "name": "@th3mouk/maestro",
   "version": "0.1.2",
-  "description": "Maestro: partial or complete multi-repository workspaces for AI-assisted engineering environments.",
+  "description": "Multi-repository workspaces for engineering teams.",
   "keywords": [
     "ai",
     "automation",
@@ -59,6 +59,7 @@
   },
   "scripts": {
     "assets:banner": "node scripts/generate-banner.js",
+    "assets:cli-topic": "node scripts/generate-cli-topic-assets.js",
     "build": "rm -rf dist && tsc -p tsconfig.build.json && node scripts/prepare-bin.mjs",
     "lint": "oxlint --config .oxlintrc.json --deny-warnings src tests scripts",
     "lint:fix": "oxlint --config .oxlintrc.json --fix --fix-suggestions src tests scripts",

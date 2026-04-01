@@ -23,8 +23,7 @@ async function generateBanner(theme) {
   const taglineFontSize = Math.round(canvasHeight * 0.0712890625);
   // gap = round(400 * 0.041015625) = 16px
   const gap = Math.round(canvasHeight * 0.041015625);
-  // AI left margin = round(400 * 0.0078125) = 3px
-  const aiMarginLeft = Math.round(canvasHeight * 0.0078125);
+  const catchline = "Multi-repository workspaces for engineering teams";
 
   const interExtraBold = await fs.readFile("./scripts/Inter-ExtraBold.otf");
   const interMedium = await fs.readFile("./scripts/Inter-Medium.otf");
@@ -76,28 +75,19 @@ async function generateBanner(theme) {
                       alignItems: "baseline",
                       justifyContent: "center",
                       fontFamily: "Inter",
-                      fontWeight: 400, // Thinner weight for "workspaces for"
+                      fontWeight: 500,
                       fontSize: taglineFontSize,
-                      lineHeight: 1,
+                      lineHeight: 1.18,
                       letterSpacing: "-0.02em",
                       backgroundImage:
                         "linear-gradient(90deg, #22D3EE 0%, #7C83F6 52%, #A855F7 100%)",
                       backgroundClip: "text",
                       color: "transparent",
+                      paddingBottom: 8,
+                      maxWidth: "1100px",
+                      textAlign: "center",
                     },
-                    children: [
-                      { type: "span", props: { children: "workspaces for" } },
-                      {
-                        type: "span",
-                        props: {
-                          style: {
-                            fontWeight: 800,
-                            marginLeft: aiMarginLeft,
-                          },
-                          children: "AI",
-                        },
-                      },
-                    ],
+                    children: catchline,
                   },
                 },
               ],

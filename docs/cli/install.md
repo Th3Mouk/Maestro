@@ -45,6 +45,7 @@ If you want a step-by-step first-run flow with expected generated files, see [5-
 
 `maestro install` initializes the workspace root as a Git repository when needed, creates a `🪄 booted by Maestro` commit when the repository is unborn, then clones repositories and projects workspace/runtime artifacts.
 It does not run repository dependency installation by itself.
+If `maestro init` runs in a workspace that already has a `README.md`, Maestro keeps the existing content and appends a Maestro installation note at the end instead of replacing the file.
 If the workspace was booted without a prior `maestro init`, Maestro writes the default `.gitignore` before creating that first commit. If the file already exists, Maestro keeps the existing entries and appends the missing defaults.
 
 When you define repositories in `maestro.yaml`, omitting `spec.repositories[].sparse` keeps the checkout complete. Add `includePaths`, `excludePaths`, or both when you want Maestro to materialize only part of the repository.
