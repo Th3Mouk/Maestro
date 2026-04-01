@@ -33,6 +33,7 @@ Coverage policy:
 - default `pnpm test` does not collect coverage;
 - `pnpm test:coverage` is the coverage validation path;
 - `pnpm test:coverage:ci` is the CI alias to enforce the same thresholds in pipeline runs;
+- the pull request CI workflow emits `coverage/lcov.info` from the `24.x` matrix lane and uploads it to Codecov;
 - global thresholds enforced on coverage runs are:
   - statements: `50`
   - lines: `50`

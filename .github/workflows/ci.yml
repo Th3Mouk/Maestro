@@ -23,6 +23,8 @@ jobs:
     if: github.event_name == 'push' || (github.event.pull_request.draft == false && !startsWith(github.head_ref, 'release/'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
@@ -49,6 +51,17 @@ jobs:
       - run: pnpm test:npm-shrinkwrap
       - run: pnpm build
       - run: pnpm test
+        if: matrix.node-version == '22.12.x'
+      - run: pnpm test:coverage:ci
+        if: matrix.node-version == '24.x'
+      - name: Upload coverage reports to Codecov
+        if: matrix.node-version == '24.x' && env.CODECOV_TOKEN != ''
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ env.CODECOV_TOKEN }}
+          disable_search: true
+          files: ./coverage/lcov.info
+          fail_ci_if_error: true
       - run: pnpm test:runtime-dependencies
       - run: pnpm test:smoke
       - run: pnpm test:pack

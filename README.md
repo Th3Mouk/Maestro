@@ -10,6 +10,9 @@
   <a href="https://github.com/Th3Mouk/maestro/actions/workflows/ci.yml?query=branch%3Amain">
     <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Th3Mouk/maestro/ci.yml?branch=main&label=ci&logo=githubactions&logoColor=white">
   </a>
+  <a href="https://codecov.io/gh/Th3Mouk/maestro">
+    <img alt="coverage" src="https://codecov.io/gh/Th3Mouk/maestro/branch/main/graph/badge.svg">
+  </a>
   <a href="https://www.npmjs.com/package/@th3mouk/maestro">
     <img alt="npm version" src="https://img.shields.io/npm/v/%40th3mouk/maestro?label=npm&logo=npm">
   </a>
@@ -218,7 +221,7 @@ This repository contains a practical public foundation.
 The package must install cleanly, the documented flow must run, and the published artifact must match the documented features.
 
 The pull request automation lives in [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) and runs the full validation checks on every non-draft PR update.
-It installs dependencies with `pnpm install --frozen-lockfile`, runs the repository validation checks in a matrix on Node `22.12.x` and `24.x`, and uploads the generated npm tarball as a workflow artifact after the packed artifact has been installed and smoke-tested.
+It installs dependencies with `pnpm install --frozen-lockfile`, runs the repository validation checks in a matrix on Node `22.12.x` and `24.x`, generates a Vitest coverage report on the `24.x` lane, uploads that coverage report to Codecov, and uploads the generated npm tarball as a workflow artifact after the packed artifact has been installed and smoke-tested.
 
 The release preparation automation lives in [`.github/workflows/release.yml`](./.github/workflows/release.yml).
 It is started manually from GitHub Actions with a `patch`, `minor`, or `major` choice, then bumps the package version, opens a release PR, and enables auto-merge.

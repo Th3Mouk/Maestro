@@ -3,6 +3,7 @@ dist/
 node_modules/
 *.tgz
 bin/
+coverage/
 
 # Internal maintenance and generated harness state
 .agents/
