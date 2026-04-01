@@ -33,8 +33,6 @@
 
 [Architecture](./docs/architecture/overview.md) • [Technical stack](./docs/architecture/technical-stack.md) • [Dependency policy](./docs/architecture/dependency-governance.md) • [CLI install](./docs/cli/install.md) • [5-minute quickstart](./docs/cli/quickstart.md) • [CLI](./docs/cli/commands.md) • [Workspace Manifest](./docs/manifests/workspace.md) • [Manifest Fragments](./docs/manifests/fragments.md)
 
-[Project language](./docs/internals/project-language/README.md)
-
 ## Why this exists
 
 Most engineering work still spans several repositories, while many AI coding tools still assume one runtime working inside one repository.
