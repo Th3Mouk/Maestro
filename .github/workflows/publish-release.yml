@@ -58,9 +58,13 @@ jobs:
           HEAD_SUBJECT="$(git log -1 --pretty=%s)"
 
           if [[ "$HEAD_SUBJECT" != chore\(release\):* ]]; then
-            echo "HEAD commit is not a release commit: $HEAD_SUBJECT"
-            echo "Run the prepare-release workflow first."
-            exit 1
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+              echo "HEAD is not a release commit ($HEAD_SUBJECT) but proceeding (manual dispatch)."
+            else
+              echo "HEAD commit is not a release commit: $HEAD_SUBJECT"
+              echo "Run the prepare-release workflow first."
+              exit 1
+            fi
           fi
 
           TAG_EXISTS="false"
