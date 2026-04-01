@@ -22,14 +22,14 @@
     "workspace",
     "worktree"
   ],
-  "homepage": "https://github.com/Th3Mouk/maestro",
+  "homepage": "https://github.com/Th3Mouk/Maestro",
   "bugs": {
-    "url": "https://github.com/Th3Mouk/maestro/issues"
+    "url": "https://github.com/Th3Mouk/Maestro/issues"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Th3Mouk/maestro.git"
+    "url": "git+https://github.com/Th3Mouk/Maestro.git"
   },
   "bin": {
     "maestro": "./bin/maestro.js"
