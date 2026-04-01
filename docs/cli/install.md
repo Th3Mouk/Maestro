@@ -21,6 +21,23 @@ The published CLI is a Node program, not a standalone binary, so the installed c
 
 The Homebrew core namespace already has an unrelated `maestro` cask, so use the tap-qualified formula name to avoid ambiguity with the unrelated cask.
 
+## Upgrade an existing install
+
+Use the same distribution path you installed from:
+
+| Path              | Command                                  |
+| ----------------- | ---------------------------------------- |
+| npm global        | `npm install -g @th3mouk/maestro@latest` |
+| Homebrew on macOS | `brew upgrade th3mouk/maestro/maestro`   |
+
+If the Homebrew tap is not configured yet, add it first with `brew tap th3mouk/maestro https://github.com/Th3Mouk/maestro`.
+
+You can also use the installed CLI directly:
+
+```bash
+maestro upgrade
+```
+
 For npm publication, the release workflow uses GitHub Actions OIDC trusted publishing. npm requires the package to exist before you can attach a trusted publisher, so the very first publish still needs a one-time bootstrap before the OIDC trust relationship can be enabled.
 Published npm releases also use `npm publish --provenance`, so the public package carries GitHub Actions provenance from the release workflow rather than an ad hoc local publish.
 The published package also ships `npm-shrinkwrap.json`, so npm-based installs resolve the exact dependency tree validated in release rather than a fresh semver re-resolution at install time.

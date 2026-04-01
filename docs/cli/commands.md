@@ -4,6 +4,7 @@ The npm package installs a `maestro` command. Use that command as the public ent
 
 ```bash
 maestro --help
+maestro upgrade
 maestro init my-workspace
 cd my-workspace
 maestro install --workspace . --dry-run
@@ -14,7 +15,7 @@ maestro doctor --workspace .
 ```
 
 The core lifecycle is:
-`init` creates the workspace contract, you edit `maestro.yaml` to declare repositories, `install` initializes the workspace root Git repository when needed, creates the `🪄 booted by Maestro` commit when the repository is unborn, and materializes the workspace and runtime projections, `code-workspace` generates the optional VS Code multi-root file, `bootstrap` prepares repository dependencies, and `doctor` validates the installed result.
+`init` creates the workspace contract, you edit `maestro.yaml` to declare repositories, `install` initializes the workspace root Git repository when needed, creates the `🪄 booted by Maestro` commit when the repository is unborn, and materializes the workspace and runtime projections, `code-workspace` generates the optional VS Code multi-root file, `bootstrap` prepares repository dependencies, and `doctor` validates the installed result. The root help screen also shows the currently installed Maestro version and the supported upgrade commands for npm and Homebrew installs.
 
 ## `init`
 
@@ -67,6 +68,17 @@ For this cleanliness check, Maestro intentionally ignores untracked files (`git 
 ## `update`
 
 Rerun resolution and regenerate projected artifacts.
+
+## `upgrade`
+
+Detect the install path and run the upgrade for the published CLI.
+
+```bash
+maestro upgrade
+```
+
+The command detects `npm` or `homebrew` from the installed CLI path and runs the matching update flow.
+If detection is not possible, Maestro falls back to the npm update command.
 
 ## `doctor`
 

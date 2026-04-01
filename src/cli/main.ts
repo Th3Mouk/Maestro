@@ -18,6 +18,7 @@ import {
   updateWorkspace,
 } from "../core/commands/workspace-install.js";
 import { projectEditorWorkspace } from "../core/execution-service.js";
+import { formatUpgradeInstructions, runUpgrade } from "./upgrade.js";
 import { getFrameworkVersion } from "../version.js";
 
 const VERBOSE_ERROR_ENV_KEYS = ["MAESTRO_VERBOSE", "MAESTRO_VERBOSE_ERRORS"] as const;
@@ -51,13 +52,21 @@ export function formatUnhandledCliError(
 export function createProgram(): Command {
   const program = new Command();
   const commandContext = createCommandContext();
+  const frameworkVersion = getFrameworkVersion();
+  const helpDescription = [
+    CLI_CATCHLINE,
+    "",
+    `Current version: ${frameworkVersion}`,
+    "",
+    formatUpgradeInstructions(),
+  ].join("\n");
 
-  program.name("maestro").description(CLI_CATCHLINE).version(getFrameworkVersion());
+  program.name("maestro").description(helpDescription).version(frameworkVersion);
   program.configureHelp({ sortSubcommands: false });
   program.showHelpAfterError("Use --help to inspect available commands.");
   program.showSuggestionAfterError();
   program.addHelpText(
-    "after",
+    "afterAll",
     [
       "",
       "Quick start:",
@@ -191,6 +200,15 @@ export function createProgram(): Command {
         commandContext,
       );
       await writeJsonStdout(report);
+    });
+
+  program
+    .command("upgrade")
+    .summary("Upgrade the installed Maestro CLI")
+    .description("Upgrade the installed Maestro CLI using the detected install manager")
+    .addHelpText("after", ["", "Examples:", "  maestro upgrade"].join("\n"))
+    .action(async () => {
+      await runUpgrade();
     });
 
   program
