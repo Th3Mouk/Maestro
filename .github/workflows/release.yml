@@ -17,8 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   prepare:
@@ -97,7 +96,9 @@ jobs:
 
       - name: Publish release branch
         env:
-          GH_TOKEN: ${{ github.token }}
+          # Use MERGE_PAT here so the release branch push and PR creation emit
+          # real push/pull_request events that trigger ci.yml.
+          GH_TOKEN: ${{ secrets.MERGE_PAT }}
         run: |
           RELEASE_BRANCH="${{ steps.version.outputs.release_branch }}"
           gh auth setup-git
@@ -105,7 +106,8 @@ jobs:
 
       - name: Open release PR
         env:
-          GH_TOKEN: ${{ github.token }}
+          # GITHUB_TOKEN-created PRs do not fan out into the PR CI workflow.
+          GH_TOKEN: ${{ secrets.MERGE_PAT }}
         run: |
           RELEASE_BRANCH="${{ steps.version.outputs.release_branch }}"
           PR_URL="$(gh pr list --head "$RELEASE_BRANCH" --state open --json url --jq 'if length > 0 then .[0].url else empty end')"
