@@ -5,9 +5,9 @@ const NPM_PACKAGE_NAME = "@th3mouk/maestro";
 const HOMEBREW_TAP = "th3mouk/maestro";
 const HOMEBREW_FORMULA = `${HOMEBREW_TAP}/maestro`;
 
-export type UpgradeManager = "npm" | "homebrew";
+type UpgradeManager = "npm" | "homebrew";
 
-export interface UpgradeCommand {
+interface UpgradeCommand {
   command: string;
   args: string[];
 }
@@ -91,7 +91,7 @@ export function buildUpgradeCommands(manager: UpgradeManager): UpgradeCommand[] 
   ];
 }
 
-export async function executeUpgradeCommands(commands: UpgradeCommand[]): Promise<void> {
+async function executeUpgradeCommands(commands: UpgradeCommand[]): Promise<void> {
   for (const step of commands) {
     await execa(step.command, step.args, { stdio: "inherit", preferLocal: false });
   }

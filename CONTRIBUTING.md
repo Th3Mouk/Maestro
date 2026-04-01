@@ -33,7 +33,7 @@ Use `pnpm check` to run the full delivery validation path:
 - `pnpm test:pack`
 - `pnpm test:release-provenance`
 
-Use `pnpm fix:all` to run the automatic repair tools in one pass, or `pnpm lint:fix` and `pnpm format` when you need them separately.
+Use `pnpm fix:all` to run the automatic repair and hygiene tools in one pass, including `knip`, or `pnpm lint:fix` and `pnpm format` when you need them separately.
 `pnpm check` also refreshes `npm-shrinkwrap.json` automatically before validation, so dependency changes do not require a separate manual sync step.
 The sync step normalizes npm-version-specific lockfile noise, so local runs and GitHub Actions check the same contract.
 

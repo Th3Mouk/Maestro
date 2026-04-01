@@ -161,7 +161,7 @@ That quick path shows the expected lifecycle without duplicating the full walkth
 
 Contribution and repository-development guidance lives in [CONTRIBUTING.md](./CONTRIBUTING.md).
 This README stays focused on the framework itself.
-For local cleanup before review, use `pnpm fix:all`.
+For local cleanup before review, use `pnpm fix:all` to run the repair and hygiene pass, including `knip`.
 
 ## What This Is Not
 
