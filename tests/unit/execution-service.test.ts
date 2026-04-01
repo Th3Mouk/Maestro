@@ -12,9 +12,12 @@ import {
 } from "../../src/core/execution-service.js";
 import { initWorkspace } from "../../src/core/commands/workspace-init.js";
 import { resolveWorkspace } from "../../src/core/workspace-service.js";
-import type { RuntimeName } from "../../src/runtime/types.js";
-import { getRepositorySparseIncludePaths } from "../../src/workspace/repositories.js";
-import type { RepositoryRef, ResolvedWorkspace } from "../../src/workspace/types.js";
+import {
+  createExecaResultFixture,
+  createRepositoryFixture,
+  createResolvedWorkspaceFixture,
+  createRuntimeFixture,
+} from "../utils/execution-fixtures.js";
 import { createManagedTempDir } from "../utils/test-lifecycle.js";
 
 function mockFn<T extends (...args: any[]) => any = (...args: any[]) => any>() {
@@ -36,59 +39,6 @@ vi.mock(import("../../src/core/workspace-service.js"), async (importOriginal) =>
 const mockedExeca = vi.mocked(execa);
 const mockedResolveWorkspace = vi.mocked(resolveWorkspace);
 
-function createResolvedWorkspaceFixture(input: {
-  execution?: ResolvedWorkspace["execution"];
-  repositories?: RepositoryRef[];
-  runtimes?: ResolvedWorkspace["runtimes"];
-  workspaceName?: string;
-}): ResolvedWorkspace {
-  const repositories = input.repositories ?? [];
-  const runtimes = input.runtimes ?? {};
-  const workspaceName = input.workspaceName ?? "demo-workspace";
-  return {
-    execution: input.execution ?? {
-      devcontainer: { enabled: false },
-      worktrees: { enabled: true },
-    },
-    lockfile: {
-      frameworkVersion: "0.0.0-test",
-      generatedAt: "1970-01-01T00:00:00.000Z",
-      packs: [],
-      repositories: repositories.map((repository) => ({
-        branch: repository.branch,
-        name: repository.name,
-        sparsePaths: getRepositorySparseIncludePaths(repository),
-      })),
-    },
-    manifest: {
-      apiVersion: "maestro/v1",
-      kind: "Workspace",
-      metadata: { name: workspaceName },
-      spec: {
-        repositories,
-        runtimes,
-      },
-    },
-    packs: [],
-    repositories,
-    runtimes,
-    plugins: {},
-    selectedAgents: {
-      codex: [],
-      "claude-code": [],
-      opencode: [],
-    },
-    selectedPolicies: [],
-    selectedSkills: [],
-    mcpServers: [],
-    workspaceRoot: "/tmp/demo-workspace",
-  };
-}
-
-function createExecaResultFixture(): Awaited<ReturnType<typeof execa>> {
-  return { stdout: "", stderr: "" } as unknown as Awaited<ReturnType<typeof execa>>;
-}
-
 afterEach(() => {
   vi.useRealTimers();
 });
@@ -100,18 +50,13 @@ describe("execution service", () => {
     mockedResolveWorkspace.mockResolvedValue(
       createResolvedWorkspaceFixture({
         repositories: [
-          {
+          createRepositoryFixture({
             bootstrap: {
               commands: ["npm ci"],
               strategy: "manual",
             },
-            branch: "main",
             name: "sur-api",
-            remote: "git@github.com:org/sur-api.git",
-            sparse: {
-              visiblePaths: ["."],
-            },
-          },
+          }),
         ],
       }),
     );
@@ -140,30 +85,20 @@ describe("execution service", () => {
     mockedResolveWorkspace.mockResolvedValue(
       createResolvedWorkspaceFixture({
         repositories: [
-          {
+          createRepositoryFixture({
             bootstrap: {
               commands: ["sleep-a"],
               strategy: "manual",
             },
-            branch: "main",
             name: "repo-a",
-            remote: "git@github.com:org/repo-a.git",
-            sparse: {
-              visiblePaths: ["."],
-            },
-          },
-          {
+          }),
+          createRepositoryFixture({
             bootstrap: {
               commands: ["sleep-b"],
               strategy: "manual",
             },
-            branch: "main",
             name: "repo-b",
-            remote: "git@github.com:org/repo-b.git",
-            sparse: {
-              visiblePaths: ["."],
-            },
-          },
+          }),
         ],
       }),
     );
@@ -267,22 +202,18 @@ describe("execution service", () => {
       workspaceRoot,
       createResolvedWorkspaceFixture({
         repositories: [
-          {
-            branch: "main",
+          createRepositoryFixture({
             name: "frontend",
-            remote: "git@github.com:org/frontend.git",
             sparse: {
               visiblePaths: ["package.json"],
             },
-          },
-          {
-            branch: "main",
+          }),
+          createRepositoryFixture({
             name: "backend",
-            remote: "git@github.com:org/backend.git",
             sparse: {
               visiblePaths: ["composer.json"],
             },
-          },
+          }),
         ],
       }),
     );
@@ -296,22 +227,18 @@ describe("execution service", () => {
     mockedResolveWorkspace.mockResolvedValue(
       createResolvedWorkspaceFixture({
         repositories: [
-          {
-            branch: "main",
+          createRepositoryFixture({
             name: "frontend",
-            remote: "git@github.com:org/frontend.git",
             sparse: {
               visiblePaths: ["package.json"],
             },
-          },
-          {
-            branch: "main",
+          }),
+          createRepositoryFixture({
             name: "backend",
-            remote: "git@github.com:org/backend.git",
             sparse: {
               visiblePaths: ["composer.json"],
             },
-          },
+          }),
         ],
       }),
     );
@@ -352,14 +279,12 @@ describe("execution service", () => {
       workspaceRoot,
       createResolvedWorkspaceFixture({
         repositories: [
-          {
-            branch: "main",
+          createRepositoryFixture({
             name: "frontend",
-            remote: "git@github.com:org/frontend.git",
             sparse: {
               visiblePaths: ["package.json"],
             },
-          },
+          }),
         ],
       }),
     );
@@ -428,7 +353,7 @@ describe("execution service", () => {
       projectedWorkspaceRoot,
       createResolvedWorkspaceFixture({
         repositories: [],
-        runtimes: {
+        runtimes: createRuntimeFixture({
           codex: {
             enabled: true,
             installProjectConfig: true,
@@ -440,7 +365,7 @@ describe("execution service", () => {
             installProjectInstructions: true,
             instructionsFile: "CLAUDE.md",
           },
-        } satisfies Partial<Record<RuntimeName, ResolvedWorkspace["runtimes"][RuntimeName]>>,
+        }),
         workspaceName: "demo-workspace",
       }),
     );
@@ -461,14 +386,10 @@ describe("execution service", () => {
     mockedResolveWorkspace.mockResolvedValue(
       createResolvedWorkspaceFixture({
         repositories: [
-          {
-            branch: "main",
+          createRepositoryFixture({
             name: "../../evil",
             remote: "git@github.com:org/evil.git",
-            sparse: {
-              visiblePaths: ["."],
-            },
-          },
+          }),
         ],
       }),
     );
@@ -494,18 +415,14 @@ describe("execution service", () => {
           },
         },
         repositories: [
-          {
+          createRepositoryFixture({
             bootstrap: {
               commands: ["npm ci"],
               strategy: "manual",
             },
-            branch: "main",
             name: repositoryName,
             remote: "git@github.com:org/sur-api.git",
-            sparse: {
-              visiblePaths: ["."],
-            },
-          },
+          }),
         ],
       }),
       false,

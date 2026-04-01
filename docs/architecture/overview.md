@@ -5,7 +5,7 @@ Maestro is organized into short, testable layers:
 - `src/core/`: orchestration entrypoints for lifecycle commands such as `init`, `install`, `sync`, `update`, `doctor`, the nested `git` namespace, and `worktree`
 - `src/core/commands/*`: concrete command implementations used by the CLI entrypoint
 - `src/core/commands.ts`: compatibility command surface for direct imports/public exports; intentionally retained as a non-CLI façade and only removable in a dedicated breaking-change window
-- `src/core/execution-service.ts`: execution support for repository bootstrap planning, optional DevContainer artifact projection, and task-scoped worktrees
+- `src/core/execution-service.ts`: orchestration shell for repository bootstrap planning, optional DevContainer artifact projection, and task-scoped worktrees; the lower-level execution concerns now live in `src/core/execution/bootstrap-plan.ts`, `src/core/execution/devcontainer.ts`, `src/core/execution/task-worktree.ts`, and `src/core/execution/workspace-overlay.ts`
 - `src/workspace/`: split workspace pipeline modules
   - `manifest-parser.ts`: manifest includes loading, fragment normalization, and merge semantics
   - `pack-resolver.ts`: pack location/compatibility resolution
@@ -29,6 +29,8 @@ The core resolves a `ResolvedWorkspace` that is the shared data structure used b
 Implementation work should continue to respect a few stable seams:
 
 - orchestration should stay separate from Git execution, workspace parsing, policy evaluation, and runtime projection;
+- execution planning, devcontainer rendering, task worktree naming, and workspace overlay sync should remain in focused modules rather than accumulate in the orchestration shell;
+- the concrete execution modules should remain small, named, and testable instead of being merged back into `src/core/execution-service.ts`;
 - command execution and path resolution should flow through approved safety primitives;
 - shared adapters and services should be injectable through a command context rather than hidden behind global singletons;
 - schema-backed runtime data should stay aligned with TypeScript types;

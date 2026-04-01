@@ -100,6 +100,7 @@ Dependency simplification decisions (Review section 3 closure):
 ### Module boundaries
 
 - Keep orchestration, adapters, validation, workspace parsing, and filesystem safety in distinct modules.
+- Keep `src/core/execution-service.ts` as an orchestration shell, with lower-level execution concerns split into focused modules under `src/core/execution/bootstrap-plan.ts`, `src/core/execution/devcontainer.ts`, `src/core/execution/task-worktree.ts`, and `src/core/execution/workspace-overlay.ts`.
 - Workspace loading/merge concerns should stay in `src/workspace/manifest-parser.ts`; pack and discovery logic should stay in `src/workspace/pack-resolver.ts` and `src/workspace/agent-discovery.ts`.
 - Avoid catch-all files that mix unrelated responsibilities.
 - Prefer injected command context/services over global singletons.
