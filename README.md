@@ -6,6 +6,27 @@
   </picture>
 </p>
 
+<p align="center">
+  <a href="https://github.com/Th3Mouk/maestro/actions/workflows/ci.yml?query=branch%3Amain">
+    <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Th3Mouk/maestro/ci.yml?branch=main&label=ci&logo=githubactions&logoColor=white">
+  </a>
+  <a href="https://www.npmjs.com/package/@th3mouk/maestro">
+    <img alt="npm version" src="https://img.shields.io/npm/v/%40th3mouk/maestro?label=npm&logo=npm">
+  </a>
+  <a href="https://www.npmjs.com/package/@th3mouk/maestro">
+    <img alt="npm downloads" src="https://img.shields.io/npm/dm/%40th3mouk/maestro?label=downloads&logo=npm">
+  </a>
+  <a href="https://github.com/Th3Mouk/maestro/releases/latest">
+    <img alt="latest release" src="https://img.shields.io/github/v/release/Th3Mouk/maestro?include_prereleases&label=release&logo=github">
+  </a>
+  <a href="https://github.com/Th3Mouk/maestro/blob/main/LICENSE">
+    <img alt="license" src="https://img.shields.io/github/license/Th3Mouk/maestro?label=license">
+  </a>
+  <a href="https://github.com/Th3Mouk/maestro/blob/main/docs/cli/install.md">
+    <img alt="Homebrew" src="https://img.shields.io/badge/homebrew-install-FB8B24?logo=homebrew&logoColor=white">
+  </a>
+</p>
+
 # Maestro
 
 > Multi-repository workspaces for engineering teams
