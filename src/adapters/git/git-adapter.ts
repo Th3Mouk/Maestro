@@ -1,9 +1,12 @@
 import path from "node:path";
 import { execa } from "execa";
+import { GitBranchGuard } from "./internal/git-branch-guard.js";
+import { GitCommandExecutor } from "./internal/git-command-executor.js";
+import { GitRepositoryConfigurer } from "./internal/git-repository-configurer.js";
+import { GitSparseCheckout } from "./internal/git-sparse-checkout.js";
 import type { RepositoryRef } from "../../workspace/types.js";
 import { pathExists } from "../../utils/fs.js";
 import {
-  buildRepositorySparseCheckoutPatterns,
   getRepositoryReferenceBranch,
   hasRepositorySparseCheckout,
 } from "../../workspace/repositories.js";
@@ -20,6 +23,15 @@ interface GitOperationResult {
 }
 
 export class GitAdapter {
+  readonly #commandExecutor = new GitCommandExecutor();
+  readonly #branchGuard = new GitBranchGuard(this.#commandExecutor);
+  readonly #sparseCheckout = new GitSparseCheckout(this.#commandExecutor);
+  readonly #repositoryConfigurer = new GitRepositoryConfigurer(
+    this.#branchGuard,
+    this.#sparseCheckout,
+    this.run.bind(this),
+  );
+
   async ensureWorkspaceRepository(
     workspaceRoot: string,
     dryRun = false,
@@ -57,14 +69,17 @@ export class GitAdapter {
       }
 
       const referenceBranch = getRepositoryReferenceBranch(repository);
-      this.#assertNotOptionLike(repository.remote, "remote URL");
+      this.#branchGuard.assertNotOptionLike(repository.remote, "remote URL");
       const cloneArgs = ["clone", "--no-checkout", "--branch", referenceBranch];
-      if (hasRepositorySparseCheckout(repository) && !this.#isLocalRemote(repository.remote)) {
+      if (
+        hasRepositorySparseCheckout(repository) &&
+        !this.#sparseCheckout.isLocalRemote(repository.remote)
+      ) {
         cloneArgs.push("--filter=blob:none");
       }
       cloneArgs.push("--", repository.remote, repoRoot);
-      await execa("git", cloneArgs);
-      await this.#configureRepository(repoRoot, repository, referenceBranch);
+      await this.#commandExecutor.runWithoutCwd(cloneArgs);
+      await this.#repositoryConfigurer.configure(repoRoot, repository, referenceBranch);
       return "created";
     }
 
@@ -72,10 +87,14 @@ export class GitAdapter {
       return "updated";
     }
 
-    this.#assertNotOptionLike(repository.remote, "remote URL");
+    this.#branchGuard.assertNotOptionLike(repository.remote, "remote URL");
     await this.run(repoRoot, ["remote", "set-url", "origin", "--", repository.remote]);
     await this.run(repoRoot, ["fetch", "--all", "--prune"]);
-    await this.#configureRepository(repoRoot, repository, getRepositoryReferenceBranch(repository));
+    await this.#repositoryConfigurer.configure(
+      repoRoot,
+      repository,
+      getRepositoryReferenceBranch(repository),
+    );
     return "updated";
   }
 
@@ -89,14 +108,14 @@ export class GitAdapter {
       return;
     }
 
-    await this.#ensureValidBranchName(repoRoot, branchName);
-    await this.#ensureValidBranchName(repoRoot, baseBranch);
+    await this.#branchGuard.ensureValidBranchName(repoRoot, branchName);
+    await this.#branchGuard.ensureValidBranchName(repoRoot, baseBranch);
     const currentBranch = await this.getCurrentBranch(repoRoot);
     if (currentBranch === branchName) {
       return;
     }
 
-    const branchExists = await this.#branchExists(repoRoot, branchName);
+    const branchExists = await this.#branchGuard.branchExists(repoRoot, branchName);
     if (branchExists) {
       await this.run(repoRoot, ["checkout", branchName]);
       return;
@@ -117,21 +136,7 @@ export class GitAdapter {
     }
 
     await this.run(repoRoot, ["add", "."]);
-    await execa(
-      "git",
-      [
-        "-c",
-        "user.name=Maestro",
-        "-c",
-        "user.email=maestro@example.invalid",
-        "-c",
-        "commit.gpgSign=false",
-        "commit",
-        "-m",
-        message,
-      ],
-      { cwd: repoRoot },
-    );
+    await this.#commandExecutor.runWithCommitIdentity(repoRoot, message);
     return true;
   }
 
@@ -140,7 +145,7 @@ export class GitAdapter {
       return;
     }
 
-    await this.#ensureValidBranchName(repoRoot, branchName);
+    await this.#branchGuard.ensureValidBranchName(repoRoot, branchName);
     await this.run(repoRoot, ["push", "-u", "--", "origin", branchName]);
   }
 
@@ -150,7 +155,7 @@ export class GitAdapter {
   }
 
   async checkoutBranch(repoRoot: string, branchName: string): Promise<GitOperationResult> {
-    await this.#ensureValidBranchName(repoRoot, branchName);
+    await this.#branchGuard.ensureValidBranchName(repoRoot, branchName);
     const currentBranch = await this.getCurrentBranch(repoRoot);
     if (currentBranch === branchName) {
       return { branch: branchName, status: "unchanged" };
@@ -161,7 +166,7 @@ export class GitAdapter {
     }
 
     await this.fetch(repoRoot);
-    const localBranchExists = await this.#branchExists(repoRoot, branchName);
+    const localBranchExists = await this.#branchGuard.branchExists(repoRoot, branchName);
     if (localBranchExists) {
       await this.run(repoRoot, ["checkout", branchName]);
       return { branch: branchName, status: "updated" };
@@ -177,7 +182,7 @@ export class GitAdapter {
       throw new Error("Cannot pull: repository is in detached HEAD state.");
     }
 
-    await this.#ensureValidBranchName(repoRoot, branchName);
+    await this.#branchGuard.ensureValidBranchName(repoRoot, branchName);
     if (!(await this.isClean(repoRoot))) {
       throw new Error(`Cannot pull ${branchName}: working tree is not clean.`);
     }
@@ -254,7 +259,7 @@ export class GitAdapter {
     baseRef = "HEAD",
     dryRun = false,
   ): Promise<"created" | "updated" | "unchanged"> {
-    await this.#ensureValidBranchName(repoRoot, branchName);
+    await this.#branchGuard.ensureValidBranchName(repoRoot, branchName);
     const exists = await this.hasGitMetadata(worktreePath);
     if (exists) {
       return "unchanged";
@@ -271,80 +276,6 @@ export class GitAdapter {
   }
 
   async run(repoRoot: string, args: string[]) {
-    try {
-      return await execa("git", args, { cwd: repoRoot });
-    } catch (error) {
-      throw new Error(`Git command failed: git ${args.join(" ")}`, {
-        cause: error instanceof Error ? error : undefined,
-      });
-    }
-  }
-
-  async #configureRepository(
-    repoRoot: string,
-    repository: RepositoryRef,
-    referenceBranch: string,
-  ): Promise<void> {
-    await this.#ensureValidBranchName(repoRoot, referenceBranch);
-
-    if (!hasRepositorySparseCheckout(repository)) {
-      if (await this.#isSparseCheckoutEnabled(repoRoot)) {
-        await this.run(repoRoot, ["sparse-checkout", "disable"]);
-      }
-      await this.run(repoRoot, ["checkout", referenceBranch]);
-      return;
-    }
-
-    const includePaths = repository.sparse?.includePaths ?? repository.sparse?.visiblePaths ?? [];
-    const excludePaths = repository.sparse?.excludePaths ?? [];
-    const sparsePaths = buildRepositorySparseCheckoutPatterns(repository);
-    const mode =
-      excludePaths.length > 0
-        ? "pattern"
-        : (repository.sparse?.mode ?? this.#inferSparseMode(includePaths));
-    await this.run(repoRoot, ["sparse-checkout", "init", mode === "cone" ? "--cone" : "--no-cone"]);
-    await this.run(repoRoot, ["sparse-checkout", "set", "--", ...sparsePaths]);
-    await this.run(repoRoot, ["checkout", referenceBranch]);
-  }
-
-  #isLocalRemote(remote: string): boolean {
-    return remote.startsWith("/") || remote.startsWith("file://");
-  }
-
-  #inferSparseMode(paths: string[]): "cone" | "pattern" {
-    return paths.every((entry) => entry.endsWith("/")) ? "cone" : "pattern";
-  }
-
-  async #branchExists(repoRoot: string, branchName: string): Promise<boolean> {
-    const { exitCode } = await execa("git", ["rev-parse", "--verify", branchName], {
-      cwd: repoRoot,
-      reject: false,
-    });
-    return exitCode === 0;
-  }
-
-  #assertNotOptionLike(value: string, label: string): void {
-    if (value.startsWith("-")) {
-      throw new Error(`Invalid ${label}: values starting with '-' are not allowed.`);
-    }
-  }
-
-  async #isSparseCheckoutEnabled(repoRoot: string): Promise<boolean> {
-    const { stdout, exitCode } = await execa("git", ["config", "--bool", "core.sparseCheckout"], {
-      cwd: repoRoot,
-      reject: false,
-    });
-    return exitCode === 0 && stdout.trim() === "true";
-  }
-
-  async #ensureValidBranchName(repoRoot: string, branchName: string): Promise<void> {
-    const { exitCode } = await execa("git", ["check-ref-format", "--branch", branchName], {
-      cwd: repoRoot,
-      reject: false,
-    });
-
-    if (exitCode !== 0) {
-      throw new Error(`Invalid branch name: ${branchName}`);
-    }
+    return this.#commandExecutor.runWithFriendlyErrors(repoRoot, args);
   }
 }

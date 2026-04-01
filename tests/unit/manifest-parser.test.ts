@@ -1,5 +1,12 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { mergeSpec, normalizeFragment } from "../../src/workspace/manifest-parser.js";
+import {
+  loadWorkspaceManifest,
+  mergeSpec,
+  normalizeFragment,
+} from "../../src/workspace/manifest-parser.js";
+import { createManagedTempDir } from "../utils/test-lifecycle.js";
 
 function expectRecord(value: unknown): Record<string, unknown> {
   expect(value).not.toBeNull();
@@ -139,5 +146,112 @@ describe("manifest parser fragment normalization", () => {
 
   test("returns empty object for non-object fragment arrays", () => {
     expect(normalizeFragment(["invalid-fragment-shape"])).toEqual({});
+  });
+});
+
+describe("manifest parser include loading", () => {
+  test("discovers default fragments and deduplicates explicit includes", async () => {
+    const root = await createManagedTempDir("maestro-parser-includes-");
+    await mkdir(path.join(root, "fragments"), { recursive: true });
+
+    await writeFile(
+      path.join(root, "maestro.yaml"),
+      [
+        "apiVersion: maestro/v1",
+        "kind: Workspace",
+        "metadata:",
+        "  name: parser-includes",
+        "spec:",
+        "  includes:",
+        "    - fragments/repositories.yaml",
+        "  repositories:",
+        "    - name: base-repo",
+        "      remote: git@github.com:org/base-repo.git",
+      ].join("\n"),
+      "utf8",
+    );
+
+    await writeFile(
+      path.join(root, "fragments", "repositories.yaml"),
+      [
+        "apiVersion: maestro/v1",
+        "kind: WorkspaceFragment",
+        "metadata:",
+        "  name: repositories",
+        "spec:",
+        "  repositories:",
+        "    - name: included-repo",
+        "      remote: git@github.com:org/included-repo.git",
+      ].join("\n"),
+      "utf8",
+    );
+
+    await writeFile(
+      path.join(root, "fragments", "policies.yaml"),
+      [
+        "apiVersion: maestro/v1",
+        "kind: WorkspaceFragment",
+        "metadata:",
+        "  name: policies",
+        "spec:",
+        "  policies:",
+        "    - name: baseline",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const manifest = await loadWorkspaceManifest(root);
+    expect(manifest.spec.repositories.map((repository) => repository.name)).toEqual([
+      "base-repo",
+      "included-repo",
+    ]);
+    expect(manifest.spec.policies?.map((policy) => policy.name)).toEqual(["baseline"]);
+  });
+
+  test("rejects include paths that escape the workspace root", async () => {
+    const root = await createManagedTempDir("maestro-parser-escape-");
+
+    await writeFile(
+      path.join(root, "maestro.yaml"),
+      [
+        "apiVersion: maestro/v1",
+        "kind: Workspace",
+        "metadata:",
+        "  name: parser-escape",
+        "spec:",
+        "  includes:",
+        "    - ../../etc/passwd",
+        "  repositories:",
+        "    - name: safe-repo",
+        "      remote: git@github.com:org/safe-repo.git",
+      ].join("\n"),
+      "utf8",
+    );
+
+    await expect(loadWorkspaceManifest(root)).rejects.toThrow("workspace include escapes");
+  });
+
+  test("rejects absolute include paths that escape the workspace root", async () => {
+    const root = await createManagedTempDir("maestro-parser-absolute-escape-");
+    const outsideFragmentPath = path.resolve(root, "..", "outside-fragment.yaml");
+
+    await writeFile(
+      path.join(root, "maestro.yaml"),
+      [
+        "apiVersion: maestro/v1",
+        "kind: Workspace",
+        "metadata:",
+        "  name: parser-absolute-escape",
+        "spec:",
+        "  includes:",
+        `    - ${outsideFragmentPath}`,
+        "  repositories:",
+        "    - name: safe-repo",
+        "      remote: git@github.com:org/safe-repo.git",
+      ].join("\n"),
+      "utf8",
+    );
+
+    await expect(loadWorkspaceManifest(root)).rejects.toThrow("workspace include escapes");
   });
 });

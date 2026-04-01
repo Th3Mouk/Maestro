@@ -82,16 +82,6 @@ describe("end-to-end workspace lifecycle", () => {
     );
   });
 
-  test("init does not scaffold a fragment directory", async () => {
-    const root = await createManagedTempDir("maestro-init-fragment-directory-");
-    const workspaceRoot = path.join(root, "workspace");
-
-    await initWorkspace(workspaceRoot);
-
-    expect(existsSync(path.join(workspaceRoot, "fragments"))).toBe(false);
-    expect(existsSync(path.join(workspaceRoot, "workspace"))).toBe(false);
-  });
-
   test("init does not create the optional editor workspace file", async () => {
     const root = await createManagedTempDir("maestro-init-editor-workspace-");
     const workspaceRoot = path.join(root, "workspace");

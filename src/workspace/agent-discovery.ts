@@ -1,6 +1,5 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import YAML from "yaml";
 import { supportedRuntimeNames, type RuntimeName } from "../runtime/types.js";
 import type {
   PackResolution,
@@ -9,7 +8,11 @@ import type {
   ResolvedSkill,
   WorkspaceManifest,
 } from "./types.js";
-import { mapWithConcurrency, pathExists, readText, resolveSafePath } from "../utils/fs.js";
+import { mapWithConcurrency, readText, resolveSafePath } from "../utils/fs.js";
+import { resolvePackCollision } from "./discovery/collision.js";
+import { createDefaultAgent } from "./discovery/default-agent.js";
+import { findAgentFile, findPolicyFile, findSkillRoot } from "./discovery/lookup.js";
+import { parsePolicyYamlDocument } from "./discovery/policy-yaml.js";
 
 const RESOLUTION_CONCURRENCY_LIMIT = 4;
 
@@ -51,43 +54,31 @@ export async function resolveSkills(
   const result: ResolvedSkill[] = [];
 
   for (const name of requested) {
-    const overrideSkillsRoot = path.join(workspaceRoot, "overrides", "skills");
-    const overrideRoot = resolveSafePath(overrideSkillsRoot, name, "skill name");
-    if (await pathExists(path.join(overrideRoot, "SKILL.md"))) {
+    const overrideRoot = await findSkillRoot(path.join(workspaceRoot, "overrides", "skills"), name);
+    if (overrideRoot) {
       result.push({ name, source: "override", root: overrideRoot });
       continue;
     }
 
-    const workspaceSkillsRoot = path.join(workspaceRoot, "skills");
-    const workspaceRootSkill = resolveSafePath(workspaceSkillsRoot, name, "skill name");
-    if (await pathExists(path.join(workspaceRootSkill, "SKILL.md"))) {
+    const workspaceRootSkill = await findSkillRoot(path.join(workspaceRoot, "skills"), name);
+    if (workspaceRootSkill) {
       result.push({ name, source: "workspace", root: workspaceRootSkill });
       continue;
     }
 
     const packRoots = (
       await mapWithConcurrency(packs, RESOLUTION_CONCURRENCY_LIMIT, async (pack) => {
-        const root = resolveSafePath(
-          resolveSafePath(pack.root, "skills", "pack skills root"),
-          name,
-          "skill name",
-        );
-        return (await pathExists(path.join(root, "SKILL.md"))) ? root : undefined;
+        return findSkillRoot(resolveSafePath(pack.root, "skills", "pack skills root"), name);
       })
     ).filter((entry): entry is string => Boolean(entry));
 
-    if (packRoots.length > 1) {
-      const strategy = manifest.spec.conflicts?.skills?.[name]?.strategy;
-      if (!strategy) {
-        throw new Error(`Skill collision for ${name}`);
-      }
-      const root = strategy === "prefer-pack-last" ? packRoots.at(-1)! : packRoots[0];
-      result.push({ name, source: "pack", root });
-      continue;
-    }
-
-    if (packRoots.length === 1) {
-      result.push({ name, source: "pack", root: packRoots[0] });
+    const packRoot = resolvePackCollision(
+      packRoots,
+      manifest.spec.conflicts?.skills?.[name]?.strategy,
+      `Skill collision for ${name}`,
+    );
+    if (packRoot) {
+      result.push({ name, source: "pack", root: packRoot });
       continue;
     }
 
@@ -130,7 +121,7 @@ async function resolveAgent(
   manifest: WorkspaceManifest,
   packs: PackResolution[],
 ): Promise<ResolvedAgent> {
-  const overridePath = await findFirst(
+  const overridePath = await findAgentFile(
     path.join(workspaceRoot, "overrides", "agents", runtime),
     name,
   );
@@ -138,27 +129,33 @@ async function resolveAgent(
     return createResolvedAgent(name, runtime, overridePath, "override");
   }
 
-  const workspacePath = await findFirst(path.join(workspaceRoot, "agents", runtime), name);
+  const workspacePath = await findAgentFile(path.join(workspaceRoot, "agents", runtime), name);
   if (workspacePath) {
     return createResolvedAgent(name, runtime, workspacePath, "workspace");
   }
 
   const packPaths = (
-    await Promise.all(packs.map((pack) => findFirst(path.join(pack.root, "agents", runtime), name)))
+    await Promise.all(
+      packs.map((pack) =>
+        findAgentFile(
+          resolveSafePath(
+            resolveSafePath(pack.root, "agents", "pack agents root"),
+            runtime,
+            "runtime",
+          ),
+          name,
+        ),
+      ),
+    )
   ).filter((entry): entry is string => Boolean(entry));
 
-  if (packPaths.length > 1) {
-    const strategy = manifest.spec.conflicts?.agents?.[name]?.strategy;
-    if (!strategy) {
-      throw new Error(`Agent collision for ${name} on runtime ${runtime}`);
-    }
-
-    const selectedPath = strategy === "prefer-pack-last" ? packPaths.at(-1)! : packPaths[0];
+  const selectedPath = resolvePackCollision(
+    packPaths,
+    manifest.spec.conflicts?.agents?.[name]?.strategy,
+    `Agent collision for ${name} on runtime ${runtime}`,
+  );
+  if (selectedPath) {
     return createResolvedAgent(name, runtime, selectedPath, "pack");
-  }
-
-  if (packPaths.length === 1) {
-    return createResolvedAgent(name, runtime, packPaths[0], "pack");
   }
 
   return createDefaultAgent(name, runtime);
@@ -175,25 +172,19 @@ async function resolvePolicy(
     return { name, source: "manifest", spec: inlineSpec };
   }
 
-  const overridePath = resolveSafePath(
+  const overridePath = await findPolicyFile(
     path.join(workspaceRoot, "overrides", "policies"),
-    `${name}.yaml`,
-    "policy file",
+    name,
   );
-  if (await pathExists(overridePath)) {
+  if (overridePath) {
     const parsed = parsePolicyYamlDocument(await readText(overridePath));
     return { name: parsed.name ?? name, source: "override", spec: parsed.spec ?? {} };
   }
 
   const packMatches = (
-    await mapWithConcurrency(packs, RESOLUTION_CONCURRENCY_LIMIT, async (pack) => {
-      const policyPath = resolveSafePath(
-        resolveSafePath(pack.root, "policies", "pack policies root"),
-        `${name}.yaml`,
-        "policy file",
-      );
-      return (await pathExists(policyPath)) ? policyPath : undefined;
-    })
+    await mapWithConcurrency(packs, RESOLUTION_CONCURRENCY_LIMIT, async (pack) =>
+      findPolicyFile(resolveSafePath(pack.root, "policies", "pack policies root"), name),
+    )
   ).filter((policyPath): policyPath is string => Boolean(policyPath));
 
   if (packMatches.length > 1) {
@@ -206,18 +197,6 @@ async function resolvePolicy(
   }
 
   return { name, source: "default", spec: {} };
-}
-
-async function findFirst(root: string, name: string): Promise<string | undefined> {
-  resolveSafePath(root, name, "agent name");
-  for (const extension of ["toml", "md", "json"] as const) {
-    const candidatePath = resolveSafePath(root, `${name}.${extension}`, "agent file");
-    if (await pathExists(candidatePath)) {
-      return candidatePath;
-    }
-  }
-
-  return undefined;
 }
 
 async function createResolvedAgent(
@@ -235,45 +214,4 @@ async function createResolvedAgent(
     content: await readFile(filePath, "utf8"),
     extension,
   };
-}
-
-function createDefaultAgent(name: string, runtime: RuntimeName): ResolvedAgent {
-  const contentByRuntime: Record<RuntimeName, string> = {
-    codex: [
-      "# Generated agent",
-      `name = "${name}"`,
-      `prompt = "Act as ${name} for workspace maintenance."`,
-    ].join("\n"),
-    "claude-code": `# ${name}\n\nGenerated agent for Claude Code.\n`,
-    opencode: `# ${name}\n\nGenerated agent for OpenCode.\n`,
-  };
-
-  return {
-    name,
-    runtime,
-    source: "default",
-    content: contentByRuntime[runtime],
-    extension: runtime === "codex" ? "toml" : "md",
-  };
-}
-
-function parsePolicyYamlDocument(content: string): {
-  name: string | undefined;
-  spec: Record<string, unknown> | undefined;
-} {
-  const parsed = YAML.parse(content);
-  if (!isRecord(parsed)) {
-    return { name: undefined, spec: undefined };
-  }
-
-  const rawName = parsed["name"];
-  const rawSpec = parsed["spec"];
-  return {
-    name: typeof rawName === "string" ? rawName : undefined,
-    spec: isRecord(rawSpec) ? rawSpec : undefined,
-  };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
