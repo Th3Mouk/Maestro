@@ -1,6 +1,6 @@
 {
   "name": "@th3mouk/maestro",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Maestro: partial or complete multi-repository workspaces for AI-assisted engineering environments.",
   "keywords": [
     "ai",
