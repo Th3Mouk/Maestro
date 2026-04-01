@@ -14,8 +14,7 @@ Maestro is organized into short, testable layers:
 - `src/adapters/runtimes/`: Codex, Claude Code, and OpenCode projection
 - `src/validation/`: policies and the evaluation engine
 - `src/utils/`: filesystem, path-safety, and serialization primitives
-- `framework-packs/starter/`: the built-in starter pack shipped with the framework
-- `examples/packs/`: starter pack shapes that show how agents, skills, policies, templates, and hooks are composed for a workspace baseline
+- `examples/packs/`: example pack compositions that show how agents, skills, policies, templates, and hooks are assembled for a workspace
 
 `init` also writes `AGENTS.md` at the workspace root so AI agents have a local Maestro CLI map before they realign repository branches, open worktrees, or prepare PRs.
 It also writes `maestro.json` as the neutral descriptor for tools that consume the workspace directory directly, and exposes `maestro.code-workspace` through the on-demand CLI command for editors that support named multi-root workspaces.

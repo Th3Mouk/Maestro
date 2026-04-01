@@ -105,8 +105,8 @@ Maestro keeps workspace-authored inputs, pack inputs, generated outputs, and mat
 - `spec.agents` and `spec.skills` declare which runtime agent and skill names the workspace wants to resolve.
 - `spec.plugins` declares which native runtime plugins should be enabled and, for Claude Code, which marketplaces should be exposed in `.claude/settings.json`.
 - `spec.mcpServers` declares project-scoped MCP servers that Maestro projects into `.codex/config.toml` and `.mcp.json`.
-- Pack-provided inputs come from `spec.packs`; packs can provide agents, skills, policies, templates, and hooks.
-- Maestro also ships a built-in starter pack in `framework-packs/starter/`. It seeds default agent and skill names when the workspace does not override them, so new installs start with a usable baseline.
+- Pack-provided inputs come from `spec.packs`; packs are explicit and optional, and they can provide agents, skills, policies, templates, and hooks.
+- Maestro only resolves packs that the workspace declares in the manifest. If you want shared behavior, add the packs you want there.
 - Generated outputs land in `.maestro/`, `.codex/`, `.claude/`, `.opencode/`, root-level `.mcp.json`, plus root-level `AGENTS.md` and `maestro.json`.
 - Generated outputs are part of the managed workspace layout. Shared-state artifacts should stay inside the workspace and follow explicit locking rules when concurrent commands can touch them.
 
@@ -125,15 +125,15 @@ Native runtime plugins stay native:
 - Let `spec.plugins` control activation, not plugin internals.
 - Let `spec.mcpServers` control project-scoped MCP projection, not remote repository installation.
 
-## Starter pack pattern
+## Pack composition
 
-Maestro ships a built-in starter pack under [`framework-packs/starter/`](../../framework-packs/starter/pack.yaml) so a fresh install has default agents and skills without extra setup.
+Packs are declared explicitly in `spec.packs` and resolved only when a workspace asks for them.
 
-The repository also ships example packs under [`examples/packs/`](../examples/packs/) so you can compose broader or narrower baselines on top of the starter pack when you need repository-specific behavior.
+The repository also ships example packs under [`examples/packs/`](../examples/packs/) so you can see how shared agents, skills, policies, templates, and hooks are composed for repository-specific behavior.
 
 In practice:
 
-- rely on the starter pack for the default baseline;
+- declare the packs you want in the workspace manifest;
 - add broader or narrower packs for shared or repository-specific concerns;
 - use workspace-local overrides when a change should stay private to one workspace.
 

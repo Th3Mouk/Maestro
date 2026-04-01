@@ -17,7 +17,6 @@ export async function resolveAgents(
   workspaceRoot: string,
   manifest: WorkspaceManifest,
   packs: PackResolution[],
-  builtInStarterPack: PackResolution,
 ): Promise<Record<RuntimeName, ResolvedAgent[]>> {
   const result: Record<RuntimeName, ResolvedAgent[]> = {
     codex: [],
@@ -29,18 +28,10 @@ export async function resolveAgents(
     const requested = new Set([
       ...(manifest.spec.agents?.[runtime] ?? []),
       ...packs.flatMap((pack) => pack.manifest.spec.provides?.agents?.[runtime] ?? []),
-      ...(builtInStarterPack.manifest.spec.provides?.agents?.[runtime] ?? []),
     ]);
 
     for (const name of requested) {
-      const agent = await resolveAgent(
-        workspaceRoot,
-        runtime,
-        name,
-        manifest,
-        packs,
-        builtInStarterPack,
-      );
+      const agent = await resolveAgent(workspaceRoot, runtime, name, manifest, packs);
       result[runtime].push(agent);
     }
   }
@@ -52,12 +43,10 @@ export async function resolveSkills(
   workspaceRoot: string,
   manifest: WorkspaceManifest,
   packs: PackResolution[],
-  builtInStarterPack: PackResolution,
 ): Promise<ResolvedSkill[]> {
   const requested = new Set([
     ...(manifest.spec.skills ?? []),
     ...packs.flatMap((pack) => pack.manifest.spec.provides?.skills ?? []),
-    ...(builtInStarterPack.manifest.spec.provides?.skills ?? []),
   ]);
   const result: ResolvedSkill[] = [];
 
@@ -102,16 +91,6 @@ export async function resolveSkills(
       continue;
     }
 
-    const builtInSkillRoot = resolveSafePath(
-      resolveSafePath(builtInStarterPack.root, "skills", "pack skills root"),
-      name,
-      "skill name",
-    );
-    if (await pathExists(path.join(builtInSkillRoot, "SKILL.md"))) {
-      result.push({ name, source: "pack", root: builtInSkillRoot });
-      continue;
-    }
-
     throw new Error(`Skill not found: ${name}`);
   }
 
@@ -150,7 +129,6 @@ async function resolveAgent(
   name: string,
   manifest: WorkspaceManifest,
   packs: PackResolution[],
-  builtInStarterPack: PackResolution,
 ): Promise<ResolvedAgent> {
   const overridePath = await findFirst(
     path.join(workspaceRoot, "overrides", "agents", runtime),
@@ -181,11 +159,6 @@ async function resolveAgent(
 
   if (packPaths.length === 1) {
     return createResolvedAgent(name, runtime, packPaths[0], "pack");
-  }
-
-  const builtInPath = await findFirst(path.join(builtInStarterPack.root, "agents", runtime), name);
-  if (builtInPath) {
-    return createResolvedAgent(name, runtime, builtInPath, "pack");
   }
 
   return createDefaultAgent(name, runtime);

@@ -1,4 +1,4 @@
-import { cp, mkdir } from "node:fs/promises";
+import { cp, mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { resolveWorkspace } from "../../src/core/workspace-service.js";
@@ -18,6 +18,7 @@ describe("workspace resolution", () => {
         runtimes: {
           codex: { enabled: true },
         },
+        repositories: [],
       },
     });
     await writeYaml(path.join(root, "fragments", "repositories.yaml"), {
@@ -42,16 +43,79 @@ describe("workspace resolution", () => {
     expect(resolved.runtimes.codex?.enabled).toBe(true);
   });
 
-  test("falls back to the built-in starter pack when no workspace overrides exist", async () => {
-    const root = await createManagedTempDir("workspace-starter-pack-");
+  test("does not inject implicit packs when none are declared", async () => {
+    const root = await createManagedTempDir("workspace-no-default-pack-");
     await writeYaml(path.join(root, "maestro.yaml"), {
       apiVersion: "maestro/v1",
       kind: "Workspace",
-      metadata: { name: "starter-pack" },
+      metadata: { name: "no-default-pack" },
       spec: {
         runtimes: {
           codex: { enabled: true },
         },
+        repositories: [],
+      },
+    });
+
+    const resolved = await resolveWorkspace(root);
+    expect(resolved.selectedAgents.codex).toEqual([]);
+    expect(resolved.selectedSkills).toEqual([]);
+  });
+
+  test("resolves pack-provided agents and skills only when declared explicitly", async () => {
+    const root = await createManagedTempDir("workspace-explicit-pack-");
+    await mkdir(path.join(root, "packs", "pack-core", "agents", "codex"), { recursive: true });
+    await mkdir(path.join(root, "packs", "pack-core", "skills", "gha-normalizer"), {
+      recursive: true,
+    });
+
+    await writeYaml(path.join(root, "packs", "pack-core", "pack.yaml"), {
+      apiVersion: "maestro/v1",
+      kind: "Pack",
+      metadata: {
+        name: "@maestro/pack-core",
+        version: "1.0.0",
+      },
+      spec: {
+        provides: {
+          agents: {
+            codex: ["planner"],
+          },
+          skills: ["gha-normalizer"],
+        },
+      },
+    });
+
+    await writeFile(
+      path.join(root, "packs", "pack-core", "agents", "codex", "planner.toml"),
+      ['# Planner agent', 'name = "planner"', 'prompt = "Plan workspace maintenance."'].join(
+        "\n",
+      ),
+      "utf8",
+    );
+    await writeFile(
+      path.join(root, "packs", "pack-core", "skills", "gha-normalizer", "SKILL.md"),
+      ["# gha-normalizer", "", "Normalizes GitHub Actions workflows."].join("\n"),
+      "utf8",
+    );
+    await writeYaml(path.join(root, "maestro.yaml"), {
+      apiVersion: "maestro/v1",
+      kind: "Workspace",
+      metadata: { name: "explicit-pack" },
+      spec: {
+        runtimes: {
+          codex: { enabled: true },
+        },
+        agents: {
+          codex: ["planner"],
+        },
+        skills: ["gha-normalizer"],
+        packs: [
+          {
+            name: "@maestro/pack-core",
+            source: "./packs/pack-core",
+          },
+        ],
         repositories: [
           {
             name: "sur-api",
@@ -64,10 +128,8 @@ describe("workspace resolution", () => {
     });
 
     const resolved = await resolveWorkspace(root);
-    expect(resolved.selectedAgents.codex.map((agent) => agent.name)).toEqual(
-      expect.arrayContaining(["default", "planner", "executor", "repo-auditor"]),
-    );
-    expect(resolved.selectedSkills.map((skill) => skill.name)).toContain("gha-normalizer");
+    expect(resolved.selectedAgents.codex.map((agent) => agent.name)).toEqual(["planner"]);
+    expect(resolved.selectedSkills.map((skill) => skill.name)).toEqual(["gha-normalizer"]);
     expect(resolved.selectedSkills[0]?.source).toBe("pack");
   });
 

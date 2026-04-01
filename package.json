@@ -42,7 +42,6 @@
     "docs/cli/**",
     "docs/manifests/**",
     "examples/**",
-    "framework-packs/**",
     "npm-shrinkwrap.json",
     "README.md",
     "LICENSE",

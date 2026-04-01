@@ -228,7 +228,7 @@ The package prepares the workspace contract and filesystem layout first, then le
 
 ### Workspace authoring and packs
 
-Maestro keeps workspace authoring, generated projections, and shared packs in one governed root.
+Maestro keeps workspace authoring, generated projections, and explicit packs in one governed root.
 
 - The workspace can keep writable override directories under `overrides/agents/`, `overrides/skills/`, and `overrides/policies/` when the workspace author adds them.
 - `maestro.json` is the canonical machine-readable description of the workspace directory and managed repositories; `.maestro/` stores generated state, lockfiles, and reports.
@@ -241,9 +241,9 @@ Maestro keeps workspace authoring, generated projections, and shared packs in on
 - Workspace-local skill material is projected into `.maestro/skills/`, and OpenCode is pointed at that shared folder through `skills.paths` instead of receiving a second copy under `.opencode/skills/`.
 - Project-scoped MCP servers declared in the manifest are projected into `.codex/config.toml` and `.mcp.json`.
 - Generated runtime projections end up in `.codex/agents/`, `.claude/agents/`, and `.opencode/agents/`, alongside the runtime config files for each adapter.
-- Packs are the explicit way to seed shared agents, skills, policies, templates, and hooks. The repository ships example packs under [`examples/packs/`](./examples/packs/) so users can start from a broad baseline such as [`Pack core`](./examples/packs/pack-core/pack.yaml) and layer narrower packs on top.
+- Packs are the explicit way to provide shared agents, skills, policies, templates, and hooks. The repository ships example packs under [`examples/packs/`](./examples/packs/) so users can compose the shared inputs they need, such as [`Pack core`](./examples/packs/pack-core/pack.yaml), without any framework-provided baseline.
 
-If you are authoring a workspace after installation, use the manifest to declare the pack baseline you want, then add workspace-local agent overrides and skill material where you need custom behavior.
+If you are authoring a workspace after installation, use the manifest to declare only the packs you want, then add workspace-local agent overrides and skill material where you need custom behavior.
 
 ## Commands
 

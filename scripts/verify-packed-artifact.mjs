@@ -47,10 +47,10 @@ async function main() {
     /^package\/examples\/.*\/\.workspace\//,
     "generated example workspace state must not be shipped in the npm package",
   );
-  assertMatch(
+  assertNoMatch(
     contents,
-    /^package\/framework-packs\/starter\/pack\.yaml$/,
-    "starter pack manifest must be shipped in the npm package",
+    /^package\/framework-packs\//,
+    "framework pack assets must not be shipped in the npm package",
   );
   assertMatch(
     contents,
@@ -78,19 +78,6 @@ async function main() {
     assertPathExists(path.join(initWorkspace, ".maestro"));
     await assertFileContains(path.join(initWorkspace, "package.json"), '"maestro"');
     await assertFileContains(path.join(initWorkspace, "README.md"), "maestro.json");
-
-    await assertFileContains(
-      path.join(
-        tempRoot,
-        "node_modules",
-        "@th3mouk",
-        "maestro",
-        "framework-packs",
-        "starter",
-        "pack.yaml",
-      ),
-      "@maestro/starter-pack",
-    );
 
     const exampleWorkspace = path.join(
       tempRoot,

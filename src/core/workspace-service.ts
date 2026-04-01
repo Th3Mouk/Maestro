@@ -14,7 +14,7 @@ import {
   loadWorkspaceManifest as parseWorkspaceManifest,
   mergeSpec,
 } from "../workspace/manifest-parser.js";
-import { resolveBuiltInStarterPack, resolvePacks } from "../workspace/pack-resolver.js";
+import { resolvePacks } from "../workspace/pack-resolver.js";
 import {
   getRepositoryReferenceBranch,
   getRepositorySparseIncludePaths,
@@ -37,20 +37,9 @@ export async function resolveWorkspace(workspaceRoot: string): Promise<ResolvedW
     frameworkVersion,
     RESOLUTION_CONCURRENCY_LIMIT,
   );
-  const builtInStarterPack = await resolveBuiltInStarterPack(frameworkVersion);
   const manifestWithFragments = await applyPackFragments(manifest, packs);
-  const selectedAgents = await resolveAgents(
-    workspaceRoot,
-    manifestWithFragments,
-    packs,
-    builtInStarterPack,
-  );
-  const selectedSkills = await resolveSkills(
-    workspaceRoot,
-    manifestWithFragments,
-    packs,
-    builtInStarterPack,
-  );
+  const selectedAgents = await resolveAgents(workspaceRoot, manifestWithFragments, packs);
+  const selectedSkills = await resolveSkills(workspaceRoot, manifestWithFragments, packs);
   const selectedPolicies = await resolvePolicies(workspaceRoot, manifestWithFragments, packs);
   const runtimes = normalizeRuntimes(manifestWithFragments);
 
