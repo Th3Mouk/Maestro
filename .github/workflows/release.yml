@@ -133,4 +133,9 @@ jobs:
               --body "Automated release PR for v${{ steps.version.outputs.version }}.")"
           fi
 
-          gh pr merge "$PR_URL" --auto --squash --delete-branch
+          MERGE_STATE="$(gh pr view "$PR_URL" --json mergeStateStatus --jq '.mergeStateStatus')"
+          if [ "$MERGE_STATE" = "CLEAN" ]; then
+            gh pr merge "$PR_URL" --squash --delete-branch
+          else
+            gh pr merge "$PR_URL" --auto --squash --delete-branch
+          fi
