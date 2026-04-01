@@ -150,8 +150,8 @@ jobs:
           TAR_SHA256="$(sha256sum /tmp/maestro-"${VERSION}".tgz | awk '{print $1}')"
 
           FORMULA_PATH="Formula/maestro.rb"
-          perl -0pi -e 's{url "https://registry\.npmjs\.org/@th3mouk/maestro/-/maestro-[^"]+\.tgz"}{url "'"$TARBALL_URL"'"}' "$FORMULA_PATH"
-          perl -0pi -e 's{sha256 "[0-9a-f]{64}"}{sha256 "'"$TAR_SHA256"'"}' "$FORMULA_PATH"
+          sed -i "s|url \"https://registry\.npmjs\.org/@th3mouk/maestro/-/maestro-[^\"]*\.tgz\"|url \"${TARBALL_URL}\"|" "$FORMULA_PATH"
+          sed -i "s|sha256 \"[0-9a-f]\{64\}\"|sha256 \"${TAR_SHA256}\"|" "$FORMULA_PATH"
 
           echo "Homebrew formula updated:"
           grep -E '^\s{2}url ' "$FORMULA_PATH"
@@ -160,10 +160,24 @@ jobs:
           if git diff --quiet Formula/maestro.rb; then
             echo "Homebrew formula already up to date."
           else
+            BRANCH="release/homebrew-v${VERSION}"
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             gh auth setup-git
+            git checkout -b "$BRANCH"
             git add Formula/maestro.rb
             git commit -m "chore(homebrew): update formula for v${VERSION}"
-            git push --force-with-lease origin main
+            git push --force-with-lease origin HEAD:"$BRANCH"
+
+            PR_URL="$(gh pr list --head "$BRANCH" --state open --json url --jq 'if length > 0 then .[0].url else empty end')"
+
+            if [ -z "$PR_URL" ]; then
+              PR_URL="$(gh pr create \
+                --base main \
+                --head "$BRANCH" \
+                --title "chore(homebrew): update formula for v${VERSION}" \
+                --body "Automated Homebrew formula update for v${VERSION}.")"
+            fi
+
+            gh pr merge "$PR_URL" --auto --squash --delete-branch
           fi
