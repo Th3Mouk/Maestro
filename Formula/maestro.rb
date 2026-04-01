@@ -1,8 +1,8 @@
 class Maestro < Formula
   desc "Multi-repository workspaces for engineering teams"
   homepage "https://github.com/Th3Mouk/maestro"
-  url "https://registry.npmjs.org/@th3mouk/maestro/-/maestro-0.1.5.tgz"
-  sha256 "0147ce24753fdd3008686c15378538fb0ea2c2004e9c4ed5a12339943981e49b"
+  url "https://registry.npmjs.org/@th3mouk/maestro/-/maestro-0.1.6.tgz"
+  sha256 "7a2546a23cc0a46f6f66cb1e287ee55a5ccaa5bb139ede79aeb2a9bdb167bc52"
   license "MIT"
 
   depends_on "node"
