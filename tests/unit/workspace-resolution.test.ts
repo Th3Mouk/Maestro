@@ -2,6 +2,7 @@ import { cp, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { resolveWorkspace } from "../../src/core/workspace-service.js";
+import { getFrameworkVersion } from "../../src/version.js";
 import { createManagedTempDir } from "../utils/test-lifecycle.js";
 import { writeYaml } from "../utils/yaml.js";
 
@@ -269,6 +270,8 @@ describe("workspace resolution", () => {
       },
     });
 
-    await expect(resolveWorkspace(root)).rejects.toThrow("is incompatible with framework 0.1.0");
+    await expect(resolveWorkspace(root)).rejects.toThrow(
+      `is incompatible with framework ${getFrameworkVersion()}`,
+    );
   });
 });

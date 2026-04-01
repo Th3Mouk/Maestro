@@ -137,7 +137,7 @@ jobs:
       - name: Update Homebrew formula
         if: steps.verify.outputs.should_publish == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.MERGE_PAT }}
         run: |
           VERSION="${{ steps.package.outputs.version }}"
           TARBALL_URL="https://registry.npmjs.org/@th3mouk/maestro/-/maestro-${VERSION}.tgz"
