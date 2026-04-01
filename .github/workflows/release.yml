@@ -69,6 +69,18 @@ jobs:
             exit 1
           fi
 
+          # Detect version drift: package.json must not be behind existing tags.
+          LATEST_TAG="$(git tag --list 'v*' --sort=-version:refname | head -n1)"
+          if [ -n "$LATEST_TAG" ]; then
+            LATEST_TAG_VERSION="${LATEST_TAG#v}"
+            if [ "$(node -p "require('semver').gt('$LATEST_TAG_VERSION','$CURRENT_VERSION')")" = "true" ]; then
+              echo "Version drift detected: package.json is at $CURRENT_VERSION but tag $LATEST_TAG already exists."
+              echo "The release commit for $LATEST_TAG is not in main's history."
+              echo "Fix package.json version to $LATEST_TAG_VERSION before preparing another release."
+              exit 1
+            fi
+          fi
+
       - name: Compute next version
         id: version
         run: |
