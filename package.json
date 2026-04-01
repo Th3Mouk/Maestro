@@ -61,6 +61,7 @@
     "assets:banner": "node scripts/generate-banner.js",
     "assets:cli-topic": "node scripts/generate-cli-topic-assets.js",
     "build": "rm -rf dist && tsc -p tsconfig.build.json && node scripts/prepare-bin.mjs",
+    "fix:all": "pnpm sync:npm-shrinkwrap && pnpm lint:fix && pnpm format",
     "lint": "oxlint --config .oxlintrc.json --deny-warnings src tests scripts",
     "lint:fix": "oxlint --config .oxlintrc.json --fix --fix-suggestions src tests scripts",
     "format": "oxfmt --config .oxfmtrc.json --write .",

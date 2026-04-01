@@ -161,6 +161,7 @@ That quick path shows the expected lifecycle without duplicating the full walkth
 
 Contribution and repository-development guidance lives in [CONTRIBUTING.md](./CONTRIBUTING.md).
 This README stays focused on the framework itself.
+For local cleanup before review, use `pnpm fix:all`.
 
 ## What This Is Not
 
