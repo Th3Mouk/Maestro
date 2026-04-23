@@ -18,5 +18,6 @@ export function registerSyncCommand(program: Command, commandContext: CommandCon
       commandContext,
     );
     await writeJsonStdout(report);
+    process.exitCode = report.status === "error" ? 1 : 0;
   });
 }

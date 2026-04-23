@@ -30,5 +30,6 @@ export function registerInstallCommand(program: Command, commandContext: Command
         commandContext,
       );
       await writeJsonStdout(report);
+      process.exitCode = report.status === "error" ? 1 : 0;
     });
 }

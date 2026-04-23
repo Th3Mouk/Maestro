@@ -18,5 +18,6 @@ export function registerUpdateCommand(program: Command, commandContext: CommandC
       commandContext,
     );
     await writeJsonStdout(report);
+    process.exitCode = report.status === "error" ? 1 : 0;
   });
 }
