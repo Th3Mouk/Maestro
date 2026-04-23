@@ -670,7 +670,7 @@ describe("end-to-end workspace lifecycle", () => {
     ).toBe("dirty\n");
   });
 
-  test("cli git commands return non-zero on partial failures", async () => {
+  test("cli git commands report warnings in JSON envelope and exit 0", async () => {
     const { workspaceRoot } = await createScenario();
     await installWorkspace(workspaceRoot);
 
@@ -679,18 +679,20 @@ describe("end-to-end workspace lifecycle", () => {
     await writeFile(path.join(surApiRoot, ".github", "workflows", "deploy.yml"), "dirty\n", "utf8");
 
     const checkoutRun = await runCliCommand(["repo", "git", "checkout", "--workspace", workspaceRoot]);
-    const checkoutReport = JSON.parse(checkoutRun.stdout);
+    const checkoutEnvelope = JSON.parse(checkoutRun.stdout);
 
-    expect(checkoutRun.exitCode).toBe(1);
-    expect(checkoutReport.status).toBe("warning");
-    expect(checkoutReport.command).toBe("checkout");
+    expect(checkoutRun.exitCode).toBe(0);
+    expect(checkoutEnvelope.schemaVersion).toBe(1);
+    expect(checkoutEnvelope.data.status).toBe("warning");
+    expect(checkoutEnvelope.data.command).toBe("checkout");
 
     const pullRun = await runCliCommand(["repo", "git", "pull", "--workspace", workspaceRoot]);
-    const pullReport = JSON.parse(pullRun.stdout);
+    const pullEnvelope = JSON.parse(pullRun.stdout);
 
-    expect(pullRun.exitCode).toBe(1);
-    expect(pullReport.status).toBe("warning");
-    expect(pullReport.command).toBe("pull");
+    expect(pullRun.exitCode).toBe(0);
+    expect(pullEnvelope.schemaVersion).toBe(1);
+    expect(pullEnvelope.data.status).toBe("warning");
+    expect(pullEnvelope.data.command).toBe("pull");
   });
 
   test("install and git loops emit deterministic progress on non-tty stderr", async () => {

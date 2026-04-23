@@ -8,15 +8,18 @@ import {
   pullWorkspaceGitBranches,
   syncWorkspaceGitBranches,
 } from "../../../core/commands/workspace-git.js";
+import type { ReportStatus } from "../../../report/types.js";
 import {
+  addOutputOptions,
   addWorkspaceAndDryRunOptions,
   addWorkspaceOption,
   resolveWorkspacePath,
+  type OutputOptionValues,
 } from "../shared-options.js";
 import type { CommandContext } from "./command-types.js";
-import { writeJsonStdout } from "./command-helpers.js";
+import { runReportAction } from "./command-helpers.js";
 
-type GitCommandReport = { status: string };
+type GitCommandReport = { status: ReportStatus };
 
 type GitSubcommandRunner = (
   workspacePath: string,
@@ -28,15 +31,14 @@ function registerGitSubcommand(
   commandContext: CommandContext,
   options: { name: string; summary: string; description: string; run: GitSubcommandRunner },
 ): void {
-  addWorkspaceOption(
-    git.command(options.name).summary(options.summary).description(options.description),
-  ).action(async (commandOptions: { workspace: string }) => {
-    const report = await options.run(
-      resolveWorkspacePath(commandOptions.workspace),
-      commandContext,
+  addOutputOptions(
+    addWorkspaceOption(
+      git.command(options.name).summary(options.summary).description(options.description),
+    ),
+  ).action(async (commandOptions: OutputOptionValues & { workspace: string }) => {
+    await runReportAction(commandOptions, () =>
+      options.run(resolveWorkspacePath(commandOptions.workspace), commandContext),
     );
-    await writeJsonStdout(report);
-    process.exitCode = report.status === "ok" ? 0 : 1;
   });
 }
 
@@ -56,37 +58,47 @@ export function registerRepoCommand(program: Command, commandContext: CommandCon
       ].join("\n"),
     );
 
-  addWorkspaceAndDryRunOptions(
-    repo
-      .command("bootstrap")
-      .summary("Detect install strategy and run dependency bootstrap per repository")
-      .description(
-        "Run repository dependency bootstrap from explicit commands or auto-detected manifests and lockfiles",
-      )
-      .option("--repository <name>", "repository to bootstrap"),
-    "preview without executing",
+  addOutputOptions(
+    addWorkspaceAndDryRunOptions(
+      repo
+        .command("bootstrap")
+        .summary("Detect install strategy and run dependency bootstrap per repository")
+        .description(
+          "Run repository dependency bootstrap from explicit commands or auto-detected manifests and lockfiles",
+        )
+        .option("--repository <name>", "repository to bootstrap"),
+      "preview without executing",
+    ),
   ).action(
-    async (options: { workspace: string; repository?: string; dryRun?: boolean }) => {
-      const report = await bootstrapWorkspace(resolveWorkspacePath(options.workspace), {
-        dryRun: options.dryRun,
-        repository: options.repository,
-      });
-      await writeJsonStdout(report);
-      process.exitCode = report.status === "error" ? 1 : 0;
+    async (
+      options: OutputOptionValues & {
+        workspace: string;
+        repository?: string;
+        dryRun?: boolean;
+      },
+    ) => {
+      await runReportAction(options, () =>
+        bootstrapWorkspace(resolveWorkspacePath(options.workspace), {
+          dryRun: options.dryRun,
+          repository: options.repository,
+        }),
+      );
     },
   );
 
-  addWorkspaceOption(
-    repo
-      .command("list")
-      .summary("List managed repositories declared in the workspace manifest")
-      .description(
-        "List repositories declared in the workspace manifest with branch, remote, and install status",
-      ),
-  ).action(async (options: { workspace: string }) => {
-    const report = await listWorkspaceRepositories(resolveWorkspacePath(options.workspace));
-    await writeJsonStdout(report);
-    process.exitCode = report.status === "error" ? 1 : 0;
+  addOutputOptions(
+    addWorkspaceOption(
+      repo
+        .command("list")
+        .summary("List managed repositories declared in the workspace manifest")
+        .description(
+          "List repositories declared in the workspace manifest with branch, remote, and install status",
+        ),
+    ),
+  ).action(async (options: OutputOptionValues & { workspace: string }) => {
+    await runReportAction(options, () =>
+      listWorkspaceRepositories(resolveWorkspacePath(options.workspace)),
+    );
   });
 
   const git = repo

@@ -1,4 +1,9 @@
 import type { RuntimeName } from "../../../runtime/types.js";
+import type { ReportStatus } from "../../../report/types.js";
+import { statusToExitCode } from "../../exit-codes.js";
+import { createRenderer, resolveFormat } from "../../output/index.js";
+import type { ErrorCode, Renderer, RendererError } from "../../output/renderer.js";
+import type { OutputOptionValues } from "../shared-options.js";
 
 export function parseRuntimeNames(value?: string): RuntimeName[] | undefined {
   if (!value) {
@@ -23,15 +28,71 @@ export function parseRuntimeNames(value?: string): RuntimeName[] | undefined {
   return runtimes.length > 0 ? Array.from(new Set(runtimes as RuntimeName[])) : undefined;
 }
 
-export function writeJsonStdout(value: unknown): Promise<void> {
-  return new Promise((resolve, reject) => {
-    process.stdout.write(`${JSON.stringify(value, null, 2)}\n`, (error) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-
-      resolve();
-    });
+export function rendererFromOptions(options: OutputOptionValues): Renderer {
+  const format = resolveFormat({
+    formatFlag: options.format,
+    jsonFlag: options.json,
+    env: process.env,
+    isTTY: Boolean(process.stdout.isTTY),
   });
+  return createRenderer(format);
+}
+
+interface HasStatus {
+  status: ReportStatus;
+}
+
+/**
+ * Runs an action that produces a report, renders it via the resolved renderer,
+ * and sets process.exitCode through {@link statusToExitCode}. Thrown errors are
+ * routed through {@link Renderer.renderError} and mapped to exit code 1.
+ */
+export async function runReportAction<TReport extends HasStatus>(
+  options: OutputOptionValues,
+  run: (renderer: Renderer) => Promise<TReport>,
+): Promise<void> {
+  let renderer: Renderer;
+  try {
+    renderer = rendererFromOptions(options);
+  } catch (error) {
+    const fallback = createRenderer("json");
+    fallback.renderError(
+      {
+        code: "UNEXPECTED",
+        message: error instanceof Error ? error.message : String(error),
+      },
+      process.stderr,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  try {
+    const report = await run(renderer);
+    renderer.render(report, process.stdout);
+    process.exitCode = statusToExitCode(report.status);
+  } catch (error) {
+    renderer.renderError(toRendererError(error), process.stderr);
+    process.exitCode = 1;
+  }
+}
+
+function toRendererError(error: unknown): RendererError {
+  if (error && typeof error === "object" && "code" in error && "message" in error) {
+    const candidate = error as { code: unknown; message: unknown; details?: unknown };
+    if (typeof candidate.code === "string" && typeof candidate.message === "string") {
+      return {
+        code: candidate.code as ErrorCode,
+        message: candidate.message,
+        ...(candidate.details && typeof candidate.details === "object"
+          ? { details: candidate.details as Record<string, unknown> }
+          : {}),
+      };
+    }
+  }
+
+  return {
+    code: "UNEXPECTED",
+    message: error instanceof Error ? error.message : String(error),
+  };
 }

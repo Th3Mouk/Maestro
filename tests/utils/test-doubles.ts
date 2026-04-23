@@ -1,5 +1,7 @@
 import { vi } from "vitest";
 import type { CommandContext, GitCommandAdapter } from "../../src/core/command-context.js";
+import { JsonRenderer } from "../../src/cli/output/json-renderer.js";
+import type { Renderer } from "../../src/cli/output/renderer.js";
 
 export function mockFn<T extends (...args: any[]) => any = (...args: any[]) => any>() {
   return vi.fn<T>();
@@ -31,10 +33,12 @@ export function createCommandContextFixture(
   overrides: {
     gitAdapter?: Partial<GitCommandAdapter>;
     stderr?: NodeJS.WriteStream;
+    renderer?: Renderer;
   } = {},
 ): CommandContext {
   return {
     gitAdapter: createGitCommandAdapterFixture(overrides.gitAdapter),
     stderr: overrides.stderr ?? process.stderr,
+    renderer: overrides.renderer ?? new JsonRenderer(),
   };
 }
