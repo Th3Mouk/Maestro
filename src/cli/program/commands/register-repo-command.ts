@@ -1,8 +1,5 @@
 import type { Command } from "commander";
-import {
-  bootstrapWorkspace,
-  listWorkspaceRepositories,
-} from "../../../core/commands/execution.js";
+import { bootstrapWorkspace, listWorkspaceRepositories } from "../../../core/commands/execution.js";
 import {
   checkoutWorkspaceGitBranches,
   pullWorkspaceGitBranches,

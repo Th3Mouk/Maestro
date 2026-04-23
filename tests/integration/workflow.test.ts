@@ -678,7 +678,13 @@ describe("end-to-end workspace lifecycle", () => {
     await execa("git", ["checkout", "-b", "feature/local"], { cwd: surApiRoot });
     await writeFile(path.join(surApiRoot, ".github", "workflows", "deploy.yml"), "dirty\n", "utf8");
 
-    const checkoutRun = await runCliCommand(["repo", "git", "checkout", "--workspace", workspaceRoot]);
+    const checkoutRun = await runCliCommand([
+      "repo",
+      "git",
+      "checkout",
+      "--workspace",
+      workspaceRoot,
+    ]);
     const checkoutEnvelope = JSON.parse(checkoutRun.stdout);
 
     expect(checkoutRun.exitCode).toBe(0);

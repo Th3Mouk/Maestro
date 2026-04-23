@@ -42,9 +42,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
       "preview without writing",
     ),
   ).action(
-    async (
-      options: OutputOptionValues & { workspace: string; task: string; dryRun?: boolean },
-    ) => {
+    async (options: OutputOptionValues & { workspace: string; task: string; dryRun?: boolean }) => {
       await runReportAction(options, () =>
         createTaskWorktree(
           resolveWorkspacePath(options.workspace),

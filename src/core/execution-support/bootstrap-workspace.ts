@@ -35,7 +35,10 @@ export async function bootstrapWorkspaceWithResolvedWorkspace(
   }
 
   report.repositories = createBootstrapRepositoryReport(selection.entries);
-  appendReportIssues(report, selection.entries.flatMap((e) => e.issues));
+  appendReportIssues(
+    report,
+    selection.entries.flatMap((e) => e.issues),
+  );
 
   const issues = await executeBootstrapPlan(selection.entries, {
     concurrencyLimit,

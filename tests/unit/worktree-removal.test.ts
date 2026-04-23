@@ -204,7 +204,9 @@ describe("removeTaskWorktreeWithResolvedWorkspace", () => {
       workspaceName: "ws",
     });
 
-    const removeWorktree = vi.fn<() => Promise<"removed" | "missing">>().mockResolvedValue("removed");
+    const removeWorktree = vi
+      .fn<() => Promise<"removed" | "missing">>()
+      .mockResolvedValue("removed");
     const gitAdapter = createRemoveGitAdapterFixture({
       hasGitMetadata: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
       removeWorktree,
@@ -355,7 +357,14 @@ describe("listWorkspaceRepositoriesWithResolvedWorkspace", () => {
   test("defaults missing branch to 'main'", async () => {
     const workspaceRoot = await createManagedTempDir("maestro-list-repos-default-");
     const resolvedWorkspace = createResolvedWorkspaceFixture({
-      repositories: [{ name: "svc", remote: "git@github.com:org/svc.git", branch: "main", sparse: { visiblePaths: ["."] } }],
+      repositories: [
+        {
+          name: "svc",
+          remote: "git@github.com:org/svc.git",
+          branch: "main",
+          sparse: { visiblePaths: ["."] },
+        },
+      ],
       workspaceName: "ws",
     });
 

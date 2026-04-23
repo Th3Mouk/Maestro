@@ -37,21 +37,15 @@ export async function detectBootstrapCommands(
     return { commands, issues };
   }
 
-  const [
-    hasComposer,
-    hasComposerLock,
-    hasPackageJson,
-    hasPyproject,
-    hasUvLock,
-    hasRequirements,
-  ] = await Promise.all([
-    pathExists(path.join(root, "composer.json")),
-    pathExists(path.join(root, "composer.lock")),
-    pathExists(path.join(root, "package.json")),
-    pathExists(path.join(root, "pyproject.toml")),
-    pathExists(path.join(root, "uv.lock")),
-    pathExists(path.join(root, "requirements.txt")),
-  ]);
+  const [hasComposer, hasComposerLock, hasPackageJson, hasPyproject, hasUvLock, hasRequirements] =
+    await Promise.all([
+      pathExists(path.join(root, "composer.json")),
+      pathExists(path.join(root, "composer.lock")),
+      pathExists(path.join(root, "package.json")),
+      pathExists(path.join(root, "pyproject.toml")),
+      pathExists(path.join(root, "uv.lock")),
+      pathExists(path.join(root, "requirements.txt")),
+    ]);
 
   if (hasComposer) {
     if (hasComposerLock) {

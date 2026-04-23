@@ -54,11 +54,7 @@ describe("CLI program assembly", () => {
     expect(getFlags(findCommand(repo, "list"))).toContain("--workspace <path>");
 
     const git = findCommand(repo, "git");
-    expect(git.commands.map((entry) => entry.name()).sort()).toEqual([
-      "checkout",
-      "pull",
-      "sync",
-    ]);
+    expect(git.commands.map((entry) => entry.name()).sort()).toEqual(["checkout", "pull", "sync"]);
     for (const name of ["checkout", "pull", "sync"]) {
       expect(getFlags(findCommand(git, name))).toContain("--workspace <path>");
     }
@@ -85,16 +81,12 @@ describe("CLI program assembly", () => {
 
   test("init keeps its positional and options", () => {
     const init = findCommand(createProgram(), "init");
-    expect(getFlags(init)).toEqual(
-      expect.arrayContaining(["--dry-run", "--runtimes <list>"]),
-    );
+    expect(getFlags(init)).toEqual(expect.arrayContaining(["--dry-run", "--runtimes <list>"]));
     expect(getFlags(init)).not.toContain("--workspace <path>");
   });
 
   test("editor-workspace command is registered at top level", () => {
     const editor = findCommand(createProgram(), "editor-workspace");
-    expect(getFlags(editor)).toEqual(
-      expect.arrayContaining(["--workspace <path>", "--dry-run"]),
-    );
+    expect(getFlags(editor)).toEqual(expect.arrayContaining(["--workspace <path>", "--dry-run"]));
   });
 });

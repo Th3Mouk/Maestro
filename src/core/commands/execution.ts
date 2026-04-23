@@ -3,7 +3,10 @@ import {
   prepareTaskWorktree,
 } from "../execution-service.js";
 import { resolveWorkspace } from "../workspace-service.js";
-import { removeTaskWorktreeWithResolvedWorkspace, listTaskWorktreesWithResolvedWorkspace } from "../execution-support/task-worktree-remove.js";
+import {
+  removeTaskWorktreeWithResolvedWorkspace,
+  listTaskWorktreesWithResolvedWorkspace,
+} from "../execution-support/task-worktree-remove.js";
 import { listWorkspaceRepositoriesWithResolvedWorkspace } from "../execution-support/repository-list.js";
 import type { CommandContext } from "../command-context.js";
 import { createCommandContext } from "../command-context.js";
