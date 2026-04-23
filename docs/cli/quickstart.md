@@ -9,6 +9,8 @@ Prerequisites:
 
 The generated `maestro` command is still a Node program after installation, so Node is part of the runtime requirement, not just the development toolchain.
 
+Command output is human-readable (tables and colored summaries) when run in a terminal, and stable JSON when stdout is piped or redirected. Pass `--json` or set `MAESTRO_FORMAT=json` to force JSON in a TTY; see [Output formats](./commands.md#output-formats) for the full precedence matrix and envelope spec.
+
 ## 1. Install or run once
 
 Use any of these entry points:

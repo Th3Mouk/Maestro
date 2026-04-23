@@ -23,8 +23,118 @@ The core lifecycle is:
 
 - `--workspace <path>`: target workspace directory. Defaults to the current directory.
 - `--dry-run`: preview the plan without writing or executing, where applicable.
+- `--format <human|json>`: select the output format. See [Output formats](#output-formats) for precedence.
+- `--json`: shorthand for `--format json`.
+- `--no-color`: disable ANSI color in human output. Also respects `NO_COLOR` and `FORCE_COLOR` env vars.
 
-All `workspace`, `repo`, `worktree`, and `editor-workspace` commands print JSON reports to stdout.
+All `workspace`, `repo`, `worktree`, and `editor-workspace` commands emit a structured report. The format is human-readable on an interactive terminal and JSON when stdout is piped or redirected; see [Output formats](#output-formats) for the full precedence rules and the JSON envelope spec.
+
+## Output formats
+
+Maestro commands are output-format-agnostic: the same domain report is rendered through a human formatter (tables, colored status lines, grouped issues) or as stable JSON, chosen at invocation time.
+
+### Defaults
+
+- Interactive terminal (stdout is a TTY) → `human`.
+- Piped or redirected stdout (scripts, CI logs, `| jq`) → `json`.
+
+Progress and log output always go to stderr, so JSON consumers can pipe stdout directly into `jq` without interference.
+
+### Precedence
+
+From highest to lowest priority:
+
+1. `--json` (explicit flag; equivalent to `--format json`).
+2. `--format <human|json>` (explicit flag).
+3. `MAESTRO_FORMAT=<human|json>` (environment variable).
+4. TTY detection: `human` if `process.stdout.isTTY`, otherwise `json`.
+
+### JSON envelope
+
+Success output on **stdout**:
+
+```json
+{
+  "data": { "status": "ok", "...": "report-specific fields" },
+  "schemaVersion": 1
+}
+```
+
+Error output on **stderr** (stdout stays empty or ends before the error):
+
+```json
+{
+  "error": {
+    "code": "WORKSPACE_NOT_FOUND",
+    "message": "No maestro.yaml found at /tmp/nope",
+    "details": { "path": "/tmp/nope" }
+  },
+  "schemaVersion": 1
+}
+```
+
+`details` is optional and included only when the error carries structured context.
+
+### Error codes
+
+The `error.code` field is one of:
+
+- `WORKSPACE_NOT_FOUND`
+- `WORKSPACE_LOCKED`
+- `REPO_MISSING`
+- `REPO_DIRTY`
+- `WORKTREE_NOT_FOUND`
+- `WORKTREE_METADATA_MISSING`
+- `GIT_OPERATION_FAILED`
+- `MANIFEST_INVALID`
+- `BOOTSTRAP_FAILED`
+- `PERMISSION_DENIED`
+- `UNEXPECTED`
+
+The canonical list lives in `src/cli/output/renderer.ts`.
+
+### Exit codes
+
+- `0`: report `status` is `ok` or `warning`.
+- `1`: report `status` is `error`, or an unhandled exception propagated out of the command.
+
+`warning` never exits non-zero; use the report body (or a `jq` filter on `.data.status`) to branch on warnings in scripts.
+
+### Color
+
+Human output uses ANSI color by default when stdout is a TTY. To disable:
+
+- Pass `--no-color`.
+- Set `NO_COLOR=1` in the environment.
+
+To force color (useful when piping through a pager that preserves ANSI):
+
+- Set `FORCE_COLOR=1`.
+
+Maestro delegates color detection to [`picocolors`](https://github.com/alexeyraspopov/picocolors), which honors these conventions natively.
+
+### Scripting
+
+Pipe the JSON envelope into `jq` and read the report via `.data`:
+
+```bash
+maestro repo list --workspace . --json | jq '.data.repositories[]'
+```
+
+Branch on report status without relying on exit codes:
+
+```bash
+maestro workspace doctor --workspace . --json \
+  | jq -e '.data.status == "ok"' > /dev/null \
+  && echo "clean" || echo "issues found"
+```
+
+On error, parse the stderr envelope:
+
+```bash
+maestro workspace install --workspace /bad/path --json 2> err.json
+jq '.error.code' err.json
+```
 
 ## `init`
 
