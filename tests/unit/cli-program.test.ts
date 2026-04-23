@@ -1,68 +1,100 @@
 import { describe, expect, test } from "vitest";
+import type { Command } from "commander";
 import { createProgram } from "../../src/cli/main.js";
 
-function getCommandFlags(commandName: string): string[] {
-  const command = createProgram().commands.find((entry) => entry.name() === commandName);
-  if (!command) {
-    throw new Error(`Command "${commandName}" is not registered`);
+function findCommand(parent: Command, name: string): Command {
+  const found = parent.commands.find((entry) => entry.name() === name);
+  if (!found) {
+    throw new Error(`Command "${name}" is not registered under "${parent.name()}"`);
   }
+  return found;
+}
 
+function getFlags(command: Command): string[] {
   return command.options.map((option) => option.flags);
 }
 
 describe("CLI program assembly", () => {
-  test("registers the expected top-level commands", () => {
+  test("registers the expected top-level command groups", () => {
     const commandNames = createProgram()
       .commands.map((command) => command.name())
       .sort();
 
     expect(commandNames).toEqual([
-      "bootstrap",
-      "code-workspace",
-      "doctor",
-      "git",
+      "editor-workspace",
       "init",
-      "install",
-      "sync",
-      "update",
-      "upgrade",
+      "repo",
+      "self",
+      "workspace",
       "worktree",
     ]);
   });
 
-  test("keeps workspace and dry-run flags on commands that support them", () => {
-    expect(getCommandFlags("install")).toContain("--workspace <path>");
-    expect(getCommandFlags("install")).toContain("--dry-run");
-    expect(getCommandFlags("bootstrap")).toContain("--workspace <path>");
-    expect(getCommandFlags("bootstrap")).toContain("--dry-run");
-    expect(getCommandFlags("worktree")).toContain("--workspace <path>");
-    expect(getCommandFlags("worktree")).toContain("--dry-run");
-    expect(getCommandFlags("doctor")).toContain("--workspace <path>");
-  });
+  test("workspace group exposes install, update, prune, doctor", () => {
+    const workspace = findCommand(createProgram(), "workspace");
+    const names = workspace.commands.map((entry) => entry.name()).sort();
+    expect(names).toEqual(["doctor", "install", "prune", "update"]);
 
-  test("keeps init options unchanged", () => {
-    expect(getCommandFlags("init")).toContain("--dry-run");
-    expect(getCommandFlags("init")).toContain("--runtimes <list>");
-    expect(getCommandFlags("init")).not.toContain("--workspace <path>");
-  });
-
-  test("keeps workspace flags on git subcommands", () => {
-    const git = createProgram().commands.find((entry) => entry.name() === "git");
-    if (!git) {
-      throw new Error('Command "git" is not registered');
+    for (const name of ["install", "update", "prune"]) {
+      expect(getFlags(findCommand(workspace, name))).toEqual(
+        expect.arrayContaining(["--workspace <path>", "--dry-run"]),
+      );
     }
+    expect(getFlags(findCommand(workspace, "doctor"))).toContain("--workspace <path>");
+  });
 
-    const getGitSubcommandFlags = (name: string): string[] => {
-      const subcommand = git.commands.find((entry) => entry.name() === name);
-      if (!subcommand) {
-        throw new Error(`Git subcommand "${name}" is not registered`);
-      }
+  test("repo group exposes bootstrap, list, and git subgroup", () => {
+    const repo = findCommand(createProgram(), "repo");
+    const names = repo.commands.map((entry) => entry.name()).sort();
+    expect(names).toEqual(["bootstrap", "git", "list"]);
 
-      return subcommand.options.map((option) => option.flags);
-    };
+    expect(getFlags(findCommand(repo, "bootstrap"))).toEqual(
+      expect.arrayContaining(["--workspace <path>", "--dry-run", "--repository <name>"]),
+    );
+    expect(getFlags(findCommand(repo, "list"))).toContain("--workspace <path>");
 
-    expect(getGitSubcommandFlags("checkout")).toContain("--workspace <path>");
-    expect(getGitSubcommandFlags("pull")).toContain("--workspace <path>");
-    expect(getGitSubcommandFlags("sync")).toContain("--workspace <path>");
+    const git = findCommand(repo, "git");
+    expect(git.commands.map((entry) => entry.name()).sort()).toEqual([
+      "checkout",
+      "pull",
+      "sync",
+    ]);
+    for (const name of ["checkout", "pull", "sync"]) {
+      expect(getFlags(findCommand(git, name))).toContain("--workspace <path>");
+    }
+  });
+
+  test("worktree group exposes create, remove, list", () => {
+    const worktree = findCommand(createProgram(), "worktree");
+    const names = worktree.commands.map((entry) => entry.name()).sort();
+    expect(names).toEqual(["create", "list", "remove"]);
+
+    expect(getFlags(findCommand(worktree, "create"))).toEqual(
+      expect.arrayContaining(["--workspace <path>", "--dry-run", "--task <name>"]),
+    );
+    expect(getFlags(findCommand(worktree, "remove"))).toEqual(
+      expect.arrayContaining(["--workspace <path>", "--dry-run", "--task <name>", "--force"]),
+    );
+    expect(getFlags(findCommand(worktree, "list"))).toContain("--workspace <path>");
+  });
+
+  test("self group exposes upgrade", () => {
+    const self = findCommand(createProgram(), "self");
+    expect(self.commands.map((entry) => entry.name())).toEqual(["upgrade"]);
+  });
+
+  test("init keeps its positional and options", () => {
+    const init = findCommand(createProgram(), "init");
+    expect(getFlags(init)).toEqual(
+      expect.arrayContaining(["--dry-run", "--runtimes <list>"]),
+    );
+    expect(getFlags(init)).not.toContain("--workspace <path>");
+  });
+
+  test("editor-workspace command is registered at top level", () => {
+    const editor = findCommand(createProgram(), "editor-workspace");
+    expect(getFlags(editor)).toEqual(
+      expect.arrayContaining(["--workspace <path>", "--dry-run"]),
+    );
   });
 });

@@ -1,0 +1,115 @@
+import type { Command } from "commander";
+import {
+  bootstrapWorkspace,
+  listWorkspaceRepositories,
+} from "../../../core/commands/execution.js";
+import {
+  checkoutWorkspaceGitBranches,
+  pullWorkspaceGitBranches,
+  syncWorkspaceGitBranches,
+} from "../../../core/commands/workspace-git.js";
+import {
+  addWorkspaceAndDryRunOptions,
+  addWorkspaceOption,
+  resolveWorkspacePath,
+} from "../shared-options.js";
+import type { CommandContext } from "./command-types.js";
+import { writeJsonStdout } from "./command-helpers.js";
+
+type GitCommandReport = { status: string };
+
+type GitSubcommandRunner = (
+  workspacePath: string,
+  commandContext: CommandContext,
+) => Promise<GitCommandReport>;
+
+function registerGitSubcommand(
+  git: Command,
+  commandContext: CommandContext,
+  options: { name: string; summary: string; description: string; run: GitSubcommandRunner },
+): void {
+  addWorkspaceOption(
+    git.command(options.name).summary(options.summary).description(options.description),
+  ).action(async (commandOptions: { workspace: string }) => {
+    const report = await options.run(
+      resolveWorkspacePath(commandOptions.workspace),
+      commandContext,
+    );
+    await writeJsonStdout(report);
+    process.exitCode = report.status === "ok" ? 0 : 1;
+  });
+}
+
+export function registerRepoCommand(program: Command, commandContext: CommandContext): void {
+  const repo = program
+    .command("repo")
+    .summary("Inspect and operate on managed repositories")
+    .description("Commands that operate across the managed repositories in the workspace")
+    .addHelpText(
+      "after",
+      [
+        "",
+        "Examples:",
+        "  maestro repo list --workspace .",
+        "  maestro repo bootstrap --workspace .",
+        "  maestro repo git sync --workspace .",
+      ].join("\n"),
+    );
+
+  addWorkspaceAndDryRunOptions(
+    repo
+      .command("bootstrap")
+      .summary("Detect install strategy and run dependency bootstrap per repository")
+      .description(
+        "Run repository dependency bootstrap from explicit commands or auto-detected manifests and lockfiles",
+      )
+      .option("--repository <name>", "repository to bootstrap"),
+    "preview without executing",
+  ).action(
+    async (options: { workspace: string; repository?: string; dryRun?: boolean }) => {
+      const report = await bootstrapWorkspace(resolveWorkspacePath(options.workspace), {
+        dryRun: options.dryRun,
+        repository: options.repository,
+      });
+      await writeJsonStdout(report);
+      process.exitCode = report.status === "error" ? 1 : 0;
+    },
+  );
+
+  addWorkspaceOption(
+    repo
+      .command("list")
+      .summary("List managed repositories declared in the workspace manifest")
+      .description(
+        "List repositories declared in the workspace manifest with branch, remote, and install status",
+      ),
+  ).action(async (options: { workspace: string }) => {
+    const report = await listWorkspaceRepositories(resolveWorkspacePath(options.workspace));
+    await writeJsonStdout(report);
+    process.exitCode = report.status === "error" ? 1 : 0;
+  });
+
+  const git = repo
+    .command("git")
+    .summary("Run workspace-scoped Git operations across managed repositories")
+    .description("Run bulk Git operations across managed repositories in the workspace");
+
+  registerGitSubcommand(git, commandContext, {
+    name: "checkout",
+    summary: "Check out each managed repository onto its reference branch",
+    description: "Check out each managed repository onto its reference branch",
+    run: checkoutWorkspaceGitBranches,
+  });
+  registerGitSubcommand(git, commandContext, {
+    name: "pull",
+    summary: "Pull the current branch in each managed repository",
+    description: "Pull the currently checked out branch in each managed repository",
+    run: pullWorkspaceGitBranches,
+  });
+  registerGitSubcommand(git, commandContext, {
+    name: "sync",
+    summary: "Check out reference branches, then pull each managed repository",
+    description: "Check out reference branches, then pull each managed repository",
+    run: syncWorkspaceGitBranches,
+  });
+}

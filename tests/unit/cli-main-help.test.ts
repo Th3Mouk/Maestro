@@ -11,11 +11,11 @@ describe("CLI help surface", () => {
     expect(help).toContain(formatUpgradeInstructions());
   });
 
-  test("registers the upgrade command in the CLI surface", () => {
-    const commandNames = createProgram()
-      .commands.map((command) => command.name())
-      .sort();
-
-    expect(commandNames).toContain("upgrade");
+  test("registers the self upgrade command in the CLI surface", () => {
+    const program = createProgram();
+    const self = program.commands.find((command) => command.name() === "self");
+    expect(self).toBeDefined();
+    const selfSubcommands = self?.commands.map((command) => command.name()) ?? [];
+    expect(selfSubcommands).toContain("upgrade");
   });
 });

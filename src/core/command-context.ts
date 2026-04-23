@@ -13,6 +13,7 @@ export type GitCommandAdapter = Pick<
   | "getCommittedChangedFiles"
   | "commitAll"
   | "ensureWorktree"
+  | "removeWorktree"
   | "checkoutBranch"
   | "pullCurrentBranch"
 >;

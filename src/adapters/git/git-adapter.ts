@@ -275,6 +275,24 @@ export class GitAdapter {
     return "created";
   }
 
+  async removeWorktree(
+    repoRoot: string,
+    worktreePath: string,
+    options: { force?: boolean } = {},
+  ): Promise<"removed" | "missing"> {
+    if (!(await this.hasGitMetadata(worktreePath))) {
+      return "missing";
+    }
+
+    const args = ["worktree", "remove"];
+    if (options.force) {
+      args.push("--force");
+    }
+    args.push("--", worktreePath);
+    await execa("git", args, { cwd: repoRoot });
+    return "removed";
+  }
+
   async run(repoRoot: string, args: string[]) {
     return this.#commandExecutor.runWithFriendlyErrors(repoRoot, args);
   }

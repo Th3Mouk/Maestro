@@ -2,12 +2,12 @@ import type { Command } from "commander";
 import { projectEditorWorkspace } from "../../../core/execution-service.js";
 import { addWorkspaceAndDryRunOptions, resolveWorkspacePath } from "../shared-options.js";
 
-export function registerCodeWorkspaceCommand(program: Command): void {
+export function registerEditorWorkspaceCommand(program: Command): void {
   addWorkspaceAndDryRunOptions(
     program
-      .command("code-workspace")
-      .summary("Generate the optional VS Code multi-root workspace file")
-      .description("Generate the optional multi-root editor workspace file"),
+      .command("editor-workspace")
+      .summary("Generate the optional multi-root editor workspace file")
+      .description("Generate the optional multi-root editor workspace file (e.g. VS Code)"),
     "preview without writing",
   )
     .addHelpText(
@@ -15,8 +15,8 @@ export function registerCodeWorkspaceCommand(program: Command): void {
       [
         "",
         "Examples:",
-        "  maestro code-workspace --workspace .",
-        "  maestro code-workspace --workspace ./examples/ops-workspace",
+        "  maestro editor-workspace --workspace .",
+        "  maestro editor-workspace --workspace ./examples/ops-workspace",
       ].join("\n"),
     )
     .action(async (options: { workspace: string; dryRun?: boolean }) => {

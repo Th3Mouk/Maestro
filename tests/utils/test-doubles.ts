@@ -22,6 +22,7 @@ export function createGitCommandAdapterFixture(
     hasGitMetadata: mockFn().mockResolvedValue(true),
     isClean: mockFn().mockResolvedValue(true),
     pullCurrentBranch: mockFn().mockResolvedValue({ branch: "main", status: "unchanged" }),
+    removeWorktree: mockFn().mockResolvedValue("removed"),
     ...overrides,
   };
 }

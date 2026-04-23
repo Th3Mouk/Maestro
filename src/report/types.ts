@@ -44,6 +44,45 @@ export interface DoctorReport {
   issues: Array<{ code: string; message: string; path?: string }>;
 }
 
+export interface WorktreeRemoveReport {
+  status: ReportStatus;
+  workspace: string;
+  name: string;
+  root: string;
+  repositories: Array<{
+    name: string;
+    path: string;
+    status: "removed" | "missing" | "skipped" | "failed";
+    message?: string;
+  }>;
+  workspaceRootStatus: "removed" | "missing" | "skipped" | "failed";
+  issues: Array<{ code: string; message: string; path?: string }>;
+}
+
+export interface WorktreeListReport {
+  status: ReportStatus;
+  workspace: string;
+  worktrees: Array<{
+    name: string;
+    root: string;
+    createdAt: string;
+  }>;
+  issues: Array<{ code: string; message: string; path?: string }>;
+}
+
+export interface RepoListReport {
+  status: ReportStatus;
+  workspace: string;
+  repositories: Array<{
+    name: string;
+    branch: string;
+    remote: string;
+    path: string;
+    installed: boolean;
+  }>;
+  issues: Array<{ code: string; message: string; path?: string }>;
+}
+
 export interface WorkspaceGitReport {
   status: ReportStatus;
   workspace: string;

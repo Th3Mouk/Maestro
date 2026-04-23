@@ -2,6 +2,9 @@ import {
   bootstrapWorkspace as bootstrapWorkspaceExecution,
   prepareTaskWorktree,
 } from "../execution-service.js";
+import { resolveWorkspace } from "../workspace-service.js";
+import { removeTaskWorktreeWithResolvedWorkspace, listTaskWorktreesWithResolvedWorkspace } from "../execution-support/task-worktree-remove.js";
+import { listWorkspaceRepositoriesWithResolvedWorkspace } from "../execution-support/repository-list.js";
 import type { CommandContext } from "../command-context.js";
 import { createCommandContext } from "../command-context.js";
 
@@ -56,4 +59,31 @@ export async function createTaskWorktree(
   return prepareTaskWorktree(workspaceRoot, taskName, options, {
     gitAdapter: context.gitAdapter,
   });
+}
+
+export async function removeTaskWorktree(
+  workspaceRoot: string,
+  taskName: string,
+  options: { force?: boolean; dryRun?: boolean } = {},
+  context: CommandContext = createCommandContext(),
+) {
+  const resolvedWorkspace = await resolveWorkspace(workspaceRoot);
+  return removeTaskWorktreeWithResolvedWorkspace(
+    workspaceRoot,
+    resolvedWorkspace,
+    taskName,
+    options,
+    { gitAdapter: context.gitAdapter },
+    4,
+  );
+}
+
+export async function listTaskWorktrees(workspaceRoot: string) {
+  const resolvedWorkspace = await resolveWorkspace(workspaceRoot);
+  return listTaskWorktreesWithResolvedWorkspace(workspaceRoot, resolvedWorkspace);
+}
+
+export async function listWorkspaceRepositories(workspaceRoot: string) {
+  const resolvedWorkspace = await resolveWorkspace(workspaceRoot);
+  return listWorkspaceRepositoriesWithResolvedWorkspace(workspaceRoot, resolvedWorkspace);
 }
