@@ -1,5 +1,6 @@
 import path from "node:path";
 import { quote } from "shell-quote";
+import type { BootstrapReport } from "../../report/types.js";
 import type { RepositoryRef, ResolvedWorkspace } from "../../workspace/types.js";
 import { mapWithConcurrency, resolveSafePath } from "../../utils/fs.js";
 import { errorMessage, MaestroError } from "../errors.js";
@@ -15,6 +16,7 @@ export interface RepositoryBootstrapPlan {
   repoRoot: string;
   repoPathFromWorkspaceRoot: string;
   commands: string[];
+  issues: BootstrapReport["issues"];
   toolchains: string[];
   skipped: boolean;
 }
@@ -33,14 +35,15 @@ export async function buildBootstrapPlan(
         projectRepositoryPath(repository.name),
         "workspace repository path",
       );
-      const commands = await detectBootstrapCommands(repository, repoRoot);
+      const detection = await detectBootstrapCommands(repository, repoRoot);
       return {
-        commands,
+        commands: detection.commands,
+        issues: detection.issues,
         repoRoot,
         repoPathFromWorkspaceRoot: asProjectionPosixPath(path.relative(workspaceRoot, repoRoot)),
         repository,
-        skipped: commands.length === 0 || repository.bootstrap?.enabled === false,
-        toolchains: detectToolchains(commands),
+        skipped: detection.commands.length === 0,
+        toolchains: detectToolchains(detection.commands),
       };
     },
   );
@@ -57,10 +60,15 @@ export function renderBootstrapScript(plan: RepositoryBootstrapPlan[]): string {
 
   for (const entry of plan) {
     lines.push(`printf '%s\\n' ${quote([`==> ${entry.repository.name}`])}`);
+    for (const issue of entry.issues) {
+      lines.push(`printf '%s\\n' ${quote([`Warning: ${issue.message}`])}`);
+    }
     if (entry.skipped) {
-      lines.push(
-        `printf '%s\\n' ${quote([`Skipping ${entry.repository.name}: no bootstrap commands.`])}`,
-      );
+      if (entry.issues.length === 0) {
+        lines.push(
+          `printf '%s\\n' ${quote([`Skipping ${entry.repository.name}: no bootstrap commands.`])}`,
+        );
+      }
       lines.push("");
       continue;
     }

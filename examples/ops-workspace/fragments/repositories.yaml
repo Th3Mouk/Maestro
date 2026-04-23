@@ -16,6 +16,7 @@ spec:
           - helm/
           - k8s/
           - composer.json
+          - composer.lock
       bootstrap:
         strategy: auto
       permissions:
@@ -42,6 +43,7 @@ spec:
         includePaths:
           - .github/
           - package.json
+          - package-lock.json
           - eslint.config.js
           - Dockerfile
       bootstrap:

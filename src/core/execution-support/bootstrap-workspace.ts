@@ -1,7 +1,7 @@
 import { execa } from "execa";
 import type { BootstrapReport } from "../../report/types.js";
 import type { ResolvedWorkspace } from "../../workspace/types.js";
-import { escalateStatus } from "../errors.js";
+import { appendReportIssues } from "../reporting/issues.js";
 import {
   createBootstrapRepositoryReport,
   executeBootstrapPlan,
@@ -35,6 +35,7 @@ export async function bootstrapWorkspaceWithResolvedWorkspace(
   }
 
   report.repositories = createBootstrapRepositoryReport(selection.entries);
+  appendReportIssues(report, selection.entries.flatMap((e) => e.issues));
 
   const issues = await executeBootstrapPlan(selection.entries, {
     concurrencyLimit,
@@ -47,10 +48,7 @@ export async function bootstrapWorkspaceWithResolvedWorkspace(
     },
   });
 
-  for (const issue of issues) {
-    report.status = escalateStatus(report.status, "warning");
-    report.issues.push(issue);
-  }
+  appendReportIssues(report, issues);
 
   return report;
 }

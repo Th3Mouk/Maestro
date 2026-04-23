@@ -26,6 +26,7 @@ function createBootstrapPlanEntry(
     >,
 ): RepositoryBootstrapPlan {
   return {
+    issues: [],
     repoRoot: "/tmp/repo",
     ...overrides,
   };
@@ -61,19 +62,50 @@ describe("execution collaborators", () => {
 
     expect(plan).toHaveLength(2);
     expect(plan[0]).toMatchObject({
-      commands: [
-        "corepack enable >/dev/null 2>&1 || true; pnpm install --frozen-lockfile || pnpm install",
-      ],
+      commands: ["corepack enable >/dev/null 2>&1 || true; pnpm install --frozen-lockfile"],
+      issues: [],
       repoPathFromWorkspaceRoot: "repos/frontend",
       skipped: false,
       toolchains: ["node"],
     });
     expect(plan[1]).toMatchObject({
       commands: ["cd services && echo manual"],
+      issues: [],
       repoPathFromWorkspaceRoot: "repos/backend",
       skipped: false,
       toolchains: [],
     });
+  });
+
+  test("reports auto bootstrap repositories that have manifests but no strict lockfile", async () => {
+    const workspaceRoot = await createManagedTempDir("maestro-bootstrap-missing-lock-");
+    const autoRepoRoot = path.join(workspaceRoot, "repos", "frontend");
+    await mkdir(autoRepoRoot, { recursive: true });
+    await writeFile(path.join(autoRepoRoot, "package.json"), "{}\n");
+
+    const resolvedWorkspace = createResolvedWorkspaceFixture({
+      repositories: [
+        createRepositoryFixture({
+          name: "frontend",
+        }),
+      ],
+    });
+
+    const plan = await buildBootstrapPlan(workspaceRoot, resolvedWorkspace, 4);
+
+    expect(plan).toHaveLength(1);
+    expect(plan[0]).toMatchObject({
+      commands: [],
+      skipped: true,
+      toolchains: [],
+    });
+    expect(plan[0]?.issues).toEqual([
+      expect.objectContaining({
+        code: "BOOTSTRAP_LOCKFILE_REQUIRED",
+        message: expect.stringContaining("package.json"),
+        path: autoRepoRoot,
+      }),
+    ]);
   });
 
   test("renders devcontainer artifacts from the selected toolchains", () => {

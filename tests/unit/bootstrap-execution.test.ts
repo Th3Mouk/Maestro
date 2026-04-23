@@ -13,6 +13,7 @@ function createBootstrapPlanEntry(
 ): RepositoryBootstrapPlan {
   return {
     commands: ["npm ci"],
+    issues: [],
     repoRoot: `/tmp/${overrides.repository.name}`,
     skipped: false,
     toolchains: [],

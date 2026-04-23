@@ -355,7 +355,7 @@ describe("listWorkspaceRepositoriesWithResolvedWorkspace", () => {
   test("defaults missing branch to 'main'", async () => {
     const workspaceRoot = await createManagedTempDir("maestro-list-repos-default-");
     const resolvedWorkspace = createResolvedWorkspaceFixture({
-      repositories: [{ name: "svc", remote: "git@github.com:org/svc.git", sparse: { visiblePaths: ["."] } }],
+      repositories: [{ name: "svc", remote: "git@github.com:org/svc.git", branch: "main", sparse: { visiblePaths: ["."] } }],
       workspaceName: "ws",
     });
 

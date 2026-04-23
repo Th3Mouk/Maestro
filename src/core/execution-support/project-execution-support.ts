@@ -42,6 +42,7 @@ export async function projectExecutionSupportWithResolvedWorkspace(
         path.join(executionRoot, "bootstrap-plan.json"),
         bootstrapPlan.map((entry) => ({
           commands: entry.commands,
+          issues: entry.issues,
           name: entry.repository.name,
           skipped: entry.skipped,
           toolchains: entry.toolchains,
@@ -64,7 +65,7 @@ export async function projectExecutionSupportWithResolvedWorkspace(
       await withWorkspaceLock(workspaceRoot, async () => {
         await ensureDir(worktreeRoot);
         await writeJson(path.join(executionRoot, "worktrees.json"), {
-          branchPrefix: worktreeConfig?.branchPrefix ?? "task",
+          branchPrefix: worktreeConfig.branchPrefix ?? "task",
           rootDir: path.relative(workspaceRoot, worktreeRoot) || ".",
         });
       });

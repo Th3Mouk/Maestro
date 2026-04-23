@@ -424,7 +424,7 @@ describe("end-to-end workspace lifecycle", () => {
 
     expect(report.status).toBe("ok");
     expect(surApi?.commands.some((command) => command.includes("composer install"))).toBe(true);
-    expect(admin?.commands.some((command) => command.includes("npm install"))).toBe(true);
+    expect(admin?.commands).toContain("npm ci");
   });
 
   test("doctor reports missing runtime artifacts", async () => {
@@ -678,14 +678,14 @@ describe("end-to-end workspace lifecycle", () => {
     await execa("git", ["checkout", "-b", "feature/local"], { cwd: surApiRoot });
     await writeFile(path.join(surApiRoot, ".github", "workflows", "deploy.yml"), "dirty\n", "utf8");
 
-    const checkoutRun = await runCliCommand(["git", "checkout", "--workspace", workspaceRoot]);
+    const checkoutRun = await runCliCommand(["repo", "git", "checkout", "--workspace", workspaceRoot]);
     const checkoutReport = JSON.parse(checkoutRun.stdout);
 
     expect(checkoutRun.exitCode).toBe(1);
     expect(checkoutReport.status).toBe("warning");
     expect(checkoutReport.command).toBe("checkout");
 
-    const pullRun = await runCliCommand(["git", "pull", "--workspace", workspaceRoot]);
+    const pullRun = await runCliCommand(["repo", "git", "pull", "--workspace", workspaceRoot]);
     const pullReport = JSON.parse(pullRun.stdout);
 
     expect(pullRun.exitCode).toBe(1);
@@ -748,6 +748,7 @@ async function createScenario(): Promise<{ root: string; workspaceRoot: string }
     "helm/chart.yaml": "apiVersion: v2",
     "k8s/deployment.yaml": "kind: Deployment",
     "composer.json": '{"name":"org/sur-api"}',
+    "composer.lock": '{"content-hash":"test"}',
     "src/Secret.php": '<?php echo "secret";',
   });
 
@@ -762,6 +763,7 @@ async function createScenario(): Promise<{ root: string; workspaceRoot: string }
         "  lint:",
         "    runs-on: ubuntu-latest",
       ].join("\n"),
+      "package-lock.json": '{"name":"admin","lockfileVersion":3}',
       "package.json": '{"name":"admin"}',
       "eslint.config.js": "export default [];",
       Dockerfile: "FROM node:22-alpine",
@@ -1005,6 +1007,7 @@ async function createWorkspace(
       "          - helm/",
       "          - k8s/",
       "          - composer.json",
+      "          - composer.lock",
       "      bootstrap:",
       "        strategy: auto",
       "      permissions:",
@@ -1026,6 +1029,7 @@ async function createWorkspace(
       "        visiblePaths:",
       "          - .github/",
       "          - package.json",
+      "          - package-lock.json",
       "          - eslint.config.js",
       "          - Dockerfile",
       "      bootstrap:",
