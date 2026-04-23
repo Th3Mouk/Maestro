@@ -23,8 +23,8 @@ function createRemoveGitAdapterFixture(
   overrides: Partial<TaskWorktreeRemoveGitAdapter> = {},
 ): TaskWorktreeRemoveGitAdapter {
   return {
-    hasGitMetadata: vi.fn().mockResolvedValue(true),
-    removeWorktree: vi.fn().mockResolvedValue("removed"),
+    hasGitMetadata: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
+    removeWorktree: vi.fn<() => Promise<"removed" | "missing">>().mockResolvedValue("removed"),
     ...overrides,
   };
 }
@@ -47,7 +47,7 @@ describe("createWorktreeRemoveReport", () => {
 describe("removeTaskRepositories orchestrator", () => {
   test("marks repository skipped and emits REPO_MISSING issue when source is not installed", async () => {
     const gitAdapter = createRemoveGitAdapterFixture({
-      hasGitMetadata: vi.fn().mockResolvedValue(false),
+      hasGitMetadata: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
     });
     const outcomes = await removeTaskRepositories({
       concurrencyLimit: 2,
@@ -65,8 +65,8 @@ describe("removeTaskRepositories orchestrator", () => {
   });
 
   test("captures per-repo failures without aborting siblings", async () => {
-    const removeWorktree = vi
-      .fn()
+    const removeWorktree = vi.fn<TaskWorktreeRemoveGitAdapter["removeWorktree"]>();
+    removeWorktree
       .mockImplementationOnce(async () => {
         throw new Error("boom");
       })
@@ -99,7 +99,7 @@ describe("removeTaskRepositories orchestrator", () => {
 
   test("passes removed status from adapter for healthy repos", async () => {
     const gitAdapter = createRemoveGitAdapterFixture({
-      removeWorktree: vi.fn().mockResolvedValue("missing"),
+      removeWorktree: vi.fn<() => Promise<"removed" | "missing">>().mockResolvedValue("missing"),
     });
     const outcomes = await removeTaskRepositories({
       concurrencyLimit: 2,
@@ -204,9 +204,9 @@ describe("removeTaskWorktreeWithResolvedWorkspace", () => {
       workspaceName: "ws",
     });
 
-    const removeWorktree = vi.fn().mockResolvedValue("removed");
+    const removeWorktree = vi.fn<() => Promise<"removed" | "missing">>().mockResolvedValue("removed");
     const gitAdapter = createRemoveGitAdapterFixture({
-      hasGitMetadata: vi.fn().mockResolvedValue(true),
+      hasGitMetadata: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
       removeWorktree,
     });
 
@@ -246,7 +246,7 @@ describe("removeTaskWorktreeWithResolvedWorkspace", () => {
     });
     // First call: taskRoot metadata check -> false.
     const gitAdapter = createRemoveGitAdapterFixture({
-      hasGitMetadata: vi.fn().mockResolvedValue(false),
+      hasGitMetadata: vi.fn<() => Promise<boolean>>().mockResolvedValue(false),
     });
 
     const report = await removeTaskWorktreeWithResolvedWorkspace(
