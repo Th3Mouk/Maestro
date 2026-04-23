@@ -684,6 +684,8 @@ describe("end-to-end workspace lifecycle", () => {
       "checkout",
       "--workspace",
       workspaceRoot,
+      "--format",
+      "json",
     ]);
     const checkoutEnvelope = JSON.parse(checkoutRun.stdout);
 
@@ -692,7 +694,15 @@ describe("end-to-end workspace lifecycle", () => {
     expect(checkoutEnvelope.data.status).toBe("warning");
     expect(checkoutEnvelope.data.command).toBe("checkout");
 
-    const pullRun = await runCliCommand(["repo", "git", "pull", "--workspace", workspaceRoot]);
+    const pullRun = await runCliCommand([
+      "repo",
+      "git",
+      "pull",
+      "--workspace",
+      workspaceRoot,
+      "--format",
+      "json",
+    ]);
     const pullEnvelope = JSON.parse(pullRun.stdout);
 
     expect(pullRun.exitCode).toBe(0);

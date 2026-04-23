@@ -33,7 +33,7 @@ function registerGitSubcommand(
       git.command(options.name).summary(options.summary).description(options.description),
     ),
   ).action(async (commandOptions: OutputOptionValues & { workspace: string }) => {
-    await runReportAction(commandOptions, () =>
+    await runReportAction(commandOptions, "workspace-git", () =>
       options.run(resolveWorkspacePath(commandOptions.workspace), commandContext),
     );
   });
@@ -74,7 +74,7 @@ export function registerRepoCommand(program: Command, commandContext: CommandCon
         dryRun?: boolean;
       },
     ) => {
-      await runReportAction(options, () =>
+      await runReportAction(options, "bootstrap", () =>
         bootstrapWorkspace(resolveWorkspacePath(options.workspace), {
           dryRun: options.dryRun,
           repository: options.repository,
@@ -93,7 +93,7 @@ export function registerRepoCommand(program: Command, commandContext: CommandCon
         ),
     ),
   ).action(async (options: OutputOptionValues & { workspace: string }) => {
-    await runReportAction(options, () =>
+    await runReportAction(options, "repo-list", () =>
       listWorkspaceRepositories(resolveWorkspacePath(options.workspace)),
     );
   });

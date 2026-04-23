@@ -30,6 +30,6 @@ export function createCommandContext(overrides: Partial<CommandContext> = {}): C
   return {
     gitAdapter: overrides.gitAdapter ?? new GitAdapter(),
     stderr: overrides.stderr ?? process.stderr,
-    renderer: overrides.renderer ?? createRenderer("json"),
+    renderer: overrides.renderer ?? createRenderer("json", { reportKind: "install" }),
   };
 }

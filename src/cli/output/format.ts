@@ -33,8 +33,5 @@ export function resolveFormat(options: ResolveFormatOptions = {}): OutputFormat 
     return validateFormat(envValue, "MAESTRO_FORMAT");
   }
 
-  // TODO(phase-4b): return options.isTTY ? "human" : "json";
-  // Phase 4a keeps JSON as the default on every invocation to preserve
-  // existing behavior. The human renderer lands in Phase 4b.
-  return "json";
+  return options.isTTY === true ? "human" : "json";
 }

@@ -43,7 +43,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
     ),
   ).action(
     async (options: OutputOptionValues & { workspace: string; task: string; dryRun?: boolean }) => {
-      await runReportAction(options, () =>
+      await runReportAction(options, "worktree-create", () =>
         createTaskWorktree(
           resolveWorkspacePath(options.workspace),
           options.task,
@@ -79,7 +79,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         dryRun?: boolean;
       },
     ) => {
-      await runReportAction(options, () =>
+      await runReportAction(options, "worktree-remove", () =>
         removeTaskWorktree(
           resolveWorkspacePath(options.workspace),
           options.task,
@@ -98,7 +98,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         .description("Enumerate task worktrees with their creation time and root path"),
     ),
   ).action(async (options: OutputOptionValues & { workspace: string }) => {
-    await runReportAction(options, () =>
+    await runReportAction(options, "worktree-list", () =>
       listTaskWorktrees(resolveWorkspacePath(options.workspace)),
     );
   });

@@ -50,7 +50,7 @@ export function registerWorkspaceCommand(program: Command, commandContext: Comma
       "preview without writing",
     ),
   ).action(async (options: WorkspaceLifecycleOptions) => {
-    await runReportAction(options, () =>
+    await runReportAction(options, "install", () =>
       installWorkspace(
         resolveWorkspacePath(options.workspace),
         { dryRun: options.dryRun },
@@ -68,7 +68,7 @@ export function registerWorkspaceCommand(program: Command, commandContext: Comma
       "preview without writing",
     ),
   ).action(async (options: WorkspaceLifecycleOptions) => {
-    await runReportAction(options, () =>
+    await runReportAction(options, "install", () =>
       updateWorkspace(
         resolveWorkspacePath(options.workspace),
         { dryRun: options.dryRun },
@@ -88,7 +88,7 @@ export function registerWorkspaceCommand(program: Command, commandContext: Comma
       "preview without writing",
     ),
   ).action(async (options: WorkspaceLifecycleOptions) => {
-    await runReportAction(options, () =>
+    await runReportAction(options, "install", () =>
       syncWorkspace(
         resolveWorkspacePath(options.workspace),
         { dryRun: options.dryRun },
@@ -107,7 +107,7 @@ export function registerWorkspaceCommand(program: Command, commandContext: Comma
         ),
     ),
   ).action(async (options: WorkspaceDoctorOptions) => {
-    await runReportAction(options, () =>
+    await runReportAction(options, "doctor", () =>
       doctorWorkspace(resolveWorkspacePath(options.workspace), commandContext),
     );
   });

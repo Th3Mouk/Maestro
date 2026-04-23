@@ -1,7 +1,9 @@
+import pc from "picocolors";
 import type { RuntimeName } from "../../../runtime/types.js";
 import type { ReportStatus } from "../../../report/types.js";
 import { statusToExitCode } from "../../exit-codes.js";
 import { createRenderer, resolveFormat } from "../../output/index.js";
+import type { HumanReportKind } from "../../output/index.js";
 import type { ErrorCode, Renderer, RendererError } from "../../output/renderer.js";
 import type { OutputOptionValues } from "../shared-options.js";
 
@@ -28,14 +30,19 @@ export function parseRuntimeNames(value?: string): RuntimeName[] | undefined {
   return runtimes.length > 0 ? Array.from(new Set(runtimes as RuntimeName[])) : undefined;
 }
 
-export function rendererFromOptions(options: OutputOptionValues): Renderer {
+export function rendererFromOptions(
+  options: OutputOptionValues,
+  reportKind: HumanReportKind,
+): Renderer {
   const format = resolveFormat({
     formatFlag: options.format,
     jsonFlag: options.json,
     env: process.env,
     isTTY: Boolean(process.stdout.isTTY),
   });
-  return createRenderer(format);
+  const color =
+    options.color !== false && process.env.NO_COLOR === undefined && pc.isColorSupported;
+  return createRenderer(format, { reportKind, color });
 }
 
 interface HasStatus {
@@ -49,13 +56,14 @@ interface HasStatus {
  */
 export async function runReportAction<TReport extends HasStatus>(
   options: OutputOptionValues,
+  reportKind: HumanReportKind,
   run: (renderer: Renderer) => Promise<TReport>,
 ): Promise<void> {
   let renderer: Renderer;
   try {
-    renderer = rendererFromOptions(options);
+    renderer = rendererFromOptions(options, reportKind);
   } catch (error) {
-    const fallback = createRenderer("json");
+    const fallback = createRenderer("json", { reportKind });
     fallback.renderError(
       {
         code: "UNEXPECTED",
