@@ -5,7 +5,7 @@
 Before committing, always run the full check suite:
 
 ```bash
-pnpm check
+rm -rf node_modules/.cache/knip && pnpm check
 ```
 
 This is the single source of truth and mirrors CI exactly. It runs (in order):
