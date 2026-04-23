@@ -244,9 +244,9 @@ Dirty checks in this workflow intentionally ignore untracked files (`--untracked
 
 Pull the currently checked out branch from `origin` in each managed repository with fast-forward-only semantics.
 
-The command does not switch branches. It reports failures repo by repo for detached HEAD state, dirty working trees, and non-fast-forward pull attempts.
+The command does not switch branches and tolerates a dirty working tree: uncommitted tracked changes are auto-stashed before the fast-forward and restored afterwards. The command reports failures repo by repo for detached HEAD state, in-progress merges or rebases, and non-fast-forward pull attempts.
 
-Dirty checks in this workflow intentionally ignore untracked files (`--untracked-files=no`) so local untracked artifacts do not block fast-forward updates of tracked content.
+When restoring the stash would produce conflicts with upstream changes, the pull is aborted for that repository: `HEAD` is reset to its pre-pull commit and local changes are preserved in `git stash list` so nothing is lost. Run `git stash pop` manually after reconciling.
 
 #### `repo git sync`
 

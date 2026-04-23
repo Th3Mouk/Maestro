@@ -147,6 +147,66 @@ describe("git adapter branch operations", () => {
     await expect(gitAdapter.pullCurrentBranch(repoRoot)).rejects.toThrow("Git command failed");
   });
 
+  test("pulls with a dirty working tree by auto-stashing local changes", async () => {
+    const root = await createManagedTempDir("git-adapter-pull-autostash-");
+    const remote = await createBareRemoteRepo(root, "sample", {
+      main: { "README.md": "v1\n", "notes.md": "notes\n" },
+    });
+    const repoRoot = path.join(root, "repo");
+    await execa("git", ["clone", remote, repoRoot]);
+    await configureGitIdentity(repoRoot);
+
+    await addCommitToBareRemote(root, remote, "main", "README.md", "v2\n", "Update main");
+
+    await writeFile(path.join(repoRoot, "notes.md"), "dirty notes\n", "utf8");
+
+    const result = await gitAdapter.pullCurrentBranch(repoRoot);
+
+    expect(result).toEqual({ branch: "main", status: "updated" });
+    expect((await execa("git", ["show", "HEAD:README.md"], { cwd: repoRoot })).stdout).toBe("v2");
+    expect(await readFile(path.join(repoRoot, "notes.md"), "utf8")).toBe("dirty notes\n");
+    expect(await gitAdapter.isClean(repoRoot)).toBe(false);
+  });
+
+  test("refuses to pull when a merge is in progress", async () => {
+    const root = await createManagedTempDir("git-adapter-pull-mid-merge-");
+    const remote = await createBareRemoteRepo(root, "sample", {
+      main: { "README.md": "v1\n" },
+    });
+    const repoRoot = path.join(root, "repo");
+    await execa("git", ["clone", remote, repoRoot]);
+    await writeFile(path.join(repoRoot, ".git", "MERGE_HEAD"), "deadbeef\n", "utf8");
+
+    await expect(gitAdapter.pullCurrentBranch(repoRoot)).rejects.toThrow(
+      "middle of a merge or rebase",
+    );
+  });
+
+  test("aborts the pull and preserves local changes when autostash conflicts", async () => {
+    const root = await createManagedTempDir("git-adapter-pull-autostash-conflict-");
+    const remote = await createBareRemoteRepo(root, "sample", {
+      main: { "conflict.md": "base\n" },
+    });
+    const repoRoot = path.join(root, "repo");
+    await execa("git", ["clone", remote, repoRoot]);
+    await configureGitIdentity(repoRoot);
+
+    const initialHead = (await execa("git", ["rev-parse", "HEAD"], { cwd: repoRoot })).stdout;
+
+    await addCommitToBareRemote(root, remote, "main", "conflict.md", "upstream\n", "Upstream");
+
+    await writeFile(path.join(repoRoot, "conflict.md"), "local\n", "utf8");
+
+    await expect(gitAdapter.pullCurrentBranch(repoRoot)).rejects.toThrow(
+      "upstream changes conflict with local modifications",
+    );
+
+    const postHead = (await execa("git", ["rev-parse", "HEAD"], { cwd: repoRoot })).stdout;
+    expect(postHead).toBe(initialHead);
+    const stashList = (await execa("git", ["stash", "list"], { cwd: repoRoot })).stdout;
+    expect(stashList).not.toBe("");
+  });
+
   test("rejects option-like branch names", async () => {
     const root = await createManagedTempDir("git-adapter-invalid-branch-");
     const remote = await createBareRemoteRepo(root, "sample", {

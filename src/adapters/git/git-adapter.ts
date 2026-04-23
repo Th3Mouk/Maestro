@@ -183,23 +183,44 @@ export class GitAdapter {
     }
 
     await this.#branchGuard.ensureValidBranchName(repoRoot, branchName);
-    if (!(await this.isClean(repoRoot))) {
-      throw new Error(`Cannot pull ${branchName}: working tree is not clean.`);
-    }
+    await this.#assertNotMidMergeOrRebase(repoRoot);
 
+    const initialHead = (await this.run(repoRoot, ["rev-parse", "HEAD"])).stdout.trim();
     await this.fetch(repoRoot);
     const result = await this.run(repoRoot, [
       "pull",
       "--ff-only",
       "--no-rebase",
+      "--autostash",
       "origin",
       branchName,
     ]);
-    const output = `${result.stdout}\n${result.stderr}`.trim();
+    const output = `${result.stdout}\n${result.stderr}`;
+
+    if (output.includes("Applying autostash resulted in conflicts")) {
+      await this.run(repoRoot, ["reset", "--hard", initialHead]);
+      throw new Error(
+        `Cannot pull ${branchName}: upstream changes conflict with local modifications. Your changes are preserved in 'git stash list'; resolve and run 'git stash pop' manually.`,
+      );
+    }
+
     return {
       branch: branchName,
       status: output.includes("Already up to date.") ? "unchanged" : "updated",
     };
+  }
+
+  async #assertNotMidMergeOrRebase(repoRoot: string): Promise<void> {
+    const indicators = ["MERGE_HEAD", "REBASE_HEAD", "rebase-apply", "rebase-merge"];
+    for (const indicator of indicators) {
+      const { stdout } = await this.run(repoRoot, ["rev-parse", "--git-path", indicator]);
+      const indicatorPath = path.resolve(repoRoot, stdout.trim());
+      if (await pathExists(indicatorPath)) {
+        throw new Error(
+          `Cannot pull: repository is in the middle of a merge or rebase. Resolve it first.`,
+        );
+      }
+    }
   }
 
   async getChangedFiles(repoRoot: string): Promise<string[]> {
