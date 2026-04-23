@@ -53,7 +53,7 @@ Maestro introduces partial or complete multi-repository workspaces on top of Git
 - initialize the workspace root as a Git repository on first install, then install full Git repositories or sparse checkouts into that workspace under `repos/` by omitting `sparse` or by combining `includePaths` / `excludePaths`;
 - create an initial `🪄 booted by Maestro` commit at the end of the first setup when the workspace repository is still unborn;
 - materialize only the files downstream tools should see when a partial workspace is enough, or the full repository when it is not;
-- bootstrap repository dependencies with `maestro bootstrap`, which auto-detects `composer`, `uv`, `npm`, `pnpm`, `yarn`, and `bun` in the cloned repositories;
+- bootstrap repository dependencies with `maestro repo bootstrap`, which auto-detects `composer`, `uv`, `npm`, `pnpm`, `yarn`, and `bun` in the cloned repositories;
 - emit `maestro.json`, the neutral descriptor for agents, harnesses, scripts, and other tooling;
 - distribute workspace assets through packs;
 - version native plugin bundles and repo-local plugin marketplaces alongside the workspace contract;
@@ -143,7 +143,7 @@ After installation, start here:
 ```bash
 maestro --help
 maestro init my-workspace
-maestro doctor --workspace ./examples/ops-workspace
+maestro workspace doctor --workspace ./examples/ops-workspace
 ```
 
 ## 5-minute quickstart
@@ -153,9 +153,9 @@ Start from an empty directory and let `maestro init` create the workspace skelet
 ```bash
 maestro init my-workspace
 cd my-workspace
-maestro install --workspace . --dry-run
-maestro bootstrap --workspace .
-maestro doctor --workspace .
+maestro workspace install --workspace . --dry-run
+maestro repo bootstrap --workspace .
+maestro workspace doctor --workspace .
 ```
 
 That quick path shows the expected lifecycle without duplicating the full walkthrough. For the generated files, task worktree flow, and editor-specific steps, see [5-minute quickstart](./docs/cli/quickstart.md).
