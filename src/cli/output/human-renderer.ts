@@ -30,7 +30,7 @@ export type HumanReportKind =
   | "repo-list"
   | "workspace-git";
 
-export interface HumanRendererOptions {
+interface HumanRendererOptions {
   color?: boolean;
 }
 

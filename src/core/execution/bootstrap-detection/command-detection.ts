@@ -5,7 +5,7 @@ import type { BootstrapReport } from "../../../report/types.js";
 import type { RepositoryRef } from "../../../workspace/types.js";
 import { pathExists, resolveSafePath } from "../../../utils/fs.js";
 
-export interface BootstrapCommandDetection {
+interface BootstrapCommandDetection {
   commands: string[];
   issues: BootstrapReport["issues"];
 }

@@ -1,6 +1,6 @@
 import type { OutputFormat } from "./renderer.js";
 
-export interface ResolveFormatOptions {
+interface ResolveFormatOptions {
   formatFlag?: string;
   jsonFlag?: boolean;
   env?: NodeJS.ProcessEnv;
