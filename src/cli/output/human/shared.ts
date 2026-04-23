@@ -76,4 +76,3 @@ export function summaryLine(
 ): string {
   return `${bold(command, ctx)}: ${statusLabel(status, ctx)}${extras ? ` (${extras})` : ""}`;
 }
-
