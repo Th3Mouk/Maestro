@@ -87,7 +87,7 @@ async function main() {
       "examples",
       "ops-workspace",
     );
-    await execa(binPath, ["install", "--workspace", exampleWorkspace, "--dry-run"], {
+    await execa(binPath, ["workspace", "install", "--workspace", exampleWorkspace, "--dry-run"], {
       cwd: tempRoot,
       stdio: "pipe",
     });
