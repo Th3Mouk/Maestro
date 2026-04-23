@@ -17,11 +17,7 @@ function pick(color: boolean, fn: Formatter): Formatter {
 }
 
 function statusLabel(status: ReportStatus, ctx: HumanFormatContext): string {
-  const paint = pick(
-    ctx.color,
-    status === "ok" ? pc.green : status === "warning" ? pc.yellow : pc.red,
-  );
-  return paint(status);
+  return paintStatus(status, status, ctx);
 }
 
 export function paintStatus(
@@ -55,6 +51,14 @@ export function bold(value: string, ctx: HumanFormatContext): string {
   return pick(ctx.color, pc.bold)(value);
 }
 
+export function formatIssueLine(
+  issue: { code: string; message: string; path?: string },
+  ctx: HumanFormatContext,
+): string {
+  const suffix = issue.path ? ` ${dim(`(${issue.path})`, ctx)}` : "";
+  return `  - ${bold(issue.code, ctx)}: ${issue.message}${suffix}`;
+}
+
 export function renderIssues(
   issues: ReadonlyArray<{ code: string; message: string; path?: string }>,
   ctx: HumanFormatContext,
@@ -62,11 +66,7 @@ export function renderIssues(
   if (issues.length === 0) {
     return "";
   }
-  const lines = issues.map((issue) => {
-    const suffix = issue.path ? ` ${dim(`(${issue.path})`, ctx)}` : "";
-    return `  - ${bold(issue.code, ctx)}: ${issue.message}${suffix}`;
-  });
-  return `\nIssues:\n${lines.join("\n")}`;
+  return `\nIssues:\n${issues.map((issue) => formatIssueLine(issue, ctx)).join("\n")}`;
 }
 
 export function toneForMutationStatus(

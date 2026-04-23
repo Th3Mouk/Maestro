@@ -1,5 +1,5 @@
 import type { DoctorReport } from "../../../report/types.js";
-import { bold, dim, paintStatus, summaryLine, type HumanFormatContext } from "./shared.js";
+import { formatIssueLine, paintStatus, summaryLine, type HumanFormatContext } from "./shared.js";
 
 type IssueSeverity = "error" | "warning" | "info";
 
@@ -42,10 +42,7 @@ export function formatDoctorReport(report: DoctorReport, ctx: HumanFormatContext
     if (bucket.length === 0) continue;
     const tone = severity === "error" ? "error" : severity === "warning" ? "warning" : "neutral";
     const header = paintStatus(severity.toUpperCase(), tone, ctx);
-    const lines = bucket.map((issue) => {
-      const suffix = issue.path ? ` ${dim(`(${issue.path})`, ctx)}` : "";
-      return `  - ${bold(issue.code, ctx)}: ${issue.message}${suffix}`;
-    });
+    const lines = bucket.map((issue) => formatIssueLine(issue, ctx));
     sections.push(`${header}\n${lines.join("\n")}`);
   }
 
