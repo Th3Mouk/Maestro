@@ -47,7 +47,7 @@ export function dim(value: string, ctx: HumanFormatContext): string {
   return pick(ctx.color, pc.dim)(value);
 }
 
-export function bold(value: string, ctx: HumanFormatContext): string {
+function bold(value: string, ctx: HumanFormatContext): string {
   return pick(ctx.color, pc.bold)(value);
 }
 
