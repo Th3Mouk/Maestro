@@ -1,12 +1,12 @@
-import Table from "cli-table3";
 import type { InstallReport } from "../../../report/types.js";
-import { paintStatus, renderIssues, summaryLine, type HumanFormatContext } from "./shared.js";
-
-function toneForRepoStatus(status: "created" | "updated" | "unchanged"): "ok" | "neutral" | "dim" {
-  if (status === "created") return "ok";
-  if (status === "updated") return "neutral";
-  return "dim";
-}
+import {
+  makeTable,
+  paintStatus,
+  renderIssues,
+  summaryLine,
+  toneForMutationStatus,
+  type HumanFormatContext,
+} from "./shared.js";
 
 export function formatInstallReport(report: InstallReport, ctx: HumanFormatContext): string {
   const summary = summaryLine(
@@ -21,16 +21,11 @@ export function formatInstallReport(report: InstallReport, ctx: HumanFormatConte
     return `${summary}\n${report.workspace}\n(no repositories)${actionLine}${renderIssues(report.issues, ctx)}\n`;
   }
 
-  const table = new Table({
-    head: ["Repository", "Status", "Path"],
-    style: { head: [], border: [] },
-    colWidths: [24, 12, 64],
-    wordWrap: true,
-  });
+  const table = makeTable(["Repository", "Status", "Path"], [24, 12, 64]);
   for (const repo of report.repositories) {
     table.push([
       repo.name,
-      paintStatus(repo.status, toneForRepoStatus(repo.status), ctx),
+      paintStatus(repo.status, toneForMutationStatus(repo.status), ctx),
       repo.path,
     ]);
   }

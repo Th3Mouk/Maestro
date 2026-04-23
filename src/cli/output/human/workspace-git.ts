@@ -1,6 +1,11 @@
-import Table from "cli-table3";
 import type { WorkspaceGitReport } from "../../../report/types.js";
-import { paintStatus, renderIssues, summaryLine, type HumanFormatContext } from "./shared.js";
+import {
+  makeTable,
+  paintStatus,
+  renderIssues,
+  summaryLine,
+  type HumanFormatContext,
+} from "./shared.js";
 
 type GitStatus = WorkspaceGitReport["repositories"][number]["status"];
 
@@ -27,12 +32,10 @@ export function formatWorkspaceGitReport(
     return `${summary}\n${report.workspace}\nok - nothing to do${renderIssues(report.issues, ctx)}\n`;
   }
 
-  const table = new Table({
-    head: ["Repository", "Branch", "Status", "Path", "Detail"],
-    style: { head: [], border: [] },
-    colWidths: [20, 24, 12, 40, 28],
-    wordWrap: true,
-  });
+  const table = makeTable(
+    ["Repository", "Branch", "Status", "Path", "Detail"],
+    [20, 24, 12, 40, 28],
+  );
   for (const repo of report.repositories) {
     table.push([
       repo.name,

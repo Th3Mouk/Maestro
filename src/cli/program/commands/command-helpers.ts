@@ -30,10 +30,7 @@ export function parseRuntimeNames(value?: string): RuntimeName[] | undefined {
   return runtimes.length > 0 ? Array.from(new Set(runtimes as RuntimeName[])) : undefined;
 }
 
-function rendererFromOptions(
-  options: OutputOptionValues,
-  reportKind: HumanReportKind,
-): Renderer {
+function rendererFromOptions(options: OutputOptionValues, reportKind: HumanReportKind): Renderer {
   const format = resolveFormat({
     formatFlag: options.format,
     jsonFlag: options.json,

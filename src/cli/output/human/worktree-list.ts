@@ -1,6 +1,5 @@
-import Table from "cli-table3";
 import type { WorktreeListReport } from "../../../report/types.js";
-import { renderIssues, summaryLine, type HumanFormatContext } from "./shared.js";
+import { makeTable, renderIssues, summaryLine, type HumanFormatContext } from "./shared.js";
 
 export function formatWorktreeListReport(
   report: WorktreeListReport,
@@ -17,12 +16,7 @@ export function formatWorktreeListReport(
     return `${summary}\n${report.workspace}\nok - nothing to do${renderIssues(report.issues, ctx)}\n`;
   }
 
-  const table = new Table({
-    head: ["Name", "Root", "Created"],
-    style: { head: [], border: [] },
-    colWidths: [28, 56, 26],
-    wordWrap: true,
-  });
+  const table = makeTable(["Name", "Root", "Created"], [28, 56, 26]);
   for (const worktree of report.worktrees) {
     table.push([worktree.name, worktree.root, worktree.createdAt]);
   }

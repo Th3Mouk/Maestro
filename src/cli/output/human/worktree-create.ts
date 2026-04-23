@@ -1,12 +1,12 @@
-import Table from "cli-table3";
 import type { TaskWorktreeReport } from "../../../report/types.js";
-import { paintStatus, renderIssues, summaryLine, type HumanFormatContext } from "./shared.js";
-
-function toneForStatus(status: "created" | "updated" | "unchanged"): "ok" | "neutral" | "dim" {
-  if (status === "created") return "ok";
-  if (status === "updated") return "neutral";
-  return "dim";
-}
+import {
+  makeTable,
+  paintStatus,
+  renderIssues,
+  summaryLine,
+  toneForMutationStatus,
+  type HumanFormatContext,
+} from "./shared.js";
 
 export function formatWorktreeCreateReport(
   report: TaskWorktreeReport,
@@ -23,16 +23,11 @@ export function formatWorktreeCreateReport(
     return `${summary}\n${report.root}\nok - nothing to do${renderIssues(report.issues, ctx)}\n`;
   }
 
-  const table = new Table({
-    head: ["Repository", "Status", "Branch", "Path"],
-    style: { head: [], border: [] },
-    colWidths: [20, 12, 28, 48],
-    wordWrap: true,
-  });
+  const table = makeTable(["Repository", "Status", "Branch", "Path"], [20, 12, 28, 48]);
   for (const repo of report.repositories) {
     table.push([
       repo.name,
-      paintStatus(repo.status, toneForStatus(repo.status), ctx),
+      paintStatus(repo.status, toneForMutationStatus(repo.status), ctx),
       repo.branch,
       repo.path,
     ]);

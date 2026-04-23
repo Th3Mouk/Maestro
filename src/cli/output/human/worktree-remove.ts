@@ -1,6 +1,11 @@
-import Table from "cli-table3";
 import type { WorktreeRemoveReport } from "../../../report/types.js";
-import { paintStatus, renderIssues, summaryLine, type HumanFormatContext } from "./shared.js";
+import {
+  makeTable,
+  paintStatus,
+  renderIssues,
+  summaryLine,
+  type HumanFormatContext,
+} from "./shared.js";
 
 type RemoveStatus = WorktreeRemoveReport["repositories"][number]["status"];
 
@@ -35,12 +40,7 @@ export function formatWorktreeRemoveReport(
     return `${summary}\n${report.root}\nok - nothing to do${renderIssues(report.issues, ctx)}\n`;
   }
 
-  const table = new Table({
-    head: ["Repository", "Status", "Path", "Detail"],
-    style: { head: [], border: [] },
-    colWidths: [20, 10, 48, 32],
-    wordWrap: true,
-  });
+  const table = makeTable(["Repository", "Status", "Path", "Detail"], [20, 10, 48, 32]);
   for (const repo of report.repositories) {
     table.push([
       repo.name,

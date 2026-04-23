@@ -1,3 +1,4 @@
+import Table from "cli-table3";
 import pc from "picocolors";
 import type { ReportStatus } from "../../../report/types.js";
 
@@ -66,6 +67,18 @@ export function renderIssues(
     return `  - ${bold(issue.code, ctx)}: ${issue.message}${suffix}`;
   });
   return `\nIssues:\n${lines.join("\n")}`;
+}
+
+export function toneForMutationStatus(
+  status: "created" | "updated" | "unchanged",
+): "ok" | "neutral" | "dim" {
+  if (status === "created") return "ok";
+  if (status === "updated") return "neutral";
+  return "dim";
+}
+
+export function makeTable(head: string[], colWidths: number[]) {
+  return new Table({ head, style: { head: [], border: [] }, colWidths, wordWrap: true });
 }
 
 export function summaryLine(

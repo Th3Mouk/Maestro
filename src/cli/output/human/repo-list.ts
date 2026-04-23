@@ -1,6 +1,11 @@
-import Table from "cli-table3";
 import type { RepoListReport } from "../../../report/types.js";
-import { paintStatus, renderIssues, summaryLine, type HumanFormatContext } from "./shared.js";
+import {
+  makeTable,
+  paintStatus,
+  renderIssues,
+  summaryLine,
+  type HumanFormatContext,
+} from "./shared.js";
 
 export function formatRepoListReport(report: RepoListReport, ctx: HumanFormatContext): string {
   const installed = report.repositories.filter((entry) => entry.installed).length;
@@ -15,12 +20,10 @@ export function formatRepoListReport(report: RepoListReport, ctx: HumanFormatCon
     return `${summary}\n${report.workspace}\n(no repositories)${renderIssues(report.issues, ctx)}\n`;
   }
 
-  const table = new Table({
-    head: ["Repository", "Branch", "Remote", "Installed", "Path"],
-    style: { head: [], border: [] },
-    colWidths: [20, 20, 32, 11, 44],
-    wordWrap: true,
-  });
+  const table = makeTable(
+    ["Repository", "Branch", "Remote", "Installed", "Path"],
+    [20, 20, 32, 11, 44],
+  );
   for (const repo of report.repositories) {
     table.push([
       repo.name,
