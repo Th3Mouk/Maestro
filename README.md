@@ -153,9 +153,9 @@ Start from an empty directory and let `maestro init` create the workspace skelet
 ```bash
 maestro init my-workspace
 cd my-workspace
-maestro workspace install --workspace . --dry-run
-maestro repo bootstrap --workspace .
-maestro workspace doctor --workspace .
+maestro workspace install --dry-run
+maestro repo bootstrap
+maestro workspace doctor
 ```
 
 That quick path shows the expected lifecycle without duplicating the full walkthrough. For the generated files, task worktree flow, and editor-specific steps, see [5-minute quickstart](./docs/cli/quickstart.md).

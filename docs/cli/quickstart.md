@@ -96,8 +96,8 @@ If a repository entry omits `spec.repositories[].sparse`, Maestro clones it in f
 Start with a dry run of the install plan, then run the real install:
 
 ```bash
-maestro workspace install --workspace . --dry-run
-maestro workspace install --workspace .
+maestro workspace install --dry-run
+maestro workspace install
 ```
 
 The dry run shows the install plan only. It does not initialize Git, create the boot commit, clone repositories, or install repository dependencies.
@@ -123,7 +123,7 @@ If you want the structural meaning of `maestro.yaml`, `repos/`, generated files,
 If you want named multi-root folders in editors that support `.code-workspace`, generate one after install:
 
 ```bash
-maestro editor-workspace --workspace .
+maestro editor-workspace
 ```
 
 The generated file includes the workspace root plus each materialized repository, which is the most explicit way to open the environment in VS Code.
@@ -147,7 +147,7 @@ The same materialized workspace can then be consumed by VS Code, Codex, Claude C
 For task-scoped work, create a task worktree after install and open that folder instead of jumping into repo roots directly:
 
 ```bash
-maestro worktree create --workspace . --task release-prep
+maestro worktree create --task release-prep
 code .maestro/worktrees/release-prep
 ```
 
@@ -159,7 +159,7 @@ That is the normal day-to-day entrypoint for a task, whether you use VS Code or 
 Run dependency bootstrap after the real install:
 
 ```bash
-maestro repo bootstrap --workspace .
+maestro repo bootstrap
 ```
 
 If the repositories declare `bootstrap.strategy: auto`, Maestro detects the local toolchain from the materialized checkout. In the validated Symfony backend flow, both repositories resolved to Composer and `repo bootstrap` ran `composer install --no-interaction --prefer-dist`.
@@ -171,10 +171,10 @@ If the repositories declare `bootstrap.strategy: auto`, Maestro detects the loca
 Run `workspace doctor` once the repositories and projections are present:
 
 ```bash
-maestro workspace doctor --workspace .
+maestro workspace doctor
 ```
 
-If you want Maestro to install dependencies automatically, declare `spec.repositories[].bootstrap.strategy: auto` or `manual` in `maestro.yaml` and use `maestro repo bootstrap --workspace .` as the execution step. Add `--dry-run` first when you want to inspect the exact commands before they touch repository lockfiles or virtual environments. The workspace file does not run instantiation scripts by itself.
+If you want Maestro to install dependencies automatically, declare `spec.repositories[].bootstrap.strategy: auto` or `manual` in `maestro.yaml` and use `maestro repo bootstrap` as the execution step. Add `--dry-run` first when you want to inspect the exact commands before they touch repository lockfiles or virtual environments. The workspace file does not run instantiation scripts by itself.
 
 ## 10. If something goes wrong
 

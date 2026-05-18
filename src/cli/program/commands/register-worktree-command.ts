@@ -25,7 +25,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         "",
         "Examples:",
         "  maestro worktree create --task release-prep",
-        "  maestro worktree list --workspace .",
+        "  maestro worktree list",
         "  maestro worktree remove --task release-prep",
       ].join("\n"),
     );

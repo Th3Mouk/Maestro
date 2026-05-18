@@ -49,9 +49,9 @@ export function registerRepoCommand(program: Command, commandContext: CommandCon
       [
         "",
         "Examples:",
-        "  maestro repo list --workspace .",
-        "  maestro repo bootstrap --workspace .",
-        "  maestro repo git sync --workspace .",
+        "  maestro repo list",
+        "  maestro repo bootstrap",
+        "  maestro repo git sync",
       ].join("\n"),
     );
 

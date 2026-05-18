@@ -32,10 +32,10 @@ export function registerWorkspaceCommand(program: Command, commandContext: Comma
       [
         "",
         "Examples:",
-        "  maestro workspace install --workspace .",
-        "  maestro workspace update --workspace .",
-        "  maestro workspace prune --workspace .",
-        "  maestro workspace doctor --workspace .",
+        "  maestro workspace install",
+        "  maestro workspace update",
+        "  maestro workspace prune",
+        "  maestro workspace doctor",
       ].join("\n"),
     );
 

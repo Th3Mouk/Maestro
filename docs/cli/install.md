@@ -52,10 +52,10 @@ The release chain does not rerun the full pull-request validation matrix. A manu
 maestro --help
 maestro init my-workspace
 cd my-workspace
-maestro install --workspace . --dry-run
-maestro install --workspace .
-maestro bootstrap --workspace .
-maestro doctor --workspace .
+maestro install --dry-run
+maestro install
+maestro bootstrap
+maestro doctor
 ```
 
 If you want a step-by-step first-run flow with expected generated files, see [5-minute quickstart](./quickstart.md).
@@ -78,7 +78,7 @@ Auto mode already detects `composer`, `uv`, `npm`, `pnpm`, `yarn`, and `bun` fro
 | Homebrew install is ambiguous                               | Use the tap-qualified path: `brew tap th3mouk/maestro https://github.com/Th3Mouk/maestro` then `brew install th3mouk/maestro/maestro`.                                                                                       |
 | You only want to evaluate the CLI once                      | Prefer `npx @th3mouk/maestro@latest init my-workspace` or `pnpm dlx @th3mouk/maestro@latest init my-workspace` instead of a global install.                                                                                  |
 | You want the Maestro CLI map for agents                     | Open the generated `AGENTS.md` in the workspace root. It explains `init`, `install`, `bootstrap`, `sync`, `update`, `doctor`, `git checkout`, `git pull`, `git sync`, and `worktree`.                                        |
-| `maestro init` succeeded but you are not sure what happened | Run `cd my-workspace && maestro install --workspace . --dry-run` and compare the generated files with [5-minute quickstart](./quickstart.md).                                                                                |
+| `maestro init` succeeded but you are not sure what happened | Run `cd my-workspace && maestro install --dry-run` and compare the generated files with [5-minute quickstart](./quickstart.md).                                                                                              |
 | You are working on the repository itself                    | Use the source workflow below, not the published package flow above.                                                                                                                                                         |
 
 ## If you are developing the package

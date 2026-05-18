@@ -15,7 +15,7 @@ export function registerEditorWorkspaceCommand(program: Command): void {
       [
         "",
         "Examples:",
-        "  maestro editor-workspace --workspace .",
+        "  maestro editor-workspace",
         "  maestro editor-workspace --workspace ./examples/ops-workspace",
       ].join("\n"),
     )

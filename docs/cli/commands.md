@@ -7,11 +7,11 @@ maestro --help
 maestro self upgrade
 maestro init my-workspace
 cd my-workspace
-maestro workspace install --workspace . --dry-run
-maestro workspace install --workspace .
-maestro editor-workspace --workspace .
-maestro repo bootstrap --workspace .
-maestro workspace doctor --workspace .
+maestro workspace install --dry-run
+maestro workspace install
+maestro editor-workspace
+maestro repo bootstrap
+maestro workspace doctor
 ```
 
 The CLI is organized into grouped verbs. Top-level commands delegate to subcommands under `workspace`, `repo`, `worktree`, `editor-workspace`, and `self`. The only ungrouped verb is `init`.
@@ -118,13 +118,13 @@ Maestro delegates color detection to [`picocolors`](https://github.com/alexeyras
 Pipe the JSON envelope into `jq` and read the report via `.data`:
 
 ```bash
-maestro repo list --workspace . --json | jq '.data.repositories[]'
+maestro repo list --json | jq '.data.repositories[]'
 ```
 
 Branch on report status without relying on exit codes:
 
 ```bash
-maestro workspace doctor --workspace . --json \
+maestro workspace doctor --json \
   | jq -e '.data.status == "ok"' > /dev/null \
   && echo "clean" || echo "issues found"
 ```
@@ -142,7 +142,7 @@ Create a minimal multi-repo workspace with a manifest, package scripts, `AGENTS.
 
 By default, `init` enables Codex and Claude Code only. Add `--runtimes opencode` when you want OpenCode projections in the scaffold.
 
-After `init`, the normal next step is to edit `maestro.yaml` and add the repositories you want Maestro to manage. The next safe command is then usually `maestro workspace install --workspace . --dry-run`.
+After `init`, the normal next step is to edit `maestro.yaml` and add the repositories you want Maestro to manage. The next safe command is then usually `maestro workspace install --dry-run`.
 
 ## `workspace`
 
@@ -221,8 +221,8 @@ Use `--dry-run` when you want the exact per-repository commands without executin
 Examples:
 
 ```bash
-maestro repo bootstrap --workspace .
-maestro repo bootstrap --workspace . --repository foodpilot-api
+maestro repo bootstrap
+maestro repo bootstrap --repository foodpilot-api
 maestro repo bootstrap --workspace ./examples/ops-workspace --dry-run
 ```
 
@@ -273,7 +273,7 @@ Create an isolated task worktree for the workspace and its managed repositories.
 Use `--task <name>` to name the task. `--dry-run` previews the plan without writing.
 
 ```bash
-maestro worktree create --workspace . --task release-prep
+maestro worktree create --task release-prep
 ```
 
 Users should not need to assemble repository-specific worktrees by hand.
@@ -283,7 +283,7 @@ Users should not need to assemble repository-specific worktrees by hand.
 Enumerate task worktrees for this workspace with their creation time and root path.
 
 ```bash
-maestro worktree list --workspace .
+maestro worktree list
 ```
 
 ### `worktree remove`
@@ -291,8 +291,8 @@ maestro worktree list --workspace .
 Remove the task worktree for the workspace and its managed repositories. Committed work remains on the task branches; uncommitted work is preserved unless `--force` is passed.
 
 ```bash
-maestro worktree remove --workspace . --task release-prep
-maestro worktree remove --workspace . --task release-prep --force
+maestro worktree remove --task release-prep
+maestro worktree remove --task release-prep --force
 ```
 
 Use `--force` to drop uncommitted changes and remove worktrees anyway. `--dry-run` previews the removal plan without touching the working tree.
