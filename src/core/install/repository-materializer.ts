@@ -33,7 +33,16 @@ export async function materializeWorkspaceRepositories(
         path.join("repos", repository.name),
         "repository root",
       );
-      const status = await gitAdapter.ensureRepository(repoRoot, repository, dryRun);
+      let status: "created" | "updated" | "unchanged";
+      try {
+        status = await gitAdapter.ensureRepository(repoRoot, repository, dryRun);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          `Failed to ensure repository "${repository.name}" (${repository.remote}): ${detail}`,
+          { cause: error instanceof Error ? error : undefined },
+        );
+      }
       repositoryProgress.itemCompleted();
       return { name: repository.name, path: repoRoot, status };
     },

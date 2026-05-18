@@ -1,5 +1,15 @@
 import { execa } from "execa";
 
+function extractStderr(error: unknown): string {
+  if (error && typeof error === "object" && "stderr" in error) {
+    const stderr = (error as { stderr?: unknown }).stderr;
+    if (typeof stderr === "string") {
+      return stderr.trim();
+    }
+  }
+  return "";
+}
+
 export class GitCommandExecutor {
   async run(repoRoot: string, args: string[]) {
     return execa("git", args, { cwd: repoRoot });
@@ -35,7 +45,9 @@ export class GitCommandExecutor {
     try {
       return await this.run(repoRoot, args);
     } catch (error) {
-      throw new Error(`Git command failed: git ${args.join(" ")}`, {
+      const stderr = extractStderr(error);
+      const suffix = stderr ? `\n${stderr}` : "";
+      throw new Error(`Git command failed: git ${args.join(" ")}${suffix}`, {
         cause: error instanceof Error ? error : undefined,
       });
     }
