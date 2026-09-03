@@ -197,7 +197,11 @@ export class GitAdapter {
     ]);
     const output = `${result.stdout}\n${result.stderr}`;
 
-    if (output.includes("Applying autostash resulted in conflicts")) {
+    // Git 2.55 reworded this message (no longer starts with "Applying
+    // autostash"), but both the old and new wording contain this phrase.
+    // --ff-only rules out the pull's own merge producing this text, so it
+    // can only come from the autostash pop.
+    if (output.includes("resulted in conflicts")) {
       await this.run(repoRoot, ["reset", "--hard", initialHead]);
       throw new Error(
         `Cannot pull ${branchName}: upstream changes conflict with local modifications. Your changes are preserved in 'git stash list'; resolve and run 'git stash pop' manually.`,
