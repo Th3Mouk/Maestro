@@ -13,7 +13,7 @@ export const policyRefSchema = z.object({
   source: z.string().optional(),
 });
 
-export const repositoryBootstrapSchema = z.object({
+const repositoryBootstrapSchema = z.object({
   enabled: z.boolean().optional(),
   strategy: z.enum(["auto", "manual"]).optional(),
   commands: z.array(z.string().min(1)).optional(),
