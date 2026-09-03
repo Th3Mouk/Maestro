@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { HumanRenderer } from "../../src/cli/output/human-renderer.js";
-import type { DoctorReport, RepoListReport, WorktreeListReport } from "../../src/report/types.js";
+import type {
+  BootstrapReport,
+  DoctorReport,
+  RepoListReport,
+  WorktreeListReport,
+} from "../../src/report/types.js";
 
 function capture(renderFn: (stream: NodeJS.WritableStream) => void): string {
   let buffer = "";
@@ -62,6 +67,36 @@ describe("HumanRenderer", () => {
     expect(output).toContain("worktree list: ok");
     expect(output).toContain("0 worktrees");
     expect(output).toContain("nothing to do");
+  });
+
+  test("formats a BootstrapReport with a distinct failed state per repository", () => {
+    const report: BootstrapReport = {
+      status: "warning",
+      workspace: "repro",
+      repositories: [
+        { name: "demo", commands: ["sh -c 'echo BOOTSTRAP_RAN; exit 3'"], state: "failed" },
+        { name: "other", commands: ["npm ci"], state: "executed" },
+        { name: "skipped-one", commands: [], state: "skipped" },
+      ],
+      issues: [
+        {
+          code: "BOOTSTRAP_COMMAND_FAILED",
+          message: "Bootstrap command failed for demo: exit code 3",
+          path: "/tmp/ws/repos/demo",
+        },
+      ],
+    };
+    const renderer = new HumanRenderer("bootstrap", { color: false });
+    const output = capture((stream) => renderer.render(report, stream));
+
+    expect(output).toContain("repo bootstrap: warning");
+    expect(output).toContain("1 executed, 1 skipped, 1 failed, 1 issues");
+    expect(output).toContain("failed");
+    expect(output).toContain("BOOTSTRAP_COMMAND_FAILED");
+    // A repository whose bootstrap command failed must never be reported as "executed".
+    const demoRow = output.split("\n").find((line) => line.includes("demo"));
+    expect(demoRow).toBeDefined();
+    expect(demoRow).not.toContain("executed");
   });
 
   test("formats a DoctorReport by severity and bolds codes", () => {

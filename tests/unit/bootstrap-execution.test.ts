@@ -74,8 +74,8 @@ describe("bootstrap execution", () => {
     ];
 
     expect(createBootstrapRepositoryReport(entries)).toEqual([
-      { commands: ["npm ci"], name: "frontend", skipped: false },
-      { commands: [], name: "backend", skipped: true },
+      { commands: ["npm ci"], name: "frontend", state: "executed" },
+      { commands: [], name: "backend", state: "skipped" },
     ]);
   });
 
@@ -95,43 +95,46 @@ describe("bootstrap execution", () => {
       }),
     ];
 
-    const dryRunIssues = await executeBootstrapPlan(entries, {
+    const dryRun = await executeBootstrapPlan(entries, {
       concurrencyLimit: 2,
       dryRun: true,
       runCommand,
     });
 
-    expect(dryRunIssues).toEqual([]);
+    expect(dryRun.issues).toEqual([]);
+    expect(dryRun.failedRepositoryNames.size).toBe(0);
     expect(runCommand).not.toHaveBeenCalled();
 
-    const issues = await executeBootstrapPlan(entries, {
+    const result = await executeBootstrapPlan(entries, {
       concurrencyLimit: 2,
       runCommand,
     });
 
-    expect(issues).toEqual([]);
+    expect(result.issues).toEqual([]);
+    expect(result.failedRepositoryNames.size).toBe(0);
     expect(runCommand).toHaveBeenCalledTimes(1);
   });
 
-  test("returns actionable issue details when a command fails", async () => {
+  test("returns actionable issue details and the failed repository name when a command fails", async () => {
     const entry = createBootstrapPlanEntry({
       commands: ["npm ci"],
       repository: createRepositoryFixture({ name: "sur-api" }),
       repoPathFromWorkspaceRoot: "repos/sur-api",
     });
 
-    const issues = await executeBootstrapPlan([entry], {
+    const result = await executeBootstrapPlan([entry], {
       concurrencyLimit: 1,
       runCommand: async () => {
         throw new Error("npm: command not found");
       },
     });
 
-    expect(issues).toHaveLength(1);
-    expect(issues[0]?.code).toBe("BOOTSTRAP_COMMAND_FAILED");
-    expect(issues[0]?.message).toContain("Bootstrap command failed for sur-api");
-    expect(issues[0]?.message).toContain("command: npm ci");
-    expect(issues[0]?.message).toContain("npm: command not found");
-    expect(issues[0]?.path).toBe(entry.repoRoot);
+    expect(result.issues).toHaveLength(1);
+    expect(result.issues[0]?.code).toBe("BOOTSTRAP_COMMAND_FAILED");
+    expect(result.issues[0]?.message).toContain("Bootstrap command failed for sur-api");
+    expect(result.issues[0]?.message).toContain("command: npm ci");
+    expect(result.issues[0]?.message).toContain("npm: command not found");
+    expect(result.issues[0]?.path).toBe(entry.repoRoot);
+    expect(result.failedRepositoryNames).toEqual(new Set(["sur-api"]));
   });
 });

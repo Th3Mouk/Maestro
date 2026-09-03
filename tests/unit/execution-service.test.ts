@@ -70,6 +70,9 @@ describe("execution service", () => {
     const report = await bootstrapWorkspace(workspaceRoot);
 
     expect(report.status).toBe("warning");
+    expect(report.repositories).toEqual([
+      { commands: ["npm ci"], name: "sur-api", state: "failed" },
+    ]);
     expect(report.issues).toHaveLength(1);
     expect(report.issues[0]?.code).toBe("BOOTSTRAP_COMMAND_FAILED");
     expect(report.issues[0]?.message).toContain("Bootstrap command failed for sur-api");

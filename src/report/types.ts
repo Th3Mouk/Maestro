@@ -19,7 +19,7 @@ export interface BootstrapReport {
   repositories: Array<{
     name: string;
     commands: string[];
-    skipped: boolean;
+    state: "executed" | "skipped" | "failed";
   }>;
   issues: Array<{ code: string; message: string; path?: string }>;
 }
