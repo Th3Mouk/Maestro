@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `repo git pull` now tolerates a dirty working tree. Uncommitted tracked changes are auto-stashed before the fast-forward and restored afterwards, so you can refresh the current branch without committing or stashing first. The command still refuses to run in detached HEAD state and now also refuses when a merge or rebase is in progress.
 - `repo git pull` aborts and reports a failure when restoring the auto-stash would conflict with upstream changes. `HEAD` is reset to its pre-pull commit and local changes are preserved in `git stash list` so nothing is lost; run `git stash pop` manually after reconciling.
+- **BREAKING**: `repo bootstrap` JSON now reports `repositories[].state` (`"executed" | "skipped" | "failed"`) instead of `repositories[].skipped` (boolean). Scripts reading `.data.repositories[].skipped` must switch to `.data.repositories[].state === "skipped"`.
+
+### Fixed
+
+- `repo bootstrap` no longer reports a repository as `executed` when its bootstrap command actually failed. Both the JSON report and the human table now show `failed` for that repository, matching the corresponding `BOOTSTRAP_COMMAND_FAILED` entry in `issues`. The report `status` still resolves to `warning` rather than `error` for a per-repository command failure, and the process still exits `0`, consistent with the exit code convention documented under [Scripting](docs/cli/commands.md#scripting) — script against `repositories[].state` (or `issues`), not the exit code, to detect a failed repository.
 
 ## [0.2.0]
 

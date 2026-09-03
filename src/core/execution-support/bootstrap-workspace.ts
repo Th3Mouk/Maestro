@@ -40,7 +40,7 @@ export async function bootstrapWorkspaceWithResolvedWorkspace(
     selection.entries.flatMap((e) => e.issues),
   );
 
-  const issues = await executeBootstrapPlan(selection.entries, {
+  const execution = await executeBootstrapPlan(selection.entries, {
     concurrencyLimit,
     dryRun: options.dryRun,
     runCommand: async (entry, command) => {
@@ -51,7 +51,13 @@ export async function bootstrapWorkspaceWithResolvedWorkspace(
     },
   });
 
-  appendReportIssues(report, issues);
+  for (const repository of report.repositories) {
+    if (execution.failedRepositoryNames.has(repository.name)) {
+      repository.state = "failed";
+    }
+  }
+
+  appendReportIssues(report, execution.issues);
 
   return report;
 }

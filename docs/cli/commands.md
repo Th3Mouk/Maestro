@@ -218,6 +218,8 @@ When the manifest exists but the expected lockfile is missing, Maestro does not 
 
 Use `--dry-run` when you want the exact per-repository commands without executing them. Lockfile warnings are reported per repository when auto mode cannot run safely.
 
+Each entry in `repositories[]` reports a `state` of `executed`, `skipped`, or `failed`. `failed` means the bootstrap command for that repository exited non-zero; cross-reference `issues[].path` for the underlying command and error output. A per-repository command failure raises the report `status` to `warning`, consistent with the exit code convention above: the process still exits `0`, so scripts that need per-repository pass/fail should branch on `repositories[].state` (or `issues`), not on the exit code.
+
 Examples:
 
 ```bash
