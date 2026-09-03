@@ -499,16 +499,7 @@ describe("end-to-end workspace lifecycle", () => {
     expect(report.name).toBe("codex-a");
     expect(existsSync(taskRepoRoot)).toBe(true);
     expect(existsSync(path.join(taskRoot, ".maestro", "execution", "worktree.json"))).toBe(true);
-    expect(
-      JSON.parse(await readFile(path.join(taskRoot, "maestro.code-workspace"), "utf8")),
-    ).toMatchObject({
-      folders: [
-        { name: "ops-workspace", path: "." },
-        { name: "sur-api", path: "repos/sur-api" },
-        { name: "admin", path: "repos/admin" },
-        { name: "sample-ci", path: "repos/sample-ci" },
-      ],
-    });
+    expect(existsSync(path.join(taskRoot, "maestro.code-workspace"))).toBe(false);
     expect(JSON.parse(await readFile(path.join(taskRoot, "maestro.json"), "utf8"))).toMatchObject({
       schemaVersion: "maestro.workspace/v1",
       workspace: {

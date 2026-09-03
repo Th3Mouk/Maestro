@@ -10,7 +10,6 @@ import {
 } from "../../utils/fs.js";
 import { workspaceStateDirName } from "../../workspace/state-directory.js";
 import type { ResolvedWorkspace } from "../../workspace/types.js";
-import { editorWorkspaceFileName, renderEditorWorkspace } from "../editor-workspace.js";
 import { escalateStatus } from "../errors.js";
 import {
   createDryRunTaskRepositories,
@@ -105,13 +104,6 @@ export async function prepareTaskWorktreeWithResolvedWorkspace(
   mergeTaskRepositoryOutcomes(report, repositoryOutcomes);
 
   await withWorkspaceLock(taskRoot, async () => {
-    await writeText(
-      path.join(taskRoot, editorWorkspaceFileName),
-      renderEditorWorkspace({
-        repositories: resolvedWorkspace.repositories,
-        workspaceName: resolvedWorkspace.manifest.metadata.name,
-      }),
-    );
     await writeText(
       path.join(taskRoot, workspaceDescriptorFileName),
       renderWorkspaceDescriptor({

@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `repo git pull` now tolerates a dirty working tree. Uncommitted tracked changes are auto-stashed before the fast-forward and restored afterwards, so you can refresh the current branch without committing or stashing first. The command still refuses to run in detached HEAD state and now also refuses when a merge or rebase is in progress.
 - `repo git pull` aborts and reports a failure when restoring the auto-stash would conflict with upstream changes. `HEAD` is reset to its pre-pull commit and local changes are preserved in `git stash list` so nothing is lost; run `git stash pop` manually after reconciling.
 
+### Fixed
+
+- `worktree create` no longer generates `maestro.code-workspace` inside the new task worktree. That file is documented as an optional, on-demand editor artifact generated only by `maestro editor-workspace`; task worktrees now follow the same contract already enforced for `init` and `workspace install`.
+
 ## [0.2.0]
 
 ### Added
