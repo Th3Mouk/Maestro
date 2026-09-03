@@ -45,9 +45,11 @@ jobs:
       # The npm bundled with Node 22.12.x/24.x (10.9.0) crashes with
       # "Cannot read properties of null (reading 'edgesOut')" inside
       # `npm install --package-lock-only`, which `pnpm test:npm-shrinkwrap`
-      # depends on. Only npm itself is upgraded here - pnpm remains the
-      # package manager for everything else in this job.
-      - run: npm install -g npm@12.0.2
+      # depends on. 11.19.1 is the newest release still compatible with
+      # the 22.12.x leg of the matrix (npm 12 requires Node >=22.22.2).
+      # Only npm itself is upgraded here - pnpm remains the package
+      # manager for everything else in this job.
+      - run: npm install -g npm@11.19.1
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
