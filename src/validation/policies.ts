@@ -4,7 +4,6 @@ import type {
   PolicyEvaluator,
 } from "../policy/types.js";
 import type { ResolvedPolicy } from "../workspace/types.js";
-import { createBuiltInPolicyEvaluators } from "./policies/registry.js";
 export { createBuiltInPolicyEvaluators } from "./policies/registry.js";
 
 export async function evaluatePolicies(
