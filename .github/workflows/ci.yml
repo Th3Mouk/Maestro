@@ -42,22 +42,22 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: pnpm
 
-      # The npm bundled with Node 22.12.x/24.x (10.9.0) crashes with
-      # "Cannot read properties of null (reading 'edgesOut')" inside
-      # `npm install --package-lock-only`, which `pnpm test:npm-shrinkwrap`
-      # depends on. 11.19.1 is the newest release still compatible with
-      # the 22.12.x leg of the matrix (npm 12 requires Node >=22.22.2).
-      # Only npm itself is upgraded here - pnpm remains the package
-      # manager for everything else in this job.
-      - run: npm install -g npm@11.19.1
-
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm knip
       - run: pnpm typecheck
       - run: pnpm test:audit-prod
+      # Pinned to one leg: the npm bundled with 22.12.x (10.9.0) crashes
+      # ("Cannot read properties of null (reading 'edgesOut')") inside the
+      # `npm install --package-lock-only` this check runs, and even a fixed
+      # npm would resolve a different answer there - a transitive
+      # devDependency (@napi-rs/wasm-runtime) gates its newest release
+      # behind `engines.node: ^22.13.0 || >=23.5.0`, which only 24.x
+      # satisfies. The committed npm-shrinkwrap.json matches what 24.x
+      # resolves.
       - run: pnpm test:npm-shrinkwrap
+        if: matrix.node-version == '24.x'
       - run: pnpm build
       - run: pnpm test
         if: matrix.node-version == '22.12.x'
