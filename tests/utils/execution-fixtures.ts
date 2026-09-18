@@ -1,6 +1,7 @@
 import type { execa } from "execa";
 import { getRepositorySparseIncludePaths } from "../../src/workspace/repositories.js";
 import type { RuntimeName } from "../../src/runtime/types.js";
+import { defaultRuntimeProjectionMode } from "../../src/workspace/schema.js";
 import type { RepositoryRef, ResolvedWorkspace, RuntimeConfig } from "../../src/workspace/types.js";
 
 type PartialRuntimes = Partial<Record<RuntimeName, Partial<RuntimeConfig>>>;
@@ -12,7 +13,11 @@ function withRuntimeConfigDefaults(runtimes: PartialRuntimes): ResolvedWorkspace
     if (!config) {
       continue;
     }
-    resolved[runtimeName] = { enabled: true, projectionMode: "merge", ...config };
+    resolved[runtimeName] = {
+      enabled: true,
+      projectionMode: defaultRuntimeProjectionMode,
+      ...config,
+    };
   }
   return resolved;
 }

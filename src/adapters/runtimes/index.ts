@@ -18,7 +18,12 @@ async function projectAgents(
   agentsDir: string,
   agents: ResolvedAgent[],
   mode: RuntimeProjectionMode,
+  { createIfEmpty = true }: { createIfEmpty?: boolean } = {},
 ): Promise<void> {
+  if (agents.length === 0 && mode === "merge" && !createIfEmpty) {
+    return;
+  }
+
   if (mode === "replace") {
     await removeIfExists(agentsDir);
   }
@@ -114,10 +119,12 @@ class StandardProjector implements RuntimeProjector {
       projectionMode,
     );
 
-    const selectedAgents = resolvedWorkspace.selectedAgents.standard;
-    if (projectionMode === "replace" || selectedAgents.length > 0) {
-      await projectAgents(path.join(agentsRoot, "agents"), selectedAgents, projectionMode);
-    }
+    await projectAgents(
+      path.join(agentsRoot, "agents"),
+      resolvedWorkspace.selectedAgents.standard,
+      projectionMode,
+      { createIfEmpty: false },
+    );
   }
 }
 

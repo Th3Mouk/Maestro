@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { supportedRuntimeNames, type RuntimeName } from "../runtime/types.js";
 import type {
+  NameSelection,
   PackResolution,
   ResolvedAgent,
   ResolvedPolicy,
@@ -23,6 +24,25 @@ import { resolveNameSelection } from "./discovery/selection.js";
 
 const RESOLUTION_CONCURRENCY_LIMIT = 4;
 
+/**
+ * Resolves a `spec.agents[runtime]` / `spec.skills` value against its discovered and
+ * pack-provided pool. An explicit array is a special case handled here rather than in
+ * `resolveNameSelection`: pack-provided names are always unioned in and never discovered
+ * from disk, so evaluating `discoverNames` would be a wasted scan for that shape.
+ */
+async function resolveSelectionNames(
+  selection: NameSelection | undefined,
+  discoverNames: () => Promise<Iterable<string>>,
+  packProvidedNames: Iterable<string>,
+): Promise<Set<string>> {
+  const packProvided = [...packProvidedNames];
+  if (Array.isArray(selection)) {
+    return new Set([...selection, ...packProvided]);
+  }
+
+  return resolveNameSelection(selection, [...(await discoverNames()), ...packProvided]);
+}
+
 export async function resolveAgents(
   workspaceRoot: string,
   manifest: WorkspaceManifest,
@@ -33,24 +53,23 @@ export async function resolveAgents(
     standard: [],
   };
 
-  for (const runtime of supportedRuntimeNames) {
-    const selection = manifest.spec.agents?.[runtime];
-    const packProvided = packs.flatMap(
-      (pack) => pack.manifest.spec.provides?.agents?.[runtime] ?? [],
-    );
+  await Promise.all(
+    supportedRuntimeNames.map(async (runtime) => {
+      const selection = manifest.spec.agents?.[runtime];
+      const packProvided = packs.flatMap(
+        (pack) => pack.manifest.spec.provides?.agents?.[runtime] ?? [],
+      );
+      const requested = await resolveSelectionNames(
+        selection,
+        () => listAgentNames(path.join(workspaceRoot, "agents", runtime)),
+        packProvided,
+      );
 
-    const requested = Array.isArray(selection)
-      ? new Set([...selection, ...packProvided])
-      : resolveNameSelection(selection, [
-          ...(await listAgentNames(path.join(workspaceRoot, "agents", runtime))),
-          ...packProvided,
-        ]);
-
-    for (const name of requested) {
-      const agent = await resolveAgent(workspaceRoot, runtime, name, manifest, packs);
-      result[runtime].push(agent);
-    }
-  }
+      for (const name of requested) {
+        result[runtime].push(await resolveAgent(workspaceRoot, runtime, name, manifest, packs));
+      }
+    }),
+  );
 
   return result;
 }
@@ -62,13 +81,11 @@ export async function resolveSkills(
 ): Promise<ResolvedSkill[]> {
   const selection = manifest.spec.skills;
   const packProvided = packs.flatMap((pack) => pack.manifest.spec.provides?.skills ?? []);
-
-  const requested = Array.isArray(selection)
-    ? new Set([...selection, ...packProvided])
-    : resolveNameSelection(selection, [
-        ...(await listSkillNames(path.join(workspaceRoot, "skills"))),
-        ...packProvided,
-      ]);
+  const requested = await resolveSelectionNames(
+    selection,
+    () => listSkillNames(path.join(workspaceRoot, "skills")),
+    packProvided,
+  );
   const result: ResolvedSkill[] = [];
 
   for (const name of requested) {
