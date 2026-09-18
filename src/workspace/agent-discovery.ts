@@ -22,9 +22,8 @@ export async function resolveAgents(
   packs: PackResolution[],
 ): Promise<Record<RuntimeName, ResolvedAgent[]>> {
   const result: Record<RuntimeName, ResolvedAgent[]> = {
-    codex: [],
     "claude-code": [],
-    opencode: [],
+    standard: [],
   };
 
   for (const runtime of supportedRuntimeNames) {

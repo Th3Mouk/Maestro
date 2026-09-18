@@ -11,7 +11,7 @@ Maestro is organized into short, testable layers:
   - `pack-resolver.ts`: pack location/compatibility resolution
   - `agent-discovery.ts`: agent, skill, and policy discovery logic
 - `src/adapters/git/`: concrete Git operations, including sparse checkout
-- `src/adapters/runtimes/`: Codex, Claude Code, and OpenCode projection
+- `src/adapters/runtimes/`: `claude-code` (native `.claude/`) and `standard` (shared `.agents/`, the Agent Skills convention read by Codex, Cursor, Devin, Kilo Code, OpenCode, and others) projection
 - `src/validation/`: policies and the evaluation engine
 - `src/utils/`: filesystem, path-safety, and serialization primitives
 - `examples/packs/`: example pack compositions that show how agents, skills, policies, templates, and hooks are assembled for a workspace

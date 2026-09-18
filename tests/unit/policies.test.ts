@@ -38,7 +38,7 @@ function createInput(overrides: Partial<PolicyEvaluationInput> = {}): PolicyEval
     execution: {},
     runtimes: {},
     plugins: {},
-    selectedAgents: { codex: [], "claude-code": [], opencode: [] },
+    selectedAgents: { "claude-code": [], standard: [] },
     selectedSkills: [],
     mcpServers: [],
     selectedPolicies: [],

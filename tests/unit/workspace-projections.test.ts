@@ -61,7 +61,7 @@ describe("workspace projections", () => {
     const rendered = renderWorkspaceDescriptor({
       workspaceName: "demo-workspace",
       repositories,
-      runtimeNames: ["codex"],
+      runtimeNames: ["standard"],
       execution: {
         devcontainer: { enabled: true },
         worktrees: { enabled: true },
@@ -90,7 +90,7 @@ describe("workspace projections", () => {
         },
       ],
       projections: {
-        runtimes: ["codex"],
+        runtimes: ["standard"],
         devcontainer: ".devcontainer/devcontainer.json",
       },
     };

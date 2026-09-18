@@ -140,7 +140,7 @@ jq '.error.code' err.json
 
 Create a minimal multi-repo workspace with a manifest, package scripts, `AGENTS.md`, the neutral `maestro.json` descriptor, and `.maestro/` as the internal state root.
 
-By default, `init` enables Codex and Claude Code only. Add `--runtimes opencode` when you want OpenCode projections in the scaffold.
+By default, `init` enables both runtimes: `standard` (projects into the shared `.agents/skills/` directory read by Cursor, Codex, Devin, Kilo Code, OpenCode, and other Agent-Skills-compatible tools) and `claude-code` (projects into `.claude/`). Pass `--runtimes standard` or `--runtimes claude-code` to scaffold only one.
 
 After `init`, the normal next step is to edit `maestro.yaml` and add the repositories you want Maestro to manage. The next safe command is then usually `maestro workspace install --dry-run`.
 
@@ -154,7 +154,7 @@ Resolve packs, merge fragments, write the lockfile, initialize the workspace roo
 
 In the first-run lifecycle, `workspace install` is the command that turns the workspace contract into a usable directory. It does not run dependency bootstrap automatically. It initializes the workspace root Git repository first when the workspace is not already under Git, creates the boot commit when the repository is unborn, then materializes the repositories and leaves dependency installation to `repo bootstrap`.
 
-That projection refreshes `maestro.json` as the canonical machine-readable workspace view, while `.maestro/` stores the internal lockfile, state, and reports. When Codex and Claude Code are enabled, `workspace install` also generates `.codex/` and `.claude/` for the workspace.
+That projection refreshes `maestro.json` as the canonical machine-readable workspace view, while `.maestro/` stores the internal lockfile, state, and reports. When `standard` and `claude-code` are enabled, `workspace install` also generates `.agents/` and `.claude/` for the workspace.
 
 Repository checkout scope comes from `spec.repositories[].sparse`. Omit that field for a full clone, or use `includePaths` / `excludePaths` together to keep the checked-out tree narrow while hiding nested files or folders you do not want materialized.
 

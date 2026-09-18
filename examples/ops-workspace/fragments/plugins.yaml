@@ -4,9 +4,6 @@ metadata:
   name: ops-workspace-plugins
 spec:
   plugins:
-    codex:
-      enabled:
-        "release-helper@ops-workspace": true
     claude-code:
       enabled:
         "release-helper@ops-workspace": true

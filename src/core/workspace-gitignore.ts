@@ -4,9 +4,9 @@ import { pathExists, readText, writeText } from "../utils/fs.js";
 const defaultWorkspaceGitignoreEntries = [
   "repos/",
   ".maestro/",
-  ".codex/",
   ".claude/",
-  ".opencode/",
+  ".agents/skills/",
+  ".agents/agents/",
   ".mcp.json",
   "node_modules/",
   ".devcontainer/",

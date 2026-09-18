@@ -6,5 +6,5 @@ spec:
   framework:
     version: ^1.0.0
   runtimes:
-    codex:
+    standard:
       enabled: true

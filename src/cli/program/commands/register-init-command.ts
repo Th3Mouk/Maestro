@@ -12,15 +12,20 @@ export function registerInitCommand(program: Command): void {
     )
     .argument("[directory]", "target directory", ".")
     .option("--dry-run", "preview without writing", false)
-    .option("--runtimes <list>", "comma-separated list of supported runtimes", "codex,claude-code")
+    .option(
+      "--runtimes <list>",
+      "comma-separated list of supported runtimes",
+      "standard,claude-code",
+    )
     .addHelpText(
       "after",
       [
         "",
         "Examples:",
         "  maestro init my-workspace",
-        "  maestro init my-workspace --runtimes codex",
-        "  maestro init .local/workspaces/my-codex-lab",
+        "  maestro init my-workspace --runtimes claude-code",
+        "  maestro init my-workspace --runtimes standard",
+        "  maestro init .local/workspaces/my-agent-lab",
         "  maestro init my-workspace --dry-run",
       ].join("\n"),
     )

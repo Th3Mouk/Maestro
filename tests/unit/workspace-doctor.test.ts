@@ -78,9 +78,8 @@ describe("workspace doctor", () => {
           }),
         ],
         runtimes: {
-          codex: { enabled: true },
+          standard: { enabled: true },
           "claude-code": { enabled: true },
-          opencode: { enabled: true },
         },
         workspaceName: "doctor-fixture",
       }),

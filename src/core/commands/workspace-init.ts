@@ -9,7 +9,7 @@ import { renderWorkspaceDescriptor, workspaceDescriptorFileName } from "../works
 import { renderDefaultWorkspaceGitignore } from "../workspace-gitignore.js";
 import { workspaceManifestFileName } from "../workspace-manifest.js";
 
-const defaultRuntimeSelection: RuntimeName[] = ["codex", "claude-code"];
+const defaultRuntimeSelection: RuntimeName[] = ["standard", "claude-code"];
 const maestroInstallGuideUrl = "https://github.com/Th3Mouk/maestro/blob/main/docs/cli/install.md";
 const maestroReadmeSectionMarker = "This project uses Maestro to manage the workspace.";
 
@@ -125,7 +125,7 @@ export async function initWorkspace(
       "- Open the workspace root in JetBrains, VS Code, or another IDE to work in the full materialized folder.",
       "- Open `maestro.code-workspace` only when you want an explicit multi-root projection in a compatible editor.",
       "- Managed repositories are materialized under `repos/<name>`.",
-      "- Project-scoped MCP servers declared in `maestro.yaml` are projected into `.codex/config.toml` and `.mcp.json`.",
+      "- Project-scoped MCP servers declared in `maestro.yaml` are projected into `.mcp.json` for Claude Code.",
       "- Native plugin bundles stay in `plugins/`; Maestro does not re-encode their internals in the manifest.",
       "",
       "## Guardrails",
@@ -151,24 +151,15 @@ export async function initWorkspace(
 
 function runtimeConfigFor(runtimeName: RuntimeName) {
   switch (runtimeName) {
-    case "codex":
-      return {
-        enabled: true,
-        installProjectConfig: true,
-        installAgents: true,
-        useAgentsFile: "AGENTS.md",
-      };
     case "claude-code":
       return {
         enabled: true,
         installProjectInstructions: true,
         instructionsFile: "CLAUDE.md",
       };
-    case "opencode":
+    case "standard":
       return {
         enabled: true,
-        installProjectConfig: true,
-        projectConfigPath: ".opencode/opencode.json",
       };
   }
 }
@@ -204,7 +195,7 @@ async function renderWorkspaceReadme(
     "",
     "- `repos/` for materialized repositories.",
     "- `.maestro/` for workspace state and reports.",
-    "- `.codex/`, `.claude/`, and `.opencode/` only when the corresponding runtimes are enabled in the manifest.",
+    "- `.claude/` and `.agents/skills/` only when the corresponding runtimes are enabled in the manifest.",
   ].join("\n");
 
   if (!(await pathExists(readmePath))) {

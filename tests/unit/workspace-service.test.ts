@@ -23,10 +23,10 @@ describe("workspace manifest loading", () => {
         "    - fragments/repositories.yaml",
         "    - fragments/execution.yaml",
         "  runtimes:",
-        "    codex:",
+        "    standard:",
         "      enabled: true",
         "  agents:",
-        "    codex:",
+        "    standard:",
         "      - planner",
       ].join("\n"),
       "utf8",
@@ -89,7 +89,7 @@ describe("workspace manifest loading", () => {
     expect(manifest.spec.packs?.[0]?.name).toBe("@maestro/pack-core");
     expect(manifest.spec.repositories[0]?.name).toBe("sur-api");
     expect(manifest.spec.execution?.devcontainer?.enabled).toBe(true);
-    expect(manifest.spec.agents?.codex).toEqual(["planner"]);
+    expect(manifest.spec.agents?.standard).toEqual(["planner"]);
     expect(await readText(path.join(root, "maestro.yaml"))).toContain("ops-workspace");
   });
 
@@ -280,7 +280,7 @@ describe("workspace manifest loading", () => {
         "  name: escaped-agent-name",
         "spec:",
         "  agents:",
-        "    codex:",
+        "    standard:",
         "      - ../../planner",
         "  repositories:",
         "    - name: sur-api",
@@ -297,7 +297,7 @@ describe("workspace manifest loading", () => {
 
   test("ignores backup-like agent files when probing workspace agents", async () => {
     const root = await createManagedTempDir("maestro-agent-backup-file-");
-    await mkdir(path.join(root, "agents", "codex"), { recursive: true });
+    await mkdir(path.join(root, "agents", "standard"), { recursive: true });
 
     await writeFile(
       path.join(root, "maestro.yaml"),
@@ -308,7 +308,7 @@ describe("workspace manifest loading", () => {
         "  name: agent-backup-file",
         "spec:",
         "  agents:",
-        "    codex:",
+        "    standard:",
         "      - custom-agent",
         "  repositories:",
         "    - name: sur-api",
@@ -321,17 +321,19 @@ describe("workspace manifest loading", () => {
     );
 
     await writeFile(
-      path.join(root, "agents", "codex", "custom-agent.toml.bak"),
+      path.join(root, "agents", "standard", "custom-agent.toml.bak"),
       'name = "custom-agent"\nprompt = "backup file should not be loaded"\n',
       "utf8",
     );
 
     const resolved = await resolveWorkspace(root);
-    const selected = resolved.selectedAgents.codex.find((agent) => agent.name === "custom-agent");
+    const selected = resolved.selectedAgents.standard.find(
+      (agent) => agent.name === "custom-agent",
+    );
     expect(selected).toBeDefined();
     expect(selected?.source).toBe("default");
     expect(selected?.filePath).toBeUndefined();
-    expect(selected?.extension).toBe("toml");
+    expect(selected?.extension).toBe("md");
   });
 
   test("rejects skill names that escape the workspace root", async () => {

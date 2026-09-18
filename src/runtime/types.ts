@@ -1,10 +1,9 @@
 import type { ResolvedWorkspace } from "../workspace/types.js";
 
-export type RuntimeName = "codex" | "claude-code" | "opencode";
+export type RuntimeName = "standard" | "claude-code";
 export const supportedRuntimeNames = [
-  "codex",
+  "standard",
   "claude-code",
-  "opencode",
 ] as const satisfies ReadonlyArray<RuntimeName>;
 
 export interface RuntimeProjectionContext {

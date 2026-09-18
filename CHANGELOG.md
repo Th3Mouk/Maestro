@@ -5,6 +5,20 @@ All notable changes to `@th3mouk/maestro` will be documented in this file.
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0]
+
+### Added
+
+- `claude-code` runtime projection now also materializes every selected skill into `.claude/skills/<name>/SKILL.md`, matching the agent projection it already performs into `.claude/agents/`. Previously, enabling `claude-code` projected agents but silently skipped skills.
+- `maestro doctor` now also validates that `.claude/skills/` and `.agents/skills/` exist when the corresponding runtime is enabled.
+
+### Changed
+
+- **BREAKING**: Runtime projection is now organized around exactly two targets instead of one-per-tool. `spec.runtimes`, `spec.agents`, and pack `provides.agents` now accept only `standard` and `claude-code` — the `codex` and `opencode` keys are gone. `claude-code` is unchanged (`.claude/agents/`, `.claude/skills/`, `.claude/commands/`, `CLAUDE.md`, `.claude/settings.json`, `.mcp.json`). `standard` replaces both `codex` and `opencode`, projecting every selected skill into `.agents/skills/<name>/SKILL.md` and every selected agent into `.agents/agents/<name>.md` — the shared directory convention that Cursor, Codex, Devin, Kilo Code, OpenCode, and other Agent Skills-compatible tools scan directly, with no per-tool config indirection to point at instead. `maestro init --runtimes` now accepts `standard,claude-code` (the new default) in place of `codex,claude-code,opencode`.
+- **BREAKING**: Codex-native projection (`.codex/config.toml`, `.codex/agents/*.toml`) and OpenCode-native projection (`.opencode/opencode.json`, `.opencode/agents/*.md`) are removed. Neither format has a shared, multi-tool equivalent under `.agents/`, so it was retired rather than duplicated per tool. Project-scoped MCP servers (`spec.mcpServers`) now project only into `.mcp.json` for Claude Code — the Codex-config MCP and plugin blocks (`spec.plugins.codex`, also removed from the schema) no longer have anywhere to project to. Workspaces that relied on `.codex/config.toml` or `.opencode/opencode.json` being generated will stop seeing those files; migrate any tooling that reads them to `.agents/skills/` and `.agents/agents/`, or to `.mcp.json` for MCP server config.
+
+See [docs/manifests/workspace.md](docs/manifests/workspace.md#two-runtimes-standard-and-claude-code) for the full picture and the rationale.
+
 ## [0.3.0]
 
 ### Changed

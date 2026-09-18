@@ -36,11 +36,6 @@ const claudeMarketplaceSourceSchema = z.union([
 ]);
 
 export const workspacePluginsSchema = z.object({
-  codex: z
-    .object({
-      enabled: enabledPluginMapSchema.optional(),
-    })
-    .optional(),
   "claude-code": z
     .object({
       enabled: enabledPluginMapSchema.optional(),

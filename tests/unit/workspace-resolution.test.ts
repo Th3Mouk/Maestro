@@ -16,7 +16,7 @@ describe("workspace resolution", () => {
       metadata: { name: "auto-fragments" },
       spec: {
         runtimes: {
-          codex: { enabled: true },
+          standard: { enabled: true },
         },
         repositories: [],
       },
@@ -40,7 +40,7 @@ describe("workspace resolution", () => {
     const resolved = await resolveWorkspace(root);
     expect(resolved.repositories).toHaveLength(1);
     expect(resolved.repositories[0]?.name).toBe("sur-api");
-    expect(resolved.runtimes.codex?.enabled).toBe(true);
+    expect(resolved.runtimes.standard?.enabled).toBe(true);
   });
 
   test("does not inject implicit packs when none are declared", async () => {
@@ -51,20 +51,20 @@ describe("workspace resolution", () => {
       metadata: { name: "no-default-pack" },
       spec: {
         runtimes: {
-          codex: { enabled: true },
+          standard: { enabled: true },
         },
         repositories: [],
       },
     });
 
     const resolved = await resolveWorkspace(root);
-    expect(resolved.selectedAgents.codex).toEqual([]);
+    expect(resolved.selectedAgents.standard).toEqual([]);
     expect(resolved.selectedSkills).toEqual([]);
   });
 
   test("resolves pack-provided agents and skills only when declared explicitly", async () => {
     const root = await createManagedTempDir("workspace-explicit-pack-");
-    await mkdir(path.join(root, "packs", "pack-core", "agents", "codex"), { recursive: true });
+    await mkdir(path.join(root, "packs", "pack-core", "agents", "standard"), { recursive: true });
     await mkdir(path.join(root, "packs", "pack-core", "skills", "gha-normalizer"), {
       recursive: true,
     });
@@ -79,7 +79,7 @@ describe("workspace resolution", () => {
       spec: {
         provides: {
           agents: {
-            codex: ["planner"],
+            standard: ["planner"],
           },
           skills: ["gha-normalizer"],
         },
@@ -87,8 +87,8 @@ describe("workspace resolution", () => {
     });
 
     await writeFile(
-      path.join(root, "packs", "pack-core", "agents", "codex", "planner.toml"),
-      ["# Planner agent", 'name = "planner"', 'prompt = "Plan workspace maintenance."'].join("\n"),
+      path.join(root, "packs", "pack-core", "agents", "standard", "planner.md"),
+      ["# planner", "", "Plan workspace maintenance."].join("\n"),
       "utf8",
     );
     await writeFile(
@@ -102,10 +102,10 @@ describe("workspace resolution", () => {
       metadata: { name: "explicit-pack" },
       spec: {
         runtimes: {
-          codex: { enabled: true },
+          standard: { enabled: true },
         },
         agents: {
-          codex: ["planner"],
+          standard: ["planner"],
         },
         skills: ["gha-normalizer"],
         packs: [
@@ -126,7 +126,7 @@ describe("workspace resolution", () => {
     });
 
     const resolved = await resolveWorkspace(root);
-    expect(resolved.selectedAgents.codex.map((agent) => agent.name)).toEqual(["planner"]);
+    expect(resolved.selectedAgents.standard.map((agent) => agent.name)).toEqual(["planner"]);
     expect(resolved.selectedSkills.map((skill) => skill.name)).toEqual(["gha-normalizer"]);
     expect(resolved.selectedSkills[0]?.source).toBe("pack");
   });
@@ -235,7 +235,7 @@ describe("workspace resolution", () => {
       metadata: { name: "plugins-and-mcp" },
       spec: {
         runtimes: {
-          codex: { enabled: true },
+          standard: { enabled: true },
           "claude-code": { enabled: true },
         },
         repositories: [
@@ -247,11 +247,6 @@ describe("workspace resolution", () => {
           },
         ],
         plugins: {
-          codex: {
-            enabled: {
-              "release-helper@ops-workspace": true,
-            },
-          },
           "claude-code": {
             enabled: {
               "release-helper@ops-workspace": true,
@@ -277,9 +272,6 @@ describe("workspace resolution", () => {
     });
 
     const resolved = await resolveWorkspace(root);
-    expect(resolved.manifest.spec.plugins?.codex?.enabled).toEqual({
-      "release-helper@ops-workspace": true,
-    });
     expect(resolved.manifest.spec.plugins?.["claude-code"]?.marketplaces).toEqual({
       "ops-workspace": {
         source: {

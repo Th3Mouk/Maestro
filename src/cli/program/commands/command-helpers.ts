@@ -1,4 +1,5 @@
 import pc from "picocolors";
+import { supportedRuntimeNames } from "../../../runtime/types.js";
 import type { RuntimeName } from "../../../runtime/types.js";
 import type { ReportStatus } from "../../../report/types.js";
 import { statusToExitCode } from "../../exit-codes.js";
@@ -12,7 +13,6 @@ export function parseRuntimeNames(value?: string): RuntimeName[] | undefined {
     return undefined;
   }
 
-  const supportedRuntimeNames: RuntimeName[] = ["codex", "claude-code", "opencode"];
   const runtimes = value
     .split(",")
     .map((entry) => entry.trim())

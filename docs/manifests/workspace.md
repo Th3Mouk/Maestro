@@ -100,17 +100,17 @@ Maestro keeps workspace-authored inputs, pack inputs, generated outputs, and mat
 - `workspace install` also initializes the workspace root as a Git repository when needed and materializes managed Git repositories under `repos/<name>` from the workspace manifest. Those repositories are generated from the contract; `repos/` is not the hand-authored source of truth.
 - `workspace install` initializes the workspace root as a Git repository when needed, creates the `🪄 booted by Maestro` commit when the repository is unborn, clones repositories, and projects workspace/runtime artifacts; it does not execute repository dependency bootstrap unless a workspace author runs `maestro repo bootstrap` afterward.
 - `init` writes the workspace contract, `AGENTS.md`, `maestro.json`, and the internal `.maestro/` state root. It does not scaffold a fragment directory, a repo-local plugin marketplace, or an example repository.
-- `init` defaults to Codex and Claude Code projections only; `opencode` is opt-in through `--runtimes`.
+- `init` defaults to both runtimes (`standard` and `claude-code`) enabled.
 - `workspace install` materializes generated projections only for the runtimes enabled in the manifest.
 - `init` also writes `AGENTS.md`, the workspace-level Maestro CLI map for AI agents.
 - `init` also writes `maestro.json`, the neutral descriptor for agents, harnesses, scripts, and other tools that consume the workspace directory directly.
 - `maestro editor-workspace` generates `maestro.code-workspace` on demand for editors that support named multi-root workspaces.
 - `spec.agents` and `spec.skills` declare which runtime agent and skill names the workspace wants to resolve.
-- `spec.plugins` declares which native runtime plugins should be enabled and, for Claude Code, which marketplaces should be exposed in `.claude/settings.json`.
-- `spec.mcpServers` declares project-scoped MCP servers that Maestro projects into `.codex/config.toml` and `.mcp.json`.
+- `spec.plugins` declares which Claude Code marketplaces should be exposed in `.claude/settings.json`.
+- `spec.mcpServers` declares project-scoped MCP servers that Maestro projects into `.mcp.json` for Claude Code.
 - Pack-provided inputs come from `spec.packs`; packs are explicit and optional, and they can provide agents, skills, policies, templates, and hooks.
 - Maestro only resolves packs that the workspace declares in the manifest. If you want shared behavior, add the packs you want there.
-- Generated outputs land in `.maestro/`, `.codex/`, `.claude/`, `.opencode/`, root-level `.mcp.json`, plus root-level `AGENTS.md` and `maestro.json`.
+- Generated outputs land in `.maestro/`, `.claude/`, `.agents/skills/`, `.agents/agents/`, root-level `.mcp.json`, plus root-level `AGENTS.md` and `maestro.json`.
 - Generated outputs are part of the managed workspace layout. Shared-state artifacts should stay inside the workspace and follow explicit locking rules when concurrent commands can touch them.
 
 Use the generated root file this way:
@@ -119,13 +119,35 @@ Use the generated root file this way:
 - `maestro.json`: the canonical machine-readable description of the workspace root and managed repositories
 - `maestro.code-workspace`: an optional editor entrypoint for tools that understand `.code-workspace`; generate it with `maestro editor-workspace` when needed. The workspace root itself stays the canonical portable entrypoint
 
-Workspace-local agent files are resolved from `agents/<runtime>/` when present, and workspace-local skill material is projected into `.maestro/skills/`. OpenCode is then configured through `skills.paths` to read that shared folder directly, so it does not need a second copy under `.opencode/skills/`.
+Workspace-local agent files are resolved from `agents/<runtime>/` when present, and workspace-local skill material is projected into `.maestro/skills/` (the shared canonical copy every runtime draws from).
 
-Native runtime plugins stay native:
+### Two runtimes: `standard` and `claude-code`
 
-- Put installable Codex or Claude Code plugin bundles under `plugins/<plugin-name>/`.
-- Put the repo-local Codex marketplace at `.agents/plugins/marketplace.json` only when you intentionally want a Codex marketplace overlay in the workspace.
-- Let `spec.plugins` control activation, not plugin internals.
+Maestro projects into exactly two runtime targets — there is no per-tool (Codex, OpenCode, Cursor, Devin, Kilo Code, …) toggle anymore:
+
+- **`claude-code`** — the proprietary holdout. Projects `.claude/agents/`, `.claude/skills/`, `.claude/commands/`, `CLAUDE.md`, `.claude/settings.json`, and `.mcp.json`.
+- **`standard`** — everything else. Projects every selected skill into `.agents/skills/<name>/SKILL.md` and every selected agent into `.agents/agents/<name>.md`. `.agents/skills/` is a de facto convention that Cursor, Codex, Devin, Kilo Code, OpenCode, and other Agent-Skills-compatible tools all scan directly at a fixed path — there is no per-tool config indirection to point at, so Maestro materializes a real copy there (refreshed on every `install`/`update`).
+
+Enable either or both under `spec.runtimes`:
+
+```yaml
+spec:
+  runtimes:
+    standard:
+      enabled: true
+    claude-code:
+      enabled: true
+```
+
+**Capability trade-off**: earlier versions projected Codex-native `.codex/config.toml` (with per-tool MCP server and plugin blocks) and OpenCode-native `.opencode/opencode.json`. Neither format has a shared, multi-tool equivalent under `.agents/`, so that native, tool-specific projection was removed rather than duplicated per tool. Project-scoped MCP servers (`spec.mcpServers`) now project only into `.mcp.json` for Claude Code. If you relied on `.codex/config.toml` or `.opencode/opencode.json` being generated, that output no longer exists.
+
+`.agents/` is not exclusively a generated directory: `.agents/plugins/marketplace.json` is a separate, hand-authored, committed artifact (see below). Only `.agents/skills/` and `.agents/agents/` are generated and gitignored; projecting `standard` never touches `.agents/plugins/`.
+
+Native plugins and marketplaces stay Claude-Code-specific now that Codex-native projection is gone:
+
+- Put installable Claude Code plugin bundles under `plugins/<plugin-name>/`.
+- Put a repo-local plugin marketplace at `.agents/plugins/marketplace.json` only when you intentionally want a marketplace overlay in the workspace; `maestro doctor` validates that any locally-sourced plugin it references carries a native `.codex-plugin/plugin.json` or `.claude-plugin/plugin.json` manifest.
+- Let `spec.plugins["claude-code"]` control Claude Code plugin activation and marketplaces, not plugin internals.
 - Let `spec.mcpServers` control project-scoped MCP projection, not remote repository installation.
 
 ## Pack composition

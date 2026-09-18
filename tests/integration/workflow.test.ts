@@ -164,7 +164,7 @@ describe("end-to-end workspace lifecycle", () => {
     });
     expect(descriptor.repositories).toEqual([]);
     expect(descriptor.projections).toEqual({
-      runtimes: ["codex", "claude-code"],
+      runtimes: ["standard", "claude-code"],
       devcontainer: null,
     });
   });
@@ -181,7 +181,7 @@ describe("end-to-end workspace lifecycle", () => {
         "  name: init-tree",
         "spec:",
         "  runtimes:",
-        "    codex:",
+        "    standard:",
         "      enabled: true",
         "    claude-code:",
         "      enabled: true",
@@ -195,9 +195,8 @@ describe("end-to-end workspace lifecycle", () => {
     expect(report.status).toBe("ok");
     expect(existsSync(path.join(root, "repos"))).toBe(false);
     expect(existsSync(path.join(root, ".maestro"))).toBe(false);
-    expect(existsSync(path.join(root, ".codex"))).toBe(false);
+    expect(existsSync(path.join(root, ".agents"))).toBe(false);
     expect(existsSync(path.join(root, ".claude"))).toBe(false);
-    expect(existsSync(path.join(root, ".opencode"))).toBe(false);
     expect(existsSync(path.join(root, ".git"))).toBe(false);
   });
 
@@ -226,7 +225,7 @@ describe("end-to-end workspace lifecycle", () => {
         "  name: boot-tree",
         "spec:",
         "  runtimes:",
-        "    codex:",
+        "    standard:",
         "      enabled: true",
         "    claude-code:",
         "      enabled: true",
@@ -242,9 +241,9 @@ describe("end-to-end workspace lifecycle", () => {
       [
         "repos/",
         ".maestro/",
-        ".codex/",
         ".claude/",
-        ".opencode/",
+        ".agents/skills/",
+        ".agents/agents/",
         ".mcp.json",
         "node_modules/",
         ".devcontainer/",
@@ -276,7 +275,7 @@ describe("end-to-end workspace lifecycle", () => {
         "  name: merge-tree",
         "spec:",
         "  runtimes:",
-        "    codex:",
+        "    standard:",
         "      enabled: true",
         "    claude-code:",
         "      enabled: true",
@@ -295,9 +294,9 @@ describe("end-to-end workspace lifecycle", () => {
         "# keep this",
         "repos/",
         ".maestro/",
-        ".codex/",
         ".claude/",
-        ".opencode/",
+        ".agents/skills/",
+        ".agents/agents/",
         ".mcp.json",
         ".devcontainer/",
         "",
@@ -332,14 +331,17 @@ describe("end-to-end workspace lifecycle", () => {
     ).toBe(true);
     expect(existsSync(path.join(workspaceRoot, ".devcontainer", "devcontainer.json"))).toBe(true);
     expect(existsSync(path.join(workspaceRoot, ".devcontainer", "bootstrap.sh"))).toBe(true);
-    expect(existsSync(path.join(workspaceRoot, "agents", "codex"))).toBe(true);
+    expect(existsSync(path.join(workspaceRoot, "agents", "standard"))).toBe(true);
     expect(existsSync(path.join(workspaceRoot, "agents", "claude-code"))).toBe(false);
-    expect(existsSync(path.join(workspaceRoot, "agents", "opencode"))).toBe(false);
     expect(existsSync(path.join(workspaceRoot, "skills"))).toBe(true);
     expect(existsSync(path.join(workspaceRoot, "skills", "local-runbook", "SKILL.md"))).toBe(true);
     expect(
       existsSync(path.join(workspaceRoot, ".maestro", "skills", "gha-normalizer", "SKILL.md")),
     ).toBe(true);
+    expect(
+      existsSync(path.join(workspaceRoot, ".agents", "skills", "gha-normalizer", "SKILL.md")),
+    ).toBe(true);
+    expect(existsSync(path.join(workspaceRoot, ".agents", "agents", "planner.md"))).toBe(true);
     expect(existsSync(path.join(workspaceRoot, ".agents", "plugins", "marketplace.json"))).toBe(
       true,
     );
@@ -348,25 +350,9 @@ describe("end-to-end workspace lifecycle", () => {
         path.join(workspaceRoot, "plugins", "release-helper", ".codex-plugin", "plugin.json"),
       ),
     ).toBe(true);
-    expect(existsSync(path.join(workspaceRoot, ".opencode", "skills"))).toBe(false);
-    expect(
-      JSON.parse(await readFile(path.join(workspaceRoot, ".opencode", "opencode.json"), "utf8")),
-    ).toMatchObject({
-      generated: true,
-      workspace: "ops-workspace",
-      skills: {
-        paths: [".maestro/skills"],
-      },
-    });
     expect(existsSync(path.join(workspaceRoot, ".mcp.json"))).toBe(true);
     expect(await readFile(path.join(workspaceRoot, ".mcp.json"), "utf8")).toContain(
       '"shared-docs"',
-    );
-    expect(await readFile(path.join(workspaceRoot, ".codex", "config.toml"), "utf8")).toContain(
-      "[mcp_servers.shared-docs]",
-    );
-    expect(await readFile(path.join(workspaceRoot, ".codex", "config.toml"), "utf8")).toContain(
-      '[plugins."release-helper@ops-workspace"]',
     );
     expect(
       JSON.parse(await readFile(path.join(workspaceRoot, ".claude", "settings.json"), "utf8")),
@@ -430,7 +416,7 @@ describe("end-to-end workspace lifecycle", () => {
   test("doctor reports missing runtime artifacts", async () => {
     const { workspaceRoot } = await createScenario();
     await installWorkspace(workspaceRoot);
-    await rm(path.join(workspaceRoot, ".codex", "config.toml"));
+    await rm(path.join(workspaceRoot, ".agents", "skills"), { recursive: true });
     await rm(path.join(workspaceRoot, ".mcp.json"));
     await rm(path.join(workspaceRoot, "maestro.json"));
 
@@ -813,22 +799,22 @@ async function createWorkspace(
 ): Promise<void> {
   await mkdir(path.join(workspaceRoot, "fragments"), { recursive: true });
   await mkdir(path.join(workspaceRoot, ".agents", "plugins"), { recursive: true });
-  await mkdir(path.join(workspaceRoot, "agents", "codex"), { recursive: true });
+  await mkdir(path.join(workspaceRoot, "agents", "standard"), { recursive: true });
   await mkdir(path.join(workspaceRoot, "plugins", "release-helper", ".codex-plugin"), {
     recursive: true,
   });
   await mkdir(path.join(workspaceRoot, "skills", "local-runbook"), { recursive: true });
   await writeFile(
-    path.join(workspaceRoot, "agents", "codex", "planner.toml"),
+    path.join(workspaceRoot, "agents", "standard", "planner.md"),
     [
-      'name = "planner"',
-      'description = "Workspace-specific planner."',
-      'model = "gpt-5.4"',
-      'model_reasoning_effort = "high"',
-      'sandbox_mode = "read-only"',
-      'developer_instructions = """',
+      "---",
+      "name: planner",
+      "description: Workspace-specific planner.",
+      "---",
+      "",
+      "# Planner",
+      "",
       "Plan the workspace change before implementation.",
-      '"""',
     ].join("\n"),
     "utf8",
   );
@@ -854,11 +840,9 @@ async function createWorkspace(
       "    - fragments/runtimes.yaml",
       "    - fragments/policies.yaml",
       "  agents:",
-      "    codex:",
+      "    standard:",
       "      - planner",
       "    claude-code:",
-      "      - planner",
-      "    opencode:",
       "      - planner",
       "  skills:",
       "    - gha-normalizer",
@@ -979,10 +963,6 @@ async function createWorkspace(
       "  name: plugins",
       "spec:",
       "  plugins:",
-      "    codex:",
-      "      enabled:",
-      '        "release-helper@ops-workspace": true',
-      '        "github@openai-curated": false',
       "    claude-code:",
       "      enabled:",
       '        "release-helper@ops-workspace": true',
@@ -1084,11 +1064,9 @@ async function createWorkspace(
       "  name: runtimes",
       "spec:",
       "  runtimes:",
-      "    codex:",
+      "    standard:",
       "      enabled: true",
       "    claude-code:",
-      "      enabled: true",
-      "    opencode:",
       "      enabled: true",
     ].join("\n"),
     "utf8",
@@ -1153,11 +1131,9 @@ async function createPackCore(packRoot: string): Promise<void> {
       '    framework: ">=0.1.0 <1.0.0"',
       "  provides:",
       "    agents:",
-      "      codex:",
+      "      standard:",
       "        - planner",
       "      claude-code:",
-      "        - planner",
-      "      opencode:",
       "        - planner",
       "    skills:",
       "      - gha-normalizer",
@@ -1268,12 +1244,10 @@ async function createPackGithubActions(packRoot: string, sampleCiRemote: string)
     path.join(packRoot, "fragments", "runtimes.partial.yaml"),
     [
       "runtimes:",
-      "  codex:",
-      "    installAgents: true",
+      "  standard:",
+      "    enabled: true",
       "  claude-code:",
       "    installProjectInstructions: true",
-      "  opencode:",
-      "    installProjectConfig: true",
     ].join("\n"),
     "utf8",
   );

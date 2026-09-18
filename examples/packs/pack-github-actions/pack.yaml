@@ -13,7 +13,7 @@ spec:
     policies:
       - no-source-changes-in-ops
     agents:
-      codex:
+      standard:
         - workflow-normalizer
   fragments:
     - repositories.partial.yaml

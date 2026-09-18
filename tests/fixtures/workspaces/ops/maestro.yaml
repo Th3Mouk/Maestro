@@ -12,7 +12,7 @@ spec:
     - fragments/runtimes.yaml
     - fragments/policies.yaml
   agents:
-    codex:
+    standard:
       - planner
   skills:
     - gha-normalizer

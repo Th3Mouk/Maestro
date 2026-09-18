@@ -357,11 +357,8 @@ describe("execution service", () => {
       createResolvedWorkspaceFixture({
         repositories: [],
         runtimes: createRuntimeFixture({
-          codex: {
+          standard: {
             enabled: true,
-            installProjectConfig: true,
-            installAgents: true,
-            useAgentsFile: "AGENTS.md",
           },
           "claude-code": {
             enabled: true,

@@ -21,9 +21,8 @@ export const workspaceManifestSchema = z.object({
     includes: z.array(z.string()).optional(),
     runtimes: z
       .object({
-        codex: runtimeConfigSchema.optional(),
+        standard: runtimeConfigSchema.optional(),
         "claude-code": runtimeConfigSchema.optional(),
-        opencode: runtimeConfigSchema.optional(),
       })
       .default({}),
     packs: z.array(packRefSchema).optional(),
@@ -36,9 +35,8 @@ export const workspaceManifestSchema = z.object({
       .optional(),
     agents: z
       .object({
-        codex: z.array(z.string()).optional(),
+        standard: z.array(z.string()).optional(),
         "claude-code": z.array(z.string()).optional(),
-        opencode: z.array(z.string()).optional(),
       })
       .optional(),
     skills: z.array(z.string()).optional(),
@@ -73,9 +71,8 @@ export const packManifestSchema = z.object({
       .object({
         agents: z
           .object({
-            codex: z.array(z.string()).optional(),
+            standard: z.array(z.string()).optional(),
             "claude-code": z.array(z.string()).optional(),
-            opencode: z.array(z.string()).optional(),
           })
           .optional(),
         skills: z.array(z.string()).optional(),

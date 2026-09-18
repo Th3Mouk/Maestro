@@ -4,6 +4,6 @@ metadata:
   name: ops-workspace-runtimes
 spec:
   runtimes:
-    codex:
+    standard:
       enabled: true
       installProjectConfig: true

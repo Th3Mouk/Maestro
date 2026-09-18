@@ -64,7 +64,7 @@ Maestro introduces partial or complete multi-repository workspaces on top of Git
 - create task-scoped worktrees so downstream agents and harnesses can work in one task worktree that contains the root worktree plus one worktree per managed repository;
 - run workspace-managed Git operations across repositories.
 
-By default, `maestro init` enables Codex and Claude Code only. Pass `--runtimes opencode` when you explicitly want OpenCode projections in the scaffold.
+By default, `maestro init` enables both runtimes: `standard` (the shared `.agents/skills/` convention read by Codex, Cursor, Devin, Kilo Code, OpenCode, and other Agent-Skills-compatible tools) and `claude-code` (native `.claude/` projection). Pass `--runtimes standard` or `--runtimes claude-code` to scaffold only one.
 
 For example, a repository entry can keep the whole checkout:
 
