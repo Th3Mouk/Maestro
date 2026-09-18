@@ -156,7 +156,13 @@ jobs:
           VERSION="${{ steps.package.outputs.version }}"
           TARBALL_URL="https://registry.npmjs.org/@th3mouk/maestro/-/maestro-${VERSION}.tgz"
 
-          curl -sSfL --retry 3 --retry-delay 5 -o /tmp/maestro-"${VERSION}".tgz "$TARBALL_URL"
+          # npm publish reports success before the tarball CDN necessarily has it ("may
+          # take a few minutes to become available") - the registry API (npm view) can
+          # propagate well before the direct tarball URL does, and a plain HTTP error
+          # like 404 isn't one of curl's default --retry conditions, so give this a
+          # generous, error-inclusive retry budget instead of failing on the first miss.
+          curl -sSfL --retry 30 --retry-all-errors --retry-delay 10 --retry-max-time 300 \
+            -o /tmp/maestro-"${VERSION}".tgz "$TARBALL_URL"
           TAR_SHA256="$(sha256sum /tmp/maestro-"${VERSION}".tgz | awk '{print $1}')"
 
           FORMULA_PATH="Formula/maestro.rb"
