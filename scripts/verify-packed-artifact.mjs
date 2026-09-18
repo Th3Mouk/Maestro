@@ -67,7 +67,6 @@ async function main() {
 
     const binPath = path.join(tempRoot, "node_modules", ".bin", "maestro");
     await execa(binPath, ["--help"], { cwd: tempRoot, stdio: "pipe" });
-    await assertShrinkwrapMatchesInstalledTree(tempRoot);
 
     const initWorkspace = path.join(tempRoot, "sample-workspace");
     await execa(binPath, ["init", initWorkspace], { cwd: tempRoot, stdio: "pipe" });
@@ -93,6 +92,21 @@ async function main() {
     });
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
+  }
+
+  // npm only enforces a package's npm-shrinkwrap.json when that package's own directory is
+  // the install root; it does not apply when the package is installed as someone else's
+  // dependency (the tempRoot case above, whether local or global). Verifying the pin has to
+  // extract the tarball and install from inside it, which is the one install mode where
+  // npm-shrinkwrap.json actually takes effect.
+  const extractRoot = await mkdtemp(path.join(os.tmpdir(), "maestro-pack-extract-"));
+  try {
+    await execa("tar", ["-xzf", tarball, "-C", extractRoot], { cwd: repoRoot, stdio: "pipe" });
+    const packageRoot = path.join(extractRoot, "package");
+    await execa("npm", ["install", "--ignore-scripts"], { cwd: packageRoot, stdio: "pipe" });
+    await assertShrinkwrapMatchesInstalledTree(packageRoot);
+  } finally {
+    await rm(extractRoot, { recursive: true, force: true });
   }
 }
 
@@ -143,11 +157,8 @@ async function assertFileContains(targetPath, expected) {
   }
 }
 
-async function assertShrinkwrapMatchesInstalledTree(tempRoot) {
+async function assertShrinkwrapMatchesInstalledTree(packageRoot) {
   const shrinkwrap = JSON.parse(await readFile(path.join(repoRoot, "npm-shrinkwrap.json"), "utf8"));
-  const installedLock = JSON.parse(
-    await readFile(path.join(tempRoot, "package-lock.json"), "utf8"),
-  );
 
   const shrinkwrapPackages = Object.entries(shrinkwrap.packages)
     .filter(([entryPath, entry]) => entryPath && entryPath !== "" && !entry.dev)
@@ -155,15 +166,17 @@ async function assertShrinkwrapMatchesInstalledTree(tempRoot) {
   const mismatches = [];
 
   for (const [entryPath, expectedVersion] of shrinkwrapPackages) {
-    const installedEntry = installedLock.packages[entryPath];
-    if (!installedEntry) {
+    const installedPackageJson = await readFile(
+      path.join(packageRoot, entryPath, "package.json"),
+      "utf8",
+    ).catch(() => null);
+    if (installedPackageJson === null) {
       mismatches.push(`${entryPath}: missing from installed tree`);
       continue;
     }
-    if (installedEntry.version !== expectedVersion) {
-      mismatches.push(
-        `${entryPath}: expected ${expectedVersion}, received ${installedEntry.version}`,
-      );
+    const installedVersion = JSON.parse(installedPackageJson).version;
+    if (installedVersion !== expectedVersion) {
+      mismatches.push(`${entryPath}: expected ${expectedVersion}, received ${installedVersion}`);
     }
   }
 

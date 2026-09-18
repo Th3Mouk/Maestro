@@ -13,6 +13,12 @@ const tempRoot = await mkdtemp(path.join(os.tmpdir(), "maestro-shrinkwrap-"));
 
 try {
   await cp(packageJsonPath, path.join(tempRoot, "package.json"));
+  // Seed the existing shrinkwrap as the starting lockfile: without it, npm has nothing to
+  // preserve and re-resolves every transitive dependency to whatever is newest on the registry
+  // right now, so --check fails (and --write churns) purely from registry drift, with no
+  // package.json change involved. Seeding makes npm keep current pins that still satisfy
+  // package.json and only touch entries that no longer resolve.
+  await cp(shrinkwrapPath, path.join(tempRoot, "package-lock.json")).catch(() => {});
 
   const install = spawnSync("npm", ["install", "--package-lock-only", "--ignore-scripts"], {
     cwd: tempRoot,
