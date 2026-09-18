@@ -5,6 +5,14 @@ import { workspacePluginsSchema } from "./plugins.js";
 import { conflictSchema, packRefSchema, policyRefSchema, repositorySchema } from "./repository.js";
 import { runtimeConfigSchema } from "./runtime.js";
 
+// A bare array selects exactly those names (existing behavior). `{ exclude }` selects
+// every discovered/pack-provided name except the listed ones. Omitting the field
+// entirely (see agent-discovery.ts) selects all of them.
+const nameSelectionSchema = z.union([
+  z.array(z.string()),
+  z.object({ exclude: z.array(z.string()) }),
+]);
+
 export const workspaceManifestSchema = z.object({
   apiVersion: z.string().default("maestro/v1"),
   kind: z.literal("Workspace"),
@@ -35,11 +43,11 @@ export const workspaceManifestSchema = z.object({
       .optional(),
     agents: z
       .object({
-        standard: z.array(z.string()).optional(),
-        "claude-code": z.array(z.string()).optional(),
+        standard: nameSelectionSchema.optional(),
+        "claude-code": nameSelectionSchema.optional(),
       })
       .optional(),
-    skills: z.array(z.string()).optional(),
+    skills: nameSelectionSchema.optional(),
     plugins: workspacePluginsSchema.optional(),
     mcpServers: z.array(mcpServerSchema).optional(),
     policies: z.array(policyRefSchema).optional(),
@@ -89,6 +97,7 @@ export const packManifestSchema = z.object({
   }),
 });
 
+export type NameSelection = z.infer<typeof nameSelectionSchema>;
 export type RuntimeAgentSelection = NonNullable<
   z.infer<typeof workspaceManifestSchema>["spec"]["agents"]
 >;

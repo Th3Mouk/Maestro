@@ -156,6 +156,8 @@ In the first-run lifecycle, `workspace install` is the command that turns the wo
 
 That projection refreshes `maestro.json` as the canonical machine-readable workspace view, while `.maestro/` stores the internal lockfile, state, and reports. When `standard` and `claude-code` are enabled, `workspace install` also generates `.agents/` and `.claude/` for the workspace.
 
+By default, projecting agents and skills into those directories only touches the names Maestro is about to write, so hand-placed or third-party agents/skills already there survive (`projectionMode: merge`). Set `projectionMode: replace` on a runtime in `spec.runtimes` to wipe its target directories on every install instead. See [Workspace Manifest](../manifests/workspace.md#projection-mode-merge-or-replace).
+
 Repository checkout scope comes from `spec.repositories[].sparse`. Omit that field for a full clone, or use `includePaths` / `excludePaths` together to keep the checked-out tree narrow while hiding nested files or folders you do not want materialized.
 
 ### `workspace update`

@@ -1,5 +1,5 @@
 import { cp, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, type Dirent } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import lockfile from "proper-lockfile";
@@ -110,13 +110,24 @@ export async function removeIfExists(target: string): Promise<void> {
   }
 }
 
-export async function listDirectories(root: string): Promise<string[]> {
+async function listEntryNames(
+  root: string,
+  isMatch: (entry: Dirent) => boolean,
+): Promise<string[]> {
   if (!(await pathExists(root))) {
     return [];
   }
 
   const entries = await readdir(root, { withFileTypes: true });
-  return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+  return entries.filter(isMatch).map((entry) => entry.name);
+}
+
+export function listDirectories(root: string): Promise<string[]> {
+  return listEntryNames(root, (entry) => entry.isDirectory());
+}
+
+export function listFiles(root: string): Promise<string[]> {
+  return listEntryNames(root, (entry) => entry.isFile());
 }
 
 export async function createTempDir(prefix: string): Promise<string> {

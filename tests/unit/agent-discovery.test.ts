@@ -168,6 +168,79 @@ describe("agent discovery", () => {
     expect(resolved[2]?.root).toBe(path.join(secondPackRoot, "skills", "gamma"));
   });
 
+  test("defaults to every discovered and pack-provided agent when spec.agents is undefined", async () => {
+    const root = await createManagedTempDir("agent-discovery-agents-default-all-");
+    const packRoot = path.join(root, "packs", "pack-a");
+    await mkdir(path.join(root, "agents", "standard"), { recursive: true });
+    await mkdir(path.join(packRoot, "agents", "standard"), { recursive: true });
+
+    await writeFile(path.join(root, "agents", "standard", "alpha.toml"), 'name = "alpha"\n');
+    await writeFile(path.join(root, "agents", "standard", "beta.toml"), 'name = "beta"\n');
+    await writeFile(path.join(packRoot, "agents", "standard", "gamma.toml"), 'name = "gamma"\n');
+
+    const resolved = await resolveAgents(root, createManifest(), [
+      createPack(packRoot, { agents: { standard: ["gamma"] } }),
+    ]);
+
+    expect(resolved.standard.map((agent) => agent.name).sort()).toEqual(["alpha", "beta", "gamma"]);
+    expect(resolved["claude-code"]).toEqual([]);
+  });
+
+  test("keeps every discovered and pack-provided agent except the excluded names", async () => {
+    const root = await createManagedTempDir("agent-discovery-agents-exclude-");
+    const packRoot = path.join(root, "packs", "pack-a");
+    await mkdir(path.join(root, "agents", "standard"), { recursive: true });
+    await mkdir(path.join(packRoot, "agents", "standard"), { recursive: true });
+
+    await writeFile(path.join(root, "agents", "standard", "alpha.toml"), 'name = "alpha"\n');
+    await writeFile(path.join(root, "agents", "standard", "beta.toml"), 'name = "beta"\n');
+    await writeFile(path.join(packRoot, "agents", "standard", "gamma.toml"), 'name = "gamma"\n');
+
+    const resolved = await resolveAgents(
+      root,
+      createManifest({ agents: { standard: { exclude: ["beta", "gamma"] } } }),
+      [createPack(packRoot, { agents: { standard: ["gamma"] } })],
+    );
+
+    expect(resolved.standard.map((agent) => agent.name)).toEqual(["alpha"]);
+  });
+
+  test("defaults to every discovered and pack-provided skill when spec.skills is undefined", async () => {
+    const root = await createManagedTempDir("agent-discovery-skills-default-all-");
+    const packRoot = path.join(root, "packs", "pack-a");
+    await mkdir(path.join(root, "skills", "alpha"), { recursive: true });
+    await mkdir(path.join(packRoot, "skills", "beta"), { recursive: true });
+
+    await writeFile(path.join(root, "skills", "alpha", "SKILL.md"), "# alpha\n");
+    await writeFile(path.join(packRoot, "skills", "beta", "SKILL.md"), "# beta\n");
+
+    const resolved = await resolveSkills(root, createManifest(), [
+      createPack(packRoot, { skills: ["beta"] }),
+    ]);
+
+    expect(resolved.map((skill) => skill.name).sort()).toEqual(["alpha", "beta"]);
+  });
+
+  test("keeps every discovered and pack-provided skill except the excluded names", async () => {
+    const root = await createManagedTempDir("agent-discovery-skills-exclude-");
+    const packRoot = path.join(root, "packs", "pack-a");
+    await mkdir(path.join(root, "skills", "alpha"), { recursive: true });
+    await mkdir(path.join(root, "skills", "beta"), { recursive: true });
+    await mkdir(path.join(packRoot, "skills", "gamma"), { recursive: true });
+
+    await writeFile(path.join(root, "skills", "alpha", "SKILL.md"), "# alpha\n");
+    await writeFile(path.join(root, "skills", "beta", "SKILL.md"), "# beta\n");
+    await writeFile(path.join(packRoot, "skills", "gamma", "SKILL.md"), "# gamma\n");
+
+    const resolved = await resolveSkills(
+      root,
+      createManifest({ skills: { exclude: ["beta", "gamma"] } }),
+      [createPack(packRoot, { skills: ["gamma"] })],
+    );
+
+    expect(resolved.map((skill) => skill.name)).toEqual(["alpha"]);
+  });
+
   test("keeps policy resolution precedence and source behavior", async () => {
     const root = await createManagedTempDir("agent-discovery-policy-");
     const packRoot = path.join(root, "packs", "pack-a");

@@ -1,16 +1,35 @@
 import type { execa } from "execa";
 import { getRepositorySparseIncludePaths } from "../../src/workspace/repositories.js";
 import type { RuntimeName } from "../../src/runtime/types.js";
-import type { RepositoryRef, ResolvedWorkspace } from "../../src/workspace/types.js";
+import { defaultRuntimeProjectionMode } from "../../src/workspace/schema.js";
+import type { RepositoryRef, ResolvedWorkspace, RuntimeConfig } from "../../src/workspace/types.js";
+
+type PartialRuntimes = Partial<Record<RuntimeName, Partial<RuntimeConfig>>>;
+
+function withRuntimeConfigDefaults(runtimes: PartialRuntimes): ResolvedWorkspace["runtimes"] {
+  const resolved: ResolvedWorkspace["runtimes"] = {};
+  for (const runtimeName of Object.keys(runtimes) as RuntimeName[]) {
+    const config = runtimes[runtimeName];
+    if (!config) {
+      continue;
+    }
+    resolved[runtimeName] = {
+      enabled: true,
+      projectionMode: defaultRuntimeProjectionMode,
+      ...config,
+    };
+  }
+  return resolved;
+}
 
 export function createResolvedWorkspaceFixture(input: {
   execution?: ResolvedWorkspace["execution"];
   repositories?: RepositoryRef[];
-  runtimes?: ResolvedWorkspace["runtimes"];
+  runtimes?: PartialRuntimes;
   workspaceName?: string;
 }): ResolvedWorkspace {
   const repositories = input.repositories ?? [];
-  const runtimes = input.runtimes ?? {};
+  const runtimes = withRuntimeConfigDefaults(input.runtimes ?? {});
   const workspaceName = input.workspaceName ?? "demo-workspace";
 
   return {
@@ -67,8 +86,6 @@ export function createRepositoryFixture(
   };
 }
 
-export function createRuntimeFixture(
-  input: Partial<Record<RuntimeName, ResolvedWorkspace["runtimes"][RuntimeName]>>,
-): ResolvedWorkspace["runtimes"] {
-  return input;
+export function createRuntimeFixture(input: PartialRuntimes): ResolvedWorkspace["runtimes"] {
+  return withRuntimeConfigDefaults(input);
 }

@@ -105,7 +105,7 @@ Maestro keeps workspace-authored inputs, pack inputs, generated outputs, and mat
 - `init` also writes `AGENTS.md`, the workspace-level Maestro CLI map for AI agents.
 - `init` also writes `maestro.json`, the neutral descriptor for agents, harnesses, scripts, and other tools that consume the workspace directory directly.
 - `maestro editor-workspace` generates `maestro.code-workspace` on demand for editors that support named multi-root workspaces.
-- `spec.agents` and `spec.skills` declare which runtime agent and skill names the workspace wants to resolve.
+- `spec.agents` and `spec.skills` declare which runtime agent and skill names the workspace wants to resolve — omit a field to select everything available, list specific names, or use `{ exclude: [...] }` to select everything but a few (see [Selecting agents and skills](#selecting-agents-and-skills)).
 - `spec.plugins` declares which Claude Code marketplaces should be exposed in `.claude/settings.json`.
 - `spec.mcpServers` declares project-scoped MCP servers that Maestro projects into `.mcp.json` for Claude Code.
 - Pack-provided inputs come from `spec.packs`; packs are explicit and optional, and they can provide agents, skills, policies, templates, and hooks.
@@ -138,6 +138,49 @@ spec:
     claude-code:
       enabled: true
 ```
+
+### Selecting agents and skills
+
+`spec.agents.<runtime>` and `spec.skills` each accept one of three shapes:
+
+- Omitted entirely: selects every agent/skill Maestro can find for that runtime — workspace-local files under `agents/<runtime>/` (or `skills/` for skills) plus anything packs provide.
+- A list of names, e.g. `["planner", "repo-auditor"]`: selects exactly those names. This is unchanged from before — pack-provided agents/skills are still added on top of the list, so a workspace can't use this form to shrink what a pack provides.
+- `{ exclude: [...] }`: selects everything from the same pool as the omitted case (workspace-local plus pack-provided) except the listed names. Unlike the plain list form, `exclude` can drop a pack-provided name.
+
+```yaml
+spec:
+  agents:
+    standard:
+      exclude:
+        - internal-only-agent # everything else under agents/standard/, plus pack-provided agents
+    claude-code:
+      - planner # only planner, plus whatever packs provide
+  skills:
+    exclude:
+      - draft-skill
+```
+
+An explicit empty list (`skills: []`) still means "select nothing" — that's different from omitting the field, which now means "select everything".
+
+### Projection mode: `merge` or `replace`
+
+Each runtime accepts its own `projectionMode`, which controls how `workspace install`/`update` treats content that is already sitting in that runtime's agent and skill directories (`.agents/agents/`, `.agents/skills/` for `standard`; `.claude/agents/`, `.claude/skills/` for `claude-code`):
+
+- **`merge`** (the default) touches only the exact agent and skill names Maestro is about to project. Matching names are overwritten; everything else already in the directory — a hand-written agent, a skill installed by another tool, a skill you have since removed from `spec.skills` — is left alone. Use this to let Maestro cohabit a directory with agents/skills it does not manage.
+- **`replace`** deletes the whole target directory before projecting, then writes only the current selection. Use this when you want the directory fully regenerated on every install, with no drift and no leftovers, regardless of what was there before.
+
+```yaml
+spec:
+  runtimes:
+    standard:
+      enabled: true
+      projectionMode: merge # default — cohabits with anything not managed by Maestro
+    claude-code:
+      enabled: true
+      projectionMode: replace # .claude/agents/ and .claude/skills/ are fully regenerated
+```
+
+`projectionMode` is independent per runtime, and it governs both the agents directory and the skills directory for that runtime together — there is no separate mode for agents vs. skills within the same runtime.
 
 **Capability trade-off**: earlier versions projected Codex-native `.codex/config.toml` (with per-tool MCP server and plugin blocks) and OpenCode-native `.opencode/opencode.json`. Neither format has a shared, multi-tool equivalent under `.agents/`, so that native, tool-specific projection was removed rather than duplicated per tool. Project-scoped MCP servers (`spec.mcpServers`) now project only into `.mcp.json` for Claude Code. If you relied on `.codex/config.toml` or `.opencode/opencode.json` being generated, that output no longer exists.
 
