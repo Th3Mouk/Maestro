@@ -2,6 +2,7 @@ import type {
   ConflictStrategy as ConflictStrategyFromSchema,
   DevcontainerExecution as DevcontainerExecutionFromSchema,
   McpServer as McpServerFromSchema,
+  NameSelection as NameSelectionFromSchema,
   PackManifest as PackManifestFromSchema,
   PackRef as PackRefFromSchema,
   PolicyRef as PolicyRefFromSchema,
@@ -11,6 +12,7 @@ import type {
   RepositorySparse as RepositorySparseFromSchema,
   RuntimeAgentSelection as RuntimeAgentSelectionFromSchema,
   RuntimeConfig as RuntimeConfigFromSchema,
+  RuntimeProjectionMode as RuntimeProjectionModeFromSchema,
   WorkspaceExecution as WorkspaceExecutionFromSchema,
   WorkspaceDescriptor as WorkspaceDescriptorFromSchema,
   WorkspaceLockfile as WorkspaceLockfileFromSchema,
@@ -22,6 +24,7 @@ import type {
 import type { RuntimeName } from "../runtime/types.js";
 
 export type RuntimeConfig = RuntimeConfigFromSchema;
+export type RuntimeProjectionMode = RuntimeProjectionModeFromSchema;
 export type PackRef = PackRefFromSchema;
 export type PolicyRef = PolicyRefFromSchema;
 export type RepositoryPermissions = RepositoryPermissionsFromSchema;
@@ -31,6 +34,7 @@ export type RepositoryRef = RepositoryRefFromSchema;
 export type McpServer = McpServerFromSchema;
 export type WorkspacePlugins = WorkspacePluginsFromSchema;
 export type RuntimeAgentSelection = RuntimeAgentSelectionFromSchema;
+export type NameSelection = NameSelectionFromSchema;
 export type ConflictStrategy = ConflictStrategyFromSchema;
 export type DevcontainerExecution = DevcontainerExecutionFromSchema;
 export type WorktreeExecution = WorktreeExecutionFromSchema;

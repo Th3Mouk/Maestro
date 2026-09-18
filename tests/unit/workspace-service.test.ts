@@ -454,6 +454,61 @@ describe("workspace manifest loading", () => {
     });
   });
 
+  test("defaults runtime projectionMode to merge and preserves an explicit replace override", async () => {
+    const root = await createManagedTempDir("maestro-projection-mode-defaults-");
+
+    await writeFile(
+      path.join(root, "maestro.yaml"),
+      [
+        "apiVersion: maestro/v1",
+        "kind: Workspace",
+        "metadata:",
+        "  name: projection-mode-defaults",
+        "spec:",
+        "  runtimes:",
+        "    standard:",
+        "      enabled: true",
+        "    claude-code:",
+        "      enabled: true",
+        "      projectionMode: replace",
+        "  repositories:",
+        "    - name: sur-api",
+        "      remote: git@github.com:org/sur-api.git",
+        "      sparse:",
+        "        visiblePaths:",
+        "          - .github/",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const resolved = await resolveWorkspace(root);
+    expect(resolved.runtimes.standard?.projectionMode).toBe("merge");
+    expect(resolved.runtimes["claude-code"]?.projectionMode).toBe("replace");
+  });
+
+  test("rejects an unsupported runtime projectionMode value", async () => {
+    const root = await createManagedTempDir("maestro-projection-mode-invalid-");
+
+    await writeFile(
+      path.join(root, "maestro.yaml"),
+      [
+        "apiVersion: maestro/v1",
+        "kind: Workspace",
+        "metadata:",
+        "  name: projection-mode-invalid",
+        "spec:",
+        "  runtimes:",
+        "    standard:",
+        "      enabled: true",
+        "      projectionMode: wipe",
+        "  repositories: []",
+      ].join("\n"),
+      "utf8",
+    );
+
+    await expect(loadWorkspaceManifest(root)).rejects.toThrow("projectionMode");
+  });
+
   test("falls back to requested policy name and empty spec for invalid pack policy YAML fields", async () => {
     const root = await createManagedTempDir("maestro-policy-pack-parse-");
     const packRoot = path.join(root, "packs", "pack-policy");

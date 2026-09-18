@@ -11,8 +11,15 @@ import type {
 import { mapWithConcurrency, readText, resolveSafePath } from "../utils/fs.js";
 import { resolvePackCollision } from "./discovery/collision.js";
 import { createDefaultAgent } from "./discovery/default-agent.js";
-import { findAgentFile, findPolicyFile, findSkillRoot } from "./discovery/lookup.js";
+import {
+  findAgentFile,
+  findPolicyFile,
+  findSkillRoot,
+  listAgentNames,
+  listSkillNames,
+} from "./discovery/lookup.js";
 import { parsePolicyYamlDocument } from "./discovery/policy-yaml.js";
+import { resolveNameSelection } from "./discovery/selection.js";
 
 const RESOLUTION_CONCURRENCY_LIMIT = 4;
 
@@ -27,10 +34,17 @@ export async function resolveAgents(
   };
 
   for (const runtime of supportedRuntimeNames) {
-    const requested = new Set([
-      ...(manifest.spec.agents?.[runtime] ?? []),
-      ...packs.flatMap((pack) => pack.manifest.spec.provides?.agents?.[runtime] ?? []),
-    ]);
+    const selection = manifest.spec.agents?.[runtime];
+    const packProvided = packs.flatMap(
+      (pack) => pack.manifest.spec.provides?.agents?.[runtime] ?? [],
+    );
+
+    const requested = Array.isArray(selection)
+      ? new Set([...selection, ...packProvided])
+      : resolveNameSelection(selection, [
+          ...(await listAgentNames(path.join(workspaceRoot, "agents", runtime))),
+          ...packProvided,
+        ]);
 
     for (const name of requested) {
       const agent = await resolveAgent(workspaceRoot, runtime, name, manifest, packs);
@@ -46,10 +60,15 @@ export async function resolveSkills(
   manifest: WorkspaceManifest,
   packs: PackResolution[],
 ): Promise<ResolvedSkill[]> {
-  const requested = new Set([
-    ...(manifest.spec.skills ?? []),
-    ...packs.flatMap((pack) => pack.manifest.spec.provides?.skills ?? []),
-  ]);
+  const selection = manifest.spec.skills;
+  const packProvided = packs.flatMap((pack) => pack.manifest.spec.provides?.skills ?? []);
+
+  const requested = Array.isArray(selection)
+    ? new Set([...selection, ...packProvided])
+    : resolveNameSelection(selection, [
+        ...(await listSkillNames(path.join(workspaceRoot, "skills"))),
+        ...packProvided,
+      ]);
   const result: ResolvedSkill[] = [];
 
   for (const name of requested) {

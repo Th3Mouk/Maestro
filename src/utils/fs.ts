@@ -119,6 +119,15 @@ export async function listDirectories(root: string): Promise<string[]> {
   return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
 }
 
+export async function listFiles(root: string): Promise<string[]> {
+  if (!(await pathExists(root))) {
+    return [];
+  }
+
+  const entries = await readdir(root, { withFileTypes: true });
+  return entries.filter((entry) => entry.isFile()).map((entry) => entry.name);
+}
+
 export async function createTempDir(prefix: string): Promise<string> {
   return mkdtemp(path.join(os.tmpdir(), prefix));
 }

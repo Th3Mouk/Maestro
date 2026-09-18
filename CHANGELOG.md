@@ -5,6 +5,21 @@ All notable changes to `@th3mouk/maestro` will be documented in this file.
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0]
+
+### Added
+
+- New `spec.runtimes.<runtime>.projectionMode` config (`merge` | `replace`) lets you choose how `standard` and `claude-code` runtime projection treats content that's already in `.agents/agents/`, `.agents/skills/`, `.claude/agents/`, and `.claude/skills/`. `merge` (the default) touches only the exact agent/skill names about to be (re)projected — it overwrites those and leaves everything else in the directory alone, so hand-placed or third-party agents and skills can cohabit the directory with Maestro's own. `replace` deletes each target directory outright before projecting, so Maestro fully owns it and nothing foreign or stale survives.
+- `spec.agents.<runtime>` and `spec.skills` now also accept `{ exclude: [...] }` in place of a plain name list, selecting every discovered workspace agent/skill (plus anything packs provide) except the ones listed — useful for "everything but a few" instead of enumerating every name you want.
+
+### Changed
+
+- **BREAKING**: `claude-code` and `standard` skills projection no longer unconditionally wipes `.claude/skills/` / `.agents/skills/` on every `workspace install`/`update`. It now follows `projectionMode`, which defaults to `merge`: only the skill names in `spec.skills` (and matching agent names in `spec.agents`) are touched, so anything else already in those directories — including a skill you previously removed from `spec.skills` — is left in place. Set `projectionMode: replace` on a runtime to restore the previous "Maestro owns this directory outright" behavior. Agent projection is unchanged by default; it already behaved like `merge`.
+- **BREAKING**: Omitting `spec.agents.<runtime>` or `spec.skills` now selects every agent/skill Maestro can discover for that runtime — workspace-local files under `agents/<runtime>/` or `skills/`, plus anything packs provide — instead of selecting none. A workspace that left these fields unset while keeping unreferenced agent/skill files on disk will start projecting those files on the next `workspace install`/`update`. To keep selecting nothing, set the field to an explicit empty list (`skills: []`); to keep today's exact selection, list the names you currently rely on.
+
+See [docs/manifests/workspace.md](docs/manifests/workspace.md#projection-mode-merge-or-replace) for the full picture.
+See [docs/manifests/workspace.md](docs/manifests/workspace.md#selecting-agents-and-skills) for how default-all and `exclude` selection work.
+
 ## [0.4.0]
 
 ### Added

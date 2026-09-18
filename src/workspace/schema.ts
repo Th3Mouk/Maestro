@@ -6,6 +6,7 @@ import {
 } from "./schema/execution.js";
 import {
   packManifestSchema,
+  type NameSelection,
   type PackManifest,
   type RuntimeAgentSelection,
   type WorkspaceManifest,
@@ -22,7 +23,11 @@ import {
   type RepositoryRef,
   type RepositorySparse,
 } from "./schema/repository.js";
-import { type RuntimeConfig } from "./schema/runtime.js";
+import {
+  defaultRuntimeProjectionMode,
+  type RuntimeConfig,
+  type RuntimeProjectionMode,
+} from "./schema/runtime.js";
 import {
   type WorkspaceDescriptor,
   type WorkspaceLockfile,
@@ -39,10 +44,12 @@ export {
   workspaceLockfileSchema,
   workspaceStateSchema,
   workspaceDescriptorSchema,
+  defaultRuntimeProjectionMode,
 };
 
 export type {
   RuntimeConfig,
+  RuntimeProjectionMode,
   PackRef,
   PolicyRef,
   RepositoryBootstrap,
@@ -56,6 +63,7 @@ export type {
   WorktreeExecution,
   WorkspaceExecution,
   RuntimeAgentSelection,
+  NameSelection,
   WorkspaceManifest,
   PackManifest,
   WorkspaceLockfile,

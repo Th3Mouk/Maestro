@@ -7,6 +7,7 @@ export type {
 export type {
   ConflictStrategy,
   DevcontainerExecution,
+  NameSelection,
   PackManifest,
   PackRef,
   PackResolution,
