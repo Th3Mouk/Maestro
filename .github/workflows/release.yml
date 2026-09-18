@@ -133,9 +133,11 @@ jobs:
               --body "Automated release PR for v${{ steps.version.outputs.version }}.")"
           fi
 
-          MERGE_STATE="$(gh pr view "$PR_URL" --json mergeStateStatus --jq '.mergeStateStatus')"
-          if [ "$MERGE_STATE" = "CLEAN" ]; then
+          # mergeStateStatus is computed asynchronously by GitHub and is frequently
+          # stale immediately after PR creation, so branching on a single snapshot of
+          # it races: by the time the merge call lands, the real state may have moved.
+          # Try enabling auto-merge first (the common case right after creation, when
+          # checks are still pending) and fall back to an immediate merge when GitHub
+          # rejects that because the PR is already clean enough to merge outright.
+          gh pr merge "$PR_URL" --auto --squash --delete-branch || \
             gh pr merge "$PR_URL" --squash --delete-branch
-          else
-            gh pr merge "$PR_URL" --auto --squash --delete-branch
-          fi
