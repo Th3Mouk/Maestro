@@ -3,13 +3,8 @@ import type { ResolvedAgent } from "../types.js";
 
 export function createDefaultAgent(name: string, runtime: RuntimeName): ResolvedAgent {
   const contentByRuntime: Record<RuntimeName, string> = {
-    codex: [
-      "# Generated agent",
-      `name = "${name}"`,
-      `prompt = "Act as ${name} for workspace maintenance."`,
-    ].join("\n"),
     "claude-code": `# ${name}\n\nGenerated agent for Claude Code.\n`,
-    opencode: `# ${name}\n\nGenerated agent for OpenCode.\n`,
+    standard: `# ${name}\n\nGenerated agent for the shared .agents/ standard.\n`,
   };
 
   return {
@@ -17,6 +12,6 @@ export function createDefaultAgent(name: string, runtime: RuntimeName): Resolved
     runtime,
     source: "default",
     content: contentByRuntime[runtime],
-    extension: runtime === "codex" ? "toml" : "md",
+    extension: "md",
   };
 }

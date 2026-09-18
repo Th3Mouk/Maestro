@@ -15,11 +15,8 @@ spec:
       rootDir: .maestro/worktrees
       branchPrefix: backend-task
   runtimes:
-    codex:
+    standard:
       enabled: true
-      installProjectConfig: true
-      installAgents: true
-      useAgentsFile: AGENTS.md
   packs:
     - name: "@maestro/pack-core"
       version: ^0.1.0

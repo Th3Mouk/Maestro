@@ -10,23 +10,22 @@ function getRequiredRuntimePaths(
   runtime: RuntimeName,
   mcpServerCount: number,
 ): string[] {
-  if (runtime === "codex") {
-    return [resolveSafePath(workspaceRoot, path.join(".codex", "config.toml"), "codex config")];
-  }
+  switch (runtime) {
+    case "claude-code":
+      return [
+        resolveSafePath(workspaceRoot, "CLAUDE.md", "claude instructions"),
+        resolveSafePath(workspaceRoot, path.join(".claude", "settings.json"), "claude settings"),
+        resolveSafePath(workspaceRoot, path.join(".claude", "skills"), "claude skills directory"),
+        ...(mcpServerCount > 0
+          ? [resolveSafePath(workspaceRoot, ".mcp.json", "claude mcp config")]
+          : []),
+      ];
 
-  if (runtime === "claude-code") {
-    return [
-      resolveSafePath(workspaceRoot, "CLAUDE.md", "claude instructions"),
-      resolveSafePath(workspaceRoot, path.join(".claude", "settings.json"), "claude settings"),
-      ...(mcpServerCount > 0
-        ? [resolveSafePath(workspaceRoot, ".mcp.json", "claude mcp config")]
-        : []),
-    ];
+    case "standard":
+      return [
+        resolveSafePath(workspaceRoot, path.join(".agents", "skills"), "agent skills directory"),
+      ];
   }
-
-  return [
-    resolveSafePath(workspaceRoot, path.join(".opencode", "opencode.json"), "opencode config"),
-  ];
 }
 
 export async function runRuntimeArtifactChecks(

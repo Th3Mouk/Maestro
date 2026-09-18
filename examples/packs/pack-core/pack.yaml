@@ -9,12 +9,10 @@ spec:
     framework: ">=0.1.0 <1.0.0"
   provides:
     agents:
-      codex:
+      standard:
         - planner
         - repo-auditor
       claude-code:
-        - planner
-      opencode:
         - planner
     skills:
       - gha-normalizer

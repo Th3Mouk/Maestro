@@ -45,27 +45,30 @@ describe("agent discovery", () => {
   test("keeps agent precedence override > workspace > pack > default", async () => {
     const root = await createManagedTempDir("agent-discovery-precedence-");
     const packRoot = path.join(root, "packs", "pack-a");
-    await mkdir(path.join(root, "overrides", "agents", "codex"), { recursive: true });
-    await mkdir(path.join(root, "agents", "codex"), { recursive: true });
-    await mkdir(path.join(packRoot, "agents", "codex"), { recursive: true });
+    await mkdir(path.join(root, "overrides", "agents", "standard"), { recursive: true });
+    await mkdir(path.join(root, "agents", "standard"), { recursive: true });
+    await mkdir(path.join(packRoot, "agents", "standard"), { recursive: true });
 
     await writeFile(
-      path.join(root, "overrides", "agents", "codex", "alpha.toml"),
+      path.join(root, "overrides", "agents", "standard", "alpha.toml"),
       'name = "alpha"\n',
     );
-    await writeFile(path.join(root, "agents", "codex", "beta.toml"), 'name = "beta"\n');
-    await writeFile(path.join(packRoot, "agents", "codex", "alpha.toml"), 'name = "alpha-pack"\n');
-    await writeFile(path.join(packRoot, "agents", "codex", "beta.toml"), 'name = "beta-pack"\n');
-    await writeFile(path.join(packRoot, "agents", "codex", "gamma.toml"), 'name = "gamma"\n');
+    await writeFile(path.join(root, "agents", "standard", "beta.toml"), 'name = "beta"\n');
+    await writeFile(
+      path.join(packRoot, "agents", "standard", "alpha.toml"),
+      'name = "alpha-pack"\n',
+    );
+    await writeFile(path.join(packRoot, "agents", "standard", "beta.toml"), 'name = "beta-pack"\n');
+    await writeFile(path.join(packRoot, "agents", "standard", "gamma.toml"), 'name = "gamma"\n');
 
     const manifest = createManifest({
-      agents: { codex: ["alpha", "beta", "gamma", "delta"] },
+      agents: { standard: ["alpha", "beta", "gamma", "delta"] },
     });
     const resolved = await resolveAgents(root, manifest, [
-      createPack(packRoot, { agents: { codex: ["alpha", "beta", "gamma"] } }),
+      createPack(packRoot, { agents: { standard: ["alpha", "beta", "gamma"] } }),
     ]);
 
-    expect(resolved.codex.map((agent) => [agent.name, agent.source])).toEqual([
+    expect(resolved.standard.map((agent) => [agent.name, agent.source])).toEqual([
       ["alpha", "override"],
       ["beta", "workspace"],
       ["gamma", "pack"],
@@ -77,45 +80,45 @@ describe("agent discovery", () => {
     const root = await createManagedTempDir("agent-discovery-agent-collision-");
     const firstPackRoot = path.join(root, "packs", "pack-a");
     const secondPackRoot = path.join(root, "packs", "pack-b");
-    await mkdir(path.join(firstPackRoot, "agents", "codex"), { recursive: true });
-    await mkdir(path.join(secondPackRoot, "agents", "codex"), { recursive: true });
+    await mkdir(path.join(firstPackRoot, "agents", "standard"), { recursive: true });
+    await mkdir(path.join(secondPackRoot, "agents", "standard"), { recursive: true });
     await writeFile(
-      path.join(firstPackRoot, "agents", "codex", "planner.toml"),
+      path.join(firstPackRoot, "agents", "standard", "planner.toml"),
       'prompt = "first"\n',
     );
     await writeFile(
-      path.join(secondPackRoot, "agents", "codex", "planner.toml"),
+      path.join(secondPackRoot, "agents", "standard", "planner.toml"),
       'prompt = "second"\n',
     );
 
     const packs = [
-      createPack(firstPackRoot, { agents: { codex: ["planner"] } }),
-      createPack(secondPackRoot, { agents: { codex: ["planner"] } }),
+      createPack(firstPackRoot, { agents: { standard: ["planner"] } }),
+      createPack(secondPackRoot, { agents: { standard: ["planner"] } }),
     ];
 
     await expect(
-      resolveAgents(root, createManifest({ agents: { codex: ["planner"] } }), packs),
-    ).rejects.toThrow("Agent collision for planner on runtime codex");
+      resolveAgents(root, createManifest({ agents: { standard: ["planner"] } }), packs),
+    ).rejects.toThrow("Agent collision for planner on runtime standard");
 
     const preferFirst = await resolveAgents(
       root,
       createManifest({
-        agents: { codex: ["planner"] },
+        agents: { standard: ["planner"] },
         conflicts: { agents: { planner: { strategy: "prefer-pack-first" } } },
       }),
       packs,
     );
-    expect(preferFirst.codex[0]?.content).toContain('prompt = "first"');
+    expect(preferFirst.standard[0]?.content).toContain('prompt = "first"');
 
     const preferLast = await resolveAgents(
       root,
       createManifest({
-        agents: { codex: ["planner"] },
+        agents: { standard: ["planner"] },
         conflicts: { agents: { planner: { strategy: "prefer-pack-last" } } },
       }),
       packs,
     );
-    expect(preferLast.codex[0]?.content).toContain('prompt = "second"');
+    expect(preferLast.standard[0]?.content).toContain('prompt = "second"');
   });
 
   test("keeps skill precedence and conflict strategy behavior", async () => {

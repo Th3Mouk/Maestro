@@ -6,12 +6,12 @@ spec:
   framework:
     version: ^1.0.0
   runtimes:
-    codex:
+    standard:
       enabled: true
     claude-code:
       enabled: true
   agents:
-    codex:
+    standard:
       - planner
     claude-code:
       - planner

@@ -42,9 +42,8 @@ export function createResolvedWorkspaceFixture(input: {
     runtimes,
     plugins: {},
     selectedAgents: {
-      codex: [],
       "claude-code": [],
-      opencode: [],
+      standard: [],
     },
     selectedPolicies: [],
     selectedSkills: [],

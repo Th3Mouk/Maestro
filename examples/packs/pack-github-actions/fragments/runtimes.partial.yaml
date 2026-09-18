@@ -1,7 +1,5 @@
 runtimes:
-  codex:
-    installAgents: true
+  standard:
+    enabled: true
   claude-code:
     installProjectInstructions: true
-  opencode:
-    installProjectConfig: true

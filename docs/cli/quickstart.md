@@ -102,7 +102,7 @@ maestro workspace install
 
 The dry run shows the install plan only. It does not initialize Git, create the boot commit, clone repositories, or install repository dependencies.
 
-`maestro workspace install` initializes the workspace root as a Git repository when needed, creates a `🪄 booted by Maestro` commit when the repository is unborn, materializes the managed repositories under `repos/`, refreshes `maestro.json`, and generates runtime projections for the enabled tools. By default, the scaffold enables Codex and Claude Code, so install writes `.codex/` and `.claude/` for the workspace. That gives you a root repository and managed repositories that are ready for task worktrees from the start.
+`maestro workspace install` initializes the workspace root as a Git repository when needed, creates a `🪄 booted by Maestro` commit when the repository is unborn, materializes the managed repositories under `repos/`, refreshes `maestro.json`, and generates runtime projections for the enabled tools. By default, the scaffold enables both runtimes, so install writes `.agents/` (the shared skills convention) and `.claude/` for the workspace. That gives you a root repository and managed repositories that are ready for task worktrees from the start.
 
 If you want the AI-agent CLI map for this workspace, read `AGENTS.md` in the workspace root:
 

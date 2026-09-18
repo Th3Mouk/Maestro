@@ -15,11 +15,9 @@ spec:
     - fragments/runtimes.yaml
     - fragments/policies.yaml
   agents:
-    codex:
+    standard:
       - planner
       - repo-auditor
     claude-code:
       - planner
       - executor
-    opencode:
-      - planner
