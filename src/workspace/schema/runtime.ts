@@ -6,7 +6,7 @@ export const defaultRuntimeProjectionMode: z.infer<typeof runtimeProjectionModeS
 
 // `copy` materializes a real directory; `symlink` points `.claude/skills/<name>` at the
 // `.agents/skills/<name>` copy so both runtimes read one tree.
-export const skillProjectionStrategySchema = z.enum(["symlink", "copy"]);
+const skillProjectionStrategySchema = z.enum(["symlink", "copy"]);
 
 const assetProjectionObjectSchema = z.object({
   mode: runtimeProjectionModeSchema.optional(),
