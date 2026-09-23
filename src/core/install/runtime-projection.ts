@@ -19,11 +19,16 @@ export async function projectWorkspaceRuntimes(
     Boolean(resolvedWorkspace.runtimes[projector.name as RuntimeName]),
   );
 
-  await mapWithConcurrency(
-    selectedProjectors,
-    RUNTIME_PROJECTION_CONCURRENCY_LIMIT,
-    async (projector) => {
-      await projector.project({ workspaceRoot, resolvedWorkspace });
-    },
-  );
+  // `standard` runs first: `.claude/skills/<name>` links point into the `.agents/skills/`
+  // tree it (re)writes, so the two must not race.
+  const [linkTargets, others] = [
+    selectedProjectors.filter((projector) => projector.name === "standard"),
+    selectedProjectors.filter((projector) => projector.name !== "standard"),
+  ];
+  for (const projector of linkTargets) {
+    await projector.project({ workspaceRoot, resolvedWorkspace });
+  }
+  await mapWithConcurrency(others, RUNTIME_PROJECTION_CONCURRENCY_LIMIT, async (projector) => {
+    await projector.project({ workspaceRoot, resolvedWorkspace });
+  });
 }

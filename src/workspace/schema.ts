@@ -12,7 +12,6 @@ import {
   type WorkspaceManifest,
   workspaceManifestSchema,
 } from "./schema/manifests.js";
-import { type McpServer } from "./schema/mcp.js";
 import { type WorkspacePlugins } from "./schema/plugins.js";
 import {
   type ConflictStrategy,
@@ -27,6 +26,7 @@ import {
   defaultRuntimeProjectionMode,
   type RuntimeConfig,
   type RuntimeProjectionMode,
+  type SkillProjectionStrategy,
 } from "./schema/runtime.js";
 import {
   type WorkspaceDescriptor,
@@ -50,13 +50,13 @@ export {
 export type {
   RuntimeConfig,
   RuntimeProjectionMode,
+  SkillProjectionStrategy,
   PackRef,
   PolicyRef,
   RepositoryBootstrap,
   RepositoryPermissions,
   RepositorySparse,
   RepositoryRef,
-  McpServer,
   WorkspacePlugins,
   ConflictStrategy,
   DevcontainerExecution,

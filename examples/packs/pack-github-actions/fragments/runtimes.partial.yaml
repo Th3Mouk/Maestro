@@ -2,4 +2,4 @@ runtimes:
   standard:
     enabled: true
   claude-code:
-    installProjectInstructions: true
+    enabled: true

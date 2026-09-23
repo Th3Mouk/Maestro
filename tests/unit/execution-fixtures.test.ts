@@ -2,16 +2,19 @@ import { describe, expect, test } from "vitest";
 import { createRuntimeFixture } from "../utils/execution-fixtures.js";
 
 describe("createRuntimeFixture", () => {
-  test("fills in projectionMode and enabled defaults for a partial config", () => {
+  test("resolves asset projections from a partial runtime config", () => {
     expect(createRuntimeFixture({ standard: { projectionMode: "replace" } })).toEqual({
-      standard: { enabled: true, projectionMode: "replace" },
+      standard: { skills: { mode: "replace", strategy: "copy" } },
     });
   });
 
   test("skips a runtime explicitly set to undefined", () => {
     expect(createRuntimeFixture({ standard: undefined, "claude-code": { enabled: true } })).toEqual(
       {
-        "claude-code": { enabled: true, projectionMode: "merge" },
+        "claude-code": {
+          skills: { mode: "merge", strategy: "symlink" },
+          workflows: { mode: "merge" },
+        },
       },
     );
   });

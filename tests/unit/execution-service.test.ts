@@ -16,7 +16,6 @@ import {
   createExecaResultFixture,
   createRepositoryFixture,
   createResolvedWorkspaceFixture,
-  createRuntimeFixture,
 } from "../utils/execution-fixtures.js";
 import { createManagedTempDir } from "../utils/test-lifecycle.js";
 
@@ -356,16 +355,10 @@ describe("execution service", () => {
       projectedWorkspaceRoot,
       createResolvedWorkspaceFixture({
         repositories: [],
-        runtimes: createRuntimeFixture({
-          standard: {
-            enabled: true,
-          },
-          "claude-code": {
-            enabled: true,
-            installProjectInstructions: true,
-            instructionsFile: "CLAUDE.md",
-          },
-        }),
+        runtimes: {
+          standard: { enabled: true },
+          "claude-code": { enabled: true },
+        },
         workspaceName: "demo-workspace",
       }),
     );

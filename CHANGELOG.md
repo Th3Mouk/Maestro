@@ -5,6 +5,39 @@ All notable changes to `@th3mouk/maestro` will be documented in this file.
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0]
+
+Claude Code 2.1.277 reads `AGENTS.md`, which leaves skills, subagents, and workflows as the only places where coding agents still disagree on files. This release makes Maestro project only those, stop owning instruction files and tool configuration, and cover every runtime whose subagent format is documented.
+
+### Added
+
+- Agent projection for seven more runtimes: `codex` (`.codex/agents/<name>.toml`), `cursor` (`.cursor/agents/`), `copilot` (`.github/agents/<name>.agent.md`), `gemini` (`.gemini/agents/`), `opencode` (`.opencode/agents/`), `kilo` (`.kilo/agents/`), and `devin` (`.devin/agents/`), alongside `standard` and `claude-code`. Agents are authored per runtime under `agents/<runtime>/` and copied unchanged; Maestro does not convert between formats. `spec.runtimes`, `spec.agents`, pack `provides.agents`, and `maestro init --runtimes` accept the new keys.
+- Workflow projection for Claude Code: `workflows/<name>.js` (plus `overrides/workflows/` and pack `workflows/`) is written as real files into `.claude/workflows/`. Select them with the new `spec.workflows` (same shapes as `spec.skills`), ship them from packs with `provides.workflows`, and resolve pack collisions with `spec.conflicts.workflows`.
+- Per-asset projection options under each runtime: `skills`, `agents`, and `workflows` each accept `true`, `false`, or `{ mode: merge | replace }`, and override the runtime-wide `projectionMode`. `claude-code` skills also accept `strategy: symlink | copy`.
+- Canonical layout when `spec.runtimes` is omitted: skills in `.agents/skills/` and `.claude/skills/`, workflows in `.claude/workflows/`, no agents. Runtimes from pack fragments are merged on top of it.
+- `.claude/skills/<name>` is now a symlink to `.agents/skills/<name>` when the `standard` runtime also projects skills, so both runtimes read one tree. Maestro copies instead on Windows, when `standard` skills are off, or with `strategy: copy`. Task worktrees keep these links relative.
+- `maestro workspace doctor` reports `LEGACY_GENERATED_CLAUDE_MD` when `CLAUDE.md` still carries the banner written by Maestro 0.5 or earlier, because that file hides `AGENTS.md` from Claude Code.
+- Copilot's `<name>.agent.md` naming is recognized in `agents/<runtime>/` and `overrides/agents/<runtime>/`.
+
+### Changed
+
+- **BREAKING**: Maestro no longer creates `CLAUDE.md`, in any case. The `claude-code` runtime stopped writing it, and pack or override `templates/CLAUDE.md` files are no longer applied. Keeping a `CLAUDE.md`, and versioning it, is now the team's decision; Claude Code reads `AGENTS.md` directly when no `CLAUDE.md` exists. An existing generated `CLAUDE.md` is left in place: delete it, or replace its content with `@AGENTS.md`. See [AGENTS.md in Claude Code](https://code.claude.com/docs/en/memory#agents-md) for the consequences of each option.
+- **BREAKING**: Omitting `spec.runtimes` now applies the canonical layout instead of projecting nothing. Set `runtimes: {}` to keep projecting nothing.
+- **BREAKING**: Agent projection is off until a runtime defines `agents`. A 0.5 workspace that relied on `standard` or `claude-code` projecting `.agents/agents/` or `.claude/agents/` must add `agents: {}` under that runtime.
+- **BREAKING**: `.gitignore` entries now cover only the directories of active projections (for example `.agents/skills/`, `.claude/skills/`, `.claude/workflows/`, `.codex/agents/`). New workspaces no longer ignore the whole `.claude/` directory or `.mcp.json`, so `.claude/settings.json`, hooks, and MCP configuration can be versioned. Existing entries are never removed; drop `.claude/` and `.mcp.json` from your `.gitignore` by hand if you want to version those files.
+- `.claude/settings.json` is only touched when `spec.plugins["claude-code"]` sets `enabled` or `marketplaces`. Maestro then merges `enabledPlugins` and `extraKnownMarketplaces` into the existing file and keeps every other key; it drops the `generated` and `workspace` markers written by earlier versions.
+- The `claude-code` runtime no longer creates an empty `.claude/commands/` directory; Claude Code has merged commands into skills.
+- A selected agent that no file defines is now written as a valid placeholder for its runtime (TOML with `developer_instructions` for Codex, Markdown with `name` and `description` frontmatter elsewhere).
+- Task worktrees now carry `.agents/` and every runtime agent directory over from the workspace root, instead of only `.claude/`, `.codex/`, and `.opencode/`.
+
+### Removed
+
+- **BREAKING**: `spec.mcpServers` and the `.mcp.json` projection. Maestro no longer manages MCP servers or tool hooks; configure them in each tool's own files. The key is ignored if still present, and an existing `.mcp.json` is left untouched.
+- **BREAKING**: `spec.runtimes.<runtime>.installProjectInstructions` and `spec.runtimes.<runtime>.instructionsFile`, with no replacement. They had no effect; the keys are ignored if still present.
+- `fragments/mcpServers.yaml` is no longer auto-included as a default fragment.
+
+See [docs/manifests/workspace.md](docs/manifests/workspace.md#runtime-projection) for the canonical layout, every projection option, and the subagent format of each runtime.
+
 ## [0.5.0]
 
 ### Added

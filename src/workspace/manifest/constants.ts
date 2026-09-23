@@ -7,5 +7,4 @@ export const DEFAULT_FRAGMENT_NAMES = [
   "packs",
   "execution",
   "plugins",
-  "mcpServers",
 ] as const;

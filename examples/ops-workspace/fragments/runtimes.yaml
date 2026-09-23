@@ -4,9 +4,13 @@ metadata:
   name: ops-workspace-runtimes
 spec:
   runtimes:
+    # Skills land in .agents/skills/, read by Codex, Cursor, Copilot, Gemini CLI, OpenCode, Kilo Code, and Devin.
     standard:
       enabled: true
+    # Skills are linked into .claude/skills/, workflows copied into .claude/workflows/, agents into .claude/agents/.
     claude-code:
       enabled: true
-      installProjectInstructions: true
-      instructionsFile: CLAUDE.md
+      agents: {}
+    # Codex only reads TOML agents from .codex/agents/.
+    codex:
+      agents: {}

@@ -7,6 +7,7 @@ import type {
   ResolvedAgent,
   ResolvedPolicy,
   ResolvedSkill,
+  ResolvedWorkflow,
   WorkspaceManifest,
 } from "./types.js";
 import { mapWithConcurrency, readText, resolveSafePath } from "../utils/fs.js";
@@ -16,8 +17,10 @@ import {
   findAgentFile,
   findPolicyFile,
   findSkillRoot,
+  findWorkflowFile,
   listAgentNames,
   listSkillNames,
+  listWorkflowNames,
 } from "./discovery/lookup.js";
 import { parsePolicyYamlDocument } from "./discovery/policy-yaml.js";
 import { resolveNameSelection } from "./discovery/selection.js";
@@ -48,10 +51,9 @@ export async function resolveAgents(
   manifest: WorkspaceManifest,
   packs: PackResolution[],
 ): Promise<Record<RuntimeName, ResolvedAgent[]>> {
-  const result: Record<RuntimeName, ResolvedAgent[]> = {
-    "claude-code": [],
-    standard: [],
-  };
+  const result = Object.fromEntries(
+    supportedRuntimeNames.map((runtime) => [runtime, [] as ResolvedAgent[]]),
+  ) as Record<RuntimeName, ResolvedAgent[]>;
 
   await Promise.all(
     supportedRuntimeNames.map(async (runtime) => {
@@ -118,6 +120,57 @@ export async function resolveSkills(
     }
 
     throw new Error(`Skill not found: ${name}`);
+  }
+
+  return result;
+}
+
+export async function resolveWorkflows(
+  workspaceRoot: string,
+  manifest: WorkspaceManifest,
+  packs: PackResolution[],
+): Promise<ResolvedWorkflow[]> {
+  const packProvided = packs.flatMap((pack) => pack.manifest.spec.provides?.workflows ?? []);
+  const requested = await resolveSelectionNames(
+    manifest.spec.workflows,
+    () => listWorkflowNames(path.join(workspaceRoot, "workflows")),
+    packProvided,
+  );
+  const result: ResolvedWorkflow[] = [];
+
+  for (const name of requested) {
+    const overridePath = await findWorkflowFile(
+      path.join(workspaceRoot, "overrides", "workflows"),
+      name,
+    );
+    if (overridePath) {
+      result.push({ name, source: "override", filePath: overridePath });
+      continue;
+    }
+
+    const workspacePath = await findWorkflowFile(path.join(workspaceRoot, "workflows"), name);
+    if (workspacePath) {
+      result.push({ name, source: "workspace", filePath: workspacePath });
+      continue;
+    }
+
+    const packPaths = (
+      await mapWithConcurrency(packs, RESOLUTION_CONCURRENCY_LIMIT, async (pack) =>
+        findWorkflowFile(resolveSafePath(pack.root, "workflows", "pack workflows root"), name),
+      )
+    ).filter((entry): entry is string => Boolean(entry));
+
+    const packPath = resolvePackCollision(
+      packPaths,
+      manifest.spec.conflicts?.workflows?.[name]?.strategy,
+      `Workflow collision for ${name}`,
+    );
+    if (packPath) {
+      result.push({ name, source: "pack", filePath: packPath });
+      continue;
+    }
+
+    throw new Error(`Workflow not found: ${name}`);
   }
 
   return result;
@@ -240,7 +293,9 @@ async function createResolvedAgent(
   filePath: string,
   source: ResolvedAgent["source"],
 ): Promise<ResolvedAgent> {
-  const extension = path.extname(filePath).replace(".", "") as ResolvedAgent["extension"];
+  const extension = (
+    path.basename(filePath).endsWith(".agent.md") ? "agent.md" : path.extname(filePath).slice(1)
+  ) as ResolvedAgent["extension"];
   return {
     name,
     runtime,

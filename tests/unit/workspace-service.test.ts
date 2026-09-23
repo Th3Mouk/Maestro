@@ -482,8 +482,9 @@ describe("workspace manifest loading", () => {
     );
 
     const resolved = await resolveWorkspace(root);
-    expect(resolved.runtimes.standard?.projectionMode).toBe("merge");
-    expect(resolved.runtimes["claude-code"]?.projectionMode).toBe("replace");
+    expect(resolved.runtimes.standard?.skills?.mode).toBe("merge");
+    expect(resolved.runtimes["claude-code"]?.skills?.mode).toBe("replace");
+    expect(resolved.runtimes["claude-code"]?.workflows?.mode).toBe("replace");
   });
 
   test("rejects an unsupported runtime projectionMode value", async () => {

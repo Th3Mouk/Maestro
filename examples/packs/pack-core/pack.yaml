@@ -22,7 +22,6 @@ spec:
       - diff-size-limit
     templates:
       - AGENTS.md
-      - CLAUDE.md
     hooks:
       install:
         - scripts/install.js

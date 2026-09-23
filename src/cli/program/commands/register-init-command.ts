@@ -1,6 +1,7 @@
 import type { Command } from "commander";
 import { initWorkspace } from "../../../core/commands/workspace-init.js";
 import { resolveWorkspacePath } from "../shared-options.js";
+import { supportedRuntimeNames } from "../../../runtime/types.js";
 import { parseRuntimeNames } from "./command-helpers.js";
 
 export function registerInitCommand(program: Command): void {
@@ -14,7 +15,7 @@ export function registerInitCommand(program: Command): void {
     .option("--dry-run", "preview without writing", false)
     .option(
       "--runtimes <list>",
-      "comma-separated list of supported runtimes",
+      `comma-separated list of runtimes to project (${supportedRuntimeNames.join(", ")})`,
       "standard,claude-code",
     )
     .addHelpText(
@@ -25,6 +26,7 @@ export function registerInitCommand(program: Command): void {
         "  maestro init my-workspace",
         "  maestro init my-workspace --runtimes claude-code",
         "  maestro init my-workspace --runtimes standard",
+        "  maestro init my-workspace --runtimes standard,claude-code,codex",
         "  maestro init .local/workspaces/my-agent-lab",
         "  maestro init my-workspace --dry-run",
       ].join("\n"),

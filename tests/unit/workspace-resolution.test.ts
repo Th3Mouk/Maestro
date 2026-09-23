@@ -40,7 +40,7 @@ describe("workspace resolution", () => {
     const resolved = await resolveWorkspace(root);
     expect(resolved.repositories).toHaveLength(1);
     expect(resolved.repositories[0]?.name).toBe("sur-api");
-    expect(resolved.runtimes.standard?.enabled).toBe(true);
+    expect(resolved.runtimes.standard?.skills).toEqual({ mode: "merge", strategy: "copy" });
   });
 
   test("does not inject implicit packs when none are declared", async () => {
@@ -155,51 +155,24 @@ describe("workspace resolution", () => {
     expect(resolved.lockfile.repositories[0]?.branch).toBe("main");
   });
 
-  test("resolves project-scoped MCP servers from the workspace manifest", async () => {
-    const root = await createManagedTempDir("workspace-mcp-");
+  test("ignores a legacy spec.mcpServers declaration instead of projecting it", async () => {
+    const root = await createManagedTempDir("workspace-legacy-mcp-");
     await writeYaml(path.join(root, "maestro.yaml"), {
       apiVersion: "maestro/v1",
       kind: "Workspace",
       metadata: { name: "mcp" },
       spec: {
         runtimes: {
-          codex: { enabled: true },
           "claude-code": { enabled: true },
         },
-        repositories: [
-          {
-            name: "sur-api",
-            remote: "git@github.com:org/sur-api.git",
-            branch: "main",
-            sparse: { visiblePaths: [".github/"] },
-          },
-        ],
-        mcpServers: [
-          {
-            name: "context7",
-            transport: "stdio",
-            command: "npx",
-            args: ["-y", "@upstash/context7-mcp"],
-          },
-          {
-            name: "sentry",
-            transport: "http",
-            url: "https://mcp.sentry.dev/mcp",
-          },
-        ],
+        repositories: [],
+        mcpServers: [{ name: "context7", transport: "stdio", command: "npx" }],
       },
     });
 
     const resolved = await resolveWorkspace(root);
-    expect(resolved.mcpServers.map((server) => server.name)).toEqual(["context7", "sentry"]);
-    expect(resolved.mcpServers[0]).toMatchObject({
-      transport: "stdio",
-      command: "npx",
-    });
-    expect(resolved.mcpServers[1]).toMatchObject({
-      transport: "http",
-      url: "https://mcp.sentry.dev/mcp",
-    });
+    expect(resolved.manifest.spec).not.toHaveProperty("mcpServers");
+    expect(resolved).not.toHaveProperty("mcpServers");
   });
 
   test("fails when a requested skill cannot be resolved", async () => {
@@ -227,12 +200,12 @@ describe("workspace resolution", () => {
     await expect(resolveWorkspace(root)).rejects.toThrow("Skill not found: custom-skill");
   });
 
-  test("keeps plugin activation and mcp server declarations in the resolved workspace", async () => {
-    const root = await createManagedTempDir("workspace-plugins-and-mcp-");
+  test("keeps plugin activation in the resolved workspace", async () => {
+    const root = await createManagedTempDir("workspace-plugins-");
     await writeYaml(path.join(root, "maestro.yaml"), {
       apiVersion: "maestro/v1",
       kind: "Workspace",
-      metadata: { name: "plugins-and-mcp" },
+      metadata: { name: "plugins" },
       spec: {
         runtimes: {
           standard: { enabled: true },
@@ -261,13 +234,6 @@ describe("workspace resolution", () => {
             },
           },
         },
-        mcpServers: [
-          {
-            name: "shared-docs",
-            transport: "http",
-            url: "https://example.invalid/mcp",
-          },
-        ],
       },
     });
 
@@ -280,13 +246,6 @@ describe("workspace resolution", () => {
         },
       },
     });
-    expect(resolved.mcpServers).toEqual([
-      {
-        name: "shared-docs",
-        transport: "http",
-        url: "https://example.invalid/mcp",
-      },
-    ]);
   });
 
   test("fails when a pack compatibility range rejects the framework version", async () => {

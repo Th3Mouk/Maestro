@@ -140,7 +140,9 @@ jq '.error.code' err.json
 
 Create a minimal multi-repo workspace with a manifest, package scripts, `AGENTS.md`, the neutral `maestro.json` descriptor, and `.maestro/` as the internal state root.
 
-By default, `init` enables both runtimes: `standard` (projects into the shared `.agents/skills/` directory read by Cursor, Codex, Devin, Kilo Code, OpenCode, and other Agent-Skills-compatible tools) and `claude-code` (projects into `.claude/`). Pass `--runtimes standard` or `--runtimes claude-code` to scaffold only one.
+By default, `init` enables the `standard` runtime (skills in `.agents/skills/`) and the `claude-code` runtime (skills linked into `.claude/skills/`, workflows in `.claude/workflows/`). `--runtimes` accepts a comma-separated list of `standard`, `claude-code`, `codex`, `cursor`, `copilot`, `gemini`, `opencode`, `kilo`, and `devin`; the runtimes that only read agents are scaffolded with `agents: { mode: merge }`.
+
+`init` never writes `CLAUDE.md`. Claude Code reads `AGENTS.md` when no `CLAUDE.md` exists; see [Instruction files](../manifests/workspace.md#instruction-files-agentsmd-and-claudemd).
 
 After `init`, the normal next step is to edit `maestro.yaml` and add the repositories you want Maestro to manage. The next safe command is then usually `maestro workspace install --dry-run`.
 
@@ -154,9 +156,9 @@ Resolve packs, merge fragments, write the lockfile, initialize the workspace roo
 
 In the first-run lifecycle, `workspace install` is the command that turns the workspace contract into a usable directory. It does not run dependency bootstrap automatically. It initializes the workspace root Git repository first when the workspace is not already under Git, creates the boot commit when the repository is unborn, then materializes the repositories and leaves dependency installation to `repo bootstrap`.
 
-That projection refreshes `maestro.json` as the canonical machine-readable workspace view, while `.maestro/` stores the internal lockfile, state, and reports. When `standard` and `claude-code` are enabled, `workspace install` also generates `.agents/` and `.claude/` for the workspace.
+That projection refreshes `maestro.json` as the canonical machine-readable workspace view, while `.maestro/` stores the internal lockfile, state, and reports. It also projects skills, agents, and workflows into the directories of the runtimes enabled in `spec.runtimes`, or into the canonical layout (`.agents/skills/`, `.claude/skills/`, `.claude/workflows/`) when `spec.runtimes` is omitted. It does not write `CLAUDE.md`, `.mcp.json`, hooks, or runtime settings; it only merges declared plugin activation into `.claude/settings.json`.
 
-By default, projecting agents and skills into those directories only touches the names Maestro is about to write, so hand-placed or third-party agents/skills already there survive (`projectionMode: merge`). Set `projectionMode: replace` on a runtime in `spec.runtimes` to wipe its target directories on every install instead. See [Workspace Manifest](../manifests/workspace.md#projection-mode-merge-or-replace).
+By default, projection only touches the names Maestro is about to write, so hand-placed or third-party skills, agents, and workflows already there survive (`mode: merge`). Set `mode: replace` on an asset, or `projectionMode: replace` on a runtime, to wipe the target directory on every install instead. See [Runtime projection](../manifests/workspace.md#runtime-projection).
 
 Repository checkout scope comes from `spec.repositories[].sparse`. Omit that field for a full clone, or use `includePaths` / `excludePaths` together to keep the checked-out tree narrow while hiding nested files or folders you do not want materialized.
 
@@ -319,4 +321,4 @@ The command detects `npm` or `homebrew` from the installed CLI path and runs the
 
 - Supported in the published framework: the CLI, workspace manifests, packs, runtime projection, workspace-managed Git branch/update operations, and worktree isolation.
 - Operational guarantees under active hardening: workspace-bounded path resolution, safer command execution, clearer failure reporting, and stronger test/process isolation.
-- Not covered by the published CLI and manifest contract: downstream user-facing agent catalogs, hosted execution, and any guarantee beyond the documented behavior. The `.codex/` and `.claude/` wrappers used to develop Maestro itself are separate from the published framework.
+- Not covered by the published CLI and manifest contract: downstream user-facing agent catalogs, hosted execution, and any guarantee beyond the documented behavior. The `.agents/`, `.codex/`, and `.claude/` wrappers used to develop Maestro itself are separate from the published framework.

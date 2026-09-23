@@ -10,7 +10,7 @@ By convention, Maestro looks for files under `fragments/` when they exist, and a
 
 Common uses:
 
-- split repositories, runtimes, policies, execution, MCP servers, and plugin settings into separate files;
+- split repositories, runtimes, policies, execution, and plugin settings into separate files;
 - keep the root manifest small and reviewable;
 - let a workspace layer its own decisions on top of shared pack inputs.
 

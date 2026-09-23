@@ -1,25 +1,35 @@
 import type { execa } from "execa";
+import { normalizeRuntimes } from "../../src/workspace/runtimes.js";
 import { getRepositorySparseIncludePaths } from "../../src/workspace/repositories.js";
-import type { RuntimeName } from "../../src/runtime/types.js";
-import { defaultRuntimeProjectionMode } from "../../src/workspace/schema.js";
-import type { RepositoryRef, ResolvedWorkspace, RuntimeConfig } from "../../src/workspace/types.js";
+import { supportedRuntimeNames, type RuntimeName } from "../../src/runtime/types.js";
+import type {
+  RepositoryRef,
+  ResolvedAgent,
+  ResolvedWorkspace,
+  RuntimeConfig,
+  WorkspaceManifest,
+} from "../../src/workspace/types.js";
 
 type PartialRuntimes = Partial<Record<RuntimeName, Partial<RuntimeConfig>>>;
 
-function withRuntimeConfigDefaults(runtimes: PartialRuntimes): ResolvedWorkspace["runtimes"] {
-  const resolved: ResolvedWorkspace["runtimes"] = {};
+function withRuntimeConfigDefaults(runtimes: PartialRuntimes): ManifestRuntimes {
+  const declared: ManifestRuntimes = {};
   for (const runtimeName of Object.keys(runtimes) as RuntimeName[]) {
     const config = runtimes[runtimeName];
     if (!config) {
       continue;
     }
-    resolved[runtimeName] = {
-      enabled: true,
-      projectionMode: defaultRuntimeProjectionMode,
-      ...config,
-    };
+    (declared as Record<RuntimeName, RuntimeConfig>)[runtimeName] = { enabled: true, ...config };
   }
-  return resolved;
+  return declared;
+}
+
+type ManifestRuntimes = NonNullable<WorkspaceManifest["spec"]["runtimes"]>;
+
+export function createEmptyAgentSelection(): Record<RuntimeName, ResolvedAgent[]> {
+  return Object.fromEntries(
+    supportedRuntimeNames.map((runtime) => [runtime, [] as ResolvedAgent[]]),
+  ) as Record<RuntimeName, ResolvedAgent[]>;
 }
 
 export function createResolvedWorkspaceFixture(input: {
@@ -29,8 +39,17 @@ export function createResolvedWorkspaceFixture(input: {
   workspaceName?: string;
 }): ResolvedWorkspace {
   const repositories = input.repositories ?? [];
-  const runtimes = withRuntimeConfigDefaults(input.runtimes ?? {});
+  const declaredRuntimes = withRuntimeConfigDefaults(input.runtimes ?? {});
   const workspaceName = input.workspaceName ?? "demo-workspace";
+  const manifest: WorkspaceManifest = {
+    apiVersion: "maestro/v1",
+    kind: "Workspace",
+    metadata: { name: workspaceName },
+    spec: {
+      repositories,
+      runtimes: declaredRuntimes,
+    },
+  };
 
   return {
     execution: input.execution ?? {
@@ -47,26 +66,15 @@ export function createResolvedWorkspaceFixture(input: {
         sparsePaths: getRepositorySparseIncludePaths(repository),
       })),
     },
-    manifest: {
-      apiVersion: "maestro/v1",
-      kind: "Workspace",
-      metadata: { name: workspaceName },
-      spec: {
-        repositories,
-        runtimes,
-      },
-    },
+    manifest,
     packs: [],
     repositories,
-    runtimes,
+    runtimes: normalizeRuntimes(manifest),
     plugins: {},
-    selectedAgents: {
-      "claude-code": [],
-      standard: [],
-    },
+    selectedAgents: createEmptyAgentSelection(),
     selectedPolicies: [],
     selectedSkills: [],
-    mcpServers: [],
+    selectedWorkflows: [],
     workspaceRoot: "/tmp/demo-workspace",
   };
 }
@@ -87,5 +95,5 @@ export function createRepositoryFixture(
 }
 
 export function createRuntimeFixture(input: PartialRuntimes): ResolvedWorkspace["runtimes"] {
-  return withRuntimeConfigDefaults(input);
+  return createResolvedWorkspaceFixture({ runtimes: input }).runtimes;
 }
