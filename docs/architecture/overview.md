@@ -9,12 +9,14 @@ Maestro is organized into short, testable layers:
 - `src/workspace/`: split workspace pipeline modules
   - `manifest-parser.ts`: manifest includes loading, fragment normalization, and merge semantics
   - `pack-resolver.ts`: pack location/compatibility resolution
-  - `agent-discovery.ts`: agent, skill, and policy discovery logic
+  - `agent-discovery.ts`: agent, skill, workflow, and policy discovery logic
+  - `runtimes.ts`: resolves `spec.runtimes` into per-runtime skill, agent, and workflow projections, including the canonical layout used when the field is omitted
 - `src/adapters/git/`: concrete Git operations, including sparse checkout
-- `src/adapters/runtimes/`: `claude-code` (native `.claude/`) and `standard` (shared `.agents/`, the Agent Skills convention read by Codex, Cursor, Devin, Kilo Code, OpenCode, and others) projection
+- `src/runtime/types.ts`: the runtime catalog, with the native skills, agents, and workflows directory of each supported runtime
+- `src/adapters/runtimes/`: one layout-driven projector per runtime that copies skills (or links them into `.claude/skills/`), agents, and workflows into those directories; it never writes instruction files, MCP configuration, or hooks
 - `src/validation/`: policies and the evaluation engine
 - `src/utils/`: filesystem, path-safety, and serialization primitives
-- `examples/packs/`: example pack compositions that show how agents, skills, policies, templates, and hooks are assembled for a workspace
+- `examples/packs/`: example pack compositions that show how agents, skills, workflows, policies, templates, and install/validate hooks are assembled for a workspace
 
 `init` also writes `AGENTS.md` at the workspace root so AI agents have a local Maestro CLI map before they realign repository branches, open worktrees, or prepare PRs.
 It also writes `maestro.json` as the neutral descriptor for tools that consume the workspace directory directly, and exposes `maestro.code-workspace` through the on-demand CLI command for editors that support named multi-root workspaces.

@@ -1,7 +1,6 @@
 import type {
   ConflictStrategy as ConflictStrategyFromSchema,
   DevcontainerExecution as DevcontainerExecutionFromSchema,
-  McpServer as McpServerFromSchema,
   NameSelection as NameSelectionFromSchema,
   PackManifest as PackManifestFromSchema,
   PackRef as PackRefFromSchema,
@@ -13,6 +12,7 @@ import type {
   RuntimeAgentSelection as RuntimeAgentSelectionFromSchema,
   RuntimeConfig as RuntimeConfigFromSchema,
   RuntimeProjectionMode as RuntimeProjectionModeFromSchema,
+  SkillProjectionStrategy as SkillProjectionStrategyFromSchema,
   WorkspaceExecution as WorkspaceExecutionFromSchema,
   WorkspaceDescriptor as WorkspaceDescriptorFromSchema,
   WorkspaceLockfile as WorkspaceLockfileFromSchema,
@@ -25,13 +25,13 @@ import type { RuntimeName } from "../runtime/types.js";
 
 export type RuntimeConfig = RuntimeConfigFromSchema;
 export type RuntimeProjectionMode = RuntimeProjectionModeFromSchema;
+export type SkillProjectionStrategy = SkillProjectionStrategyFromSchema;
 export type PackRef = PackRefFromSchema;
 export type PolicyRef = PolicyRefFromSchema;
 export type RepositoryPermissions = RepositoryPermissionsFromSchema;
 export type RepositoryBootstrap = RepositoryBootstrapFromSchema;
 export type RepositorySparse = RepositorySparseFromSchema;
 export type RepositoryRef = RepositoryRefFromSchema;
-export type McpServer = McpServerFromSchema;
 export type WorkspacePlugins = WorkspacePluginsFromSchema;
 export type RuntimeAgentSelection = RuntimeAgentSelectionFromSchema;
 export type NameSelection = NameSelectionFromSchema;
@@ -57,13 +57,39 @@ export interface ResolvedAgent {
   source: "override" | "workspace" | "pack" | "default";
   filePath?: string;
   content: string;
-  extension: "toml" | "md" | "json";
+  extension: AgentFileExtension;
 }
+
+export type AgentFileExtension = "agent.md" | "toml" | "md" | "json";
 
 export interface ResolvedSkill {
   name: string;
   source: "override" | "workspace" | "pack";
   root: string;
+}
+
+export interface ResolvedWorkflow {
+  name: string;
+  source: "override" | "workspace" | "pack";
+  filePath: string;
+}
+
+export interface AssetProjection {
+  mode: RuntimeProjectionMode;
+}
+
+export interface SkillAssetProjection extends AssetProjection {
+  strategy: SkillProjectionStrategy;
+}
+
+/**
+ * What a runtime actually projects once manifest defaults are applied. An absent asset is
+ * either unsupported by the runtime or disabled in the manifest.
+ */
+export interface ResolvedRuntimeProjection {
+  skills?: SkillAssetProjection;
+  agents?: AssetProjection;
+  workflows?: AssetProjection;
 }
 
 export interface ResolvedPolicy {
@@ -78,11 +104,11 @@ export interface ResolvedWorkspace {
   packs: PackResolution[];
   repositories: RepositoryRef[];
   execution: WorkspaceExecution;
-  runtimes: Partial<Record<RuntimeName, RuntimeConfig>>;
+  runtimes: Partial<Record<RuntimeName, ResolvedRuntimeProjection>>;
   plugins: WorkspacePlugins;
   selectedAgents: Record<RuntimeName, ResolvedAgent[]>;
   selectedSkills: ResolvedSkill[];
-  mcpServers: McpServer[];
+  selectedWorkflows: ResolvedWorkflow[];
   selectedPolicies: ResolvedPolicy[];
   lockfile: WorkspaceLockfile;
 }

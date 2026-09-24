@@ -7,7 +7,9 @@ import {
   resolveSafePath,
 } from "../../utils/fs.js";
 
-const AGENT_EXTENSIONS = ["toml", "md", "json"] as const;
+// Longest first so `planner.agent.md` resolves to `planner`, not `planner.agent`.
+const AGENT_EXTENSIONS = ["agent.md", "toml", "md", "json"] as const;
+const WORKFLOW_EXTENSION = "js";
 const LOOKUP_CONCURRENCY_LIMIT = 4;
 
 export async function findAgentFile(root: string, name: string): Promise<string | undefined> {
@@ -22,6 +24,19 @@ export async function findAgentFile(root: string, name: string): Promise<string 
   return undefined;
 }
 
+export async function findWorkflowFile(root: string, name: string): Promise<string | undefined> {
+  const workflowPath = resolveSafePath(root, `${name}.${WORKFLOW_EXTENSION}`, "workflow file");
+  return (await pathExists(workflowPath)) ? workflowPath : undefined;
+}
+
+/** Names of every `<name>.js` workflow script directly under `root` (e.g. `workflows/`). */
+export async function listWorkflowNames(root: string): Promise<string[]> {
+  return (await listFiles(root))
+    .filter((file) => file.endsWith(`.${WORKFLOW_EXTENSION}`))
+    .map((file) => file.slice(0, -(WORKFLOW_EXTENSION.length + 1)))
+    .sort((left, right) => left.localeCompare(right));
+}
+
 export async function findSkillRoot(root: string, name: string): Promise<string | undefined> {
   const skillRoot = resolveSafePath(root, name, "skill name");
   return (await pathExists(path.join(skillRoot, "SKILL.md"))) ? skillRoot : undefined;
@@ -31,9 +46,9 @@ export async function findSkillRoot(root: string, name: string): Promise<string 
 export async function listAgentNames(root: string): Promise<string[]> {
   const names = new Set<string>();
   for (const file of await listFiles(root)) {
-    const extension = path.extname(file);
-    if ((AGENT_EXTENSIONS as readonly string[]).includes(extension.slice(1))) {
-      names.add(path.basename(file, extension));
+    const extension = AGENT_EXTENSIONS.find((candidate) => file.endsWith(`.${candidate}`));
+    if (extension) {
+      names.add(file.slice(0, -(extension.length + 1)));
     }
   }
 

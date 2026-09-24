@@ -142,7 +142,7 @@ If you want to inspect a fuller example before cloning repositories, run:
 maestro workspace install --workspace ../examples/ops-workspace --dry-run
 ```
 
-The same materialized workspace can then be consumed by VS Code, Codex, Claude Code, or JetBrains. Maestro stays upstream: it prepares the governed workspace and the runtime projections, then those tools operate on the result.
+The same materialized workspace can then be consumed by VS Code, JetBrains, Claude Code, Codex, Cursor, Copilot, or any other tool that reads `AGENTS.md` and `.agents/skills/`. Maestro stays upstream: it prepares the governed workspace and the runtime projections, then those tools operate on the result.
 
 For task-scoped work, create a task worktree after install and open that folder instead of jumping into repo roots directly:
 

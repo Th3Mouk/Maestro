@@ -7,9 +7,14 @@ import type {
   WorkspaceLockfile,
   WorkspaceManifest,
 } from "../workspace/types.js";
-import { supportedRuntimeNames } from "../runtime/types.js";
 import { workspaceExecutionSchema, workspaceManifestSchema } from "../workspace/schema.js";
-import { resolveAgents, resolvePolicies, resolveSkills } from "../workspace/agent-discovery.js";
+import { canonicalRuntimes, normalizeRuntimes } from "../workspace/runtimes.js";
+import {
+  resolveAgents,
+  resolvePolicies,
+  resolveSkills,
+  resolveWorkflows,
+} from "../workspace/agent-discovery.js";
 import {
   loadWorkspaceManifest as parseWorkspaceManifest,
   mergeSpec,
@@ -37,9 +42,18 @@ export async function resolveWorkspace(workspaceRoot: string): Promise<ResolvedW
     frameworkVersion,
     RESOLUTION_CONCURRENCY_LIMIT,
   );
-  const manifestWithFragments = await applyPackFragments(manifest, packs);
+  // Pack fragments layer on top of the canonical layout rather than replacing it when the
+  // workspace itself leaves `spec.runtimes` out.
+  const manifestWithFragments = await applyPackFragments(
+    {
+      ...manifest,
+      spec: { ...manifest.spec, runtimes: manifest.spec.runtimes ?? canonicalRuntimes },
+    },
+    packs,
+  );
   const selectedAgents = await resolveAgents(workspaceRoot, manifestWithFragments, packs);
   const selectedSkills = await resolveSkills(workspaceRoot, manifestWithFragments, packs);
+  const selectedWorkflows = await resolveWorkflows(workspaceRoot, manifestWithFragments, packs);
   const selectedPolicies = await resolvePolicies(workspaceRoot, manifestWithFragments, packs);
   const runtimes = normalizeRuntimes(manifestWithFragments);
 
@@ -69,7 +83,7 @@ export async function resolveWorkspace(workspaceRoot: string): Promise<ResolvedW
     plugins: manifestWithFragments.spec.plugins ?? {},
     selectedAgents,
     selectedSkills,
-    mcpServers: manifestWithFragments.spec.mcpServers ?? [],
+    selectedWorkflows,
     selectedPolicies,
     lockfile,
   };
@@ -111,16 +125,6 @@ async function applyPackFragments(
     }
   }
   return workspaceManifestSchema.parse(nextManifest);
-}
-
-function normalizeRuntimes(manifest: WorkspaceManifest) {
-  const runtimes: ResolvedWorkspace["runtimes"] = {};
-  for (const runtime of supportedRuntimeNames) {
-    if (manifest.spec.runtimes[runtime]?.enabled) {
-      runtimes[runtime] = manifest.spec.runtimes[runtime];
-    }
-  }
-  return runtimes;
 }
 
 export async function discoverSparsePaths(repoRoot: string): Promise<string[]> {

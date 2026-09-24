@@ -7,6 +7,7 @@ import type {
 } from "../../src/workspace/types.js";
 import { getRepositorySparseIncludePaths } from "../../src/workspace/repositories.js";
 import { createBuiltInPolicyEvaluators, evaluatePolicies } from "../../src/validation/policies.js";
+import { createEmptyAgentSelection } from "../utils/execution-fixtures.js";
 
 function createInput(overrides: Partial<PolicyEvaluationInput> = {}): PolicyEvaluationInput {
   const repository: RepositoryRef = {
@@ -38,9 +39,9 @@ function createInput(overrides: Partial<PolicyEvaluationInput> = {}): PolicyEval
     execution: {},
     runtimes: {},
     plugins: {},
-    selectedAgents: { "claude-code": [], standard: [] },
+    selectedAgents: createEmptyAgentSelection(),
     selectedSkills: [],
-    mcpServers: [],
+    selectedWorkflows: [],
     selectedPolicies: [],
     lockfile: {
       frameworkVersion: "0.1.0",

@@ -1,7 +1,12 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { listAgentNames, listSkillNames } from "../../src/workspace/discovery/lookup.js";
+import {
+  findAgentFile,
+  listAgentNames,
+  listSkillNames,
+  listWorkflowNames,
+} from "../../src/workspace/discovery/lookup.js";
 import { createManagedTempDir } from "../utils/test-lifecycle.js";
 
 describe("listAgentNames", () => {
@@ -13,6 +18,14 @@ describe("listAgentNames", () => {
     await writeFile(path.join(root, "README.txt"), "not an agent file\n");
 
     expect(await listAgentNames(root)).toEqual(["planner", "reviewer"]);
+  });
+
+  test("strips the Copilot .agent.md suffix from agent names", async () => {
+    const root = await createManagedTempDir("discovery-lookup-agents-copilot-");
+    await writeFile(path.join(root, "planner.agent.md"), "# planner\n");
+
+    expect(await listAgentNames(root)).toEqual(["planner"]);
+    expect(await findAgentFile(root, "planner")).toBe(path.join(root, "planner.agent.md"));
   });
 
   test("returns an empty list when the directory does not exist", async () => {
@@ -30,5 +43,15 @@ describe("listSkillNames", () => {
     await writeFile(path.join(root, "scratch-notes", "README.md"), "not a skill\n");
 
     expect(await listSkillNames(root)).toEqual(["local-runbook"]);
+  });
+});
+
+describe("listWorkflowNames", () => {
+  test("lists .js workflow scripts and ignores other files", async () => {
+    const root = await createManagedTempDir("discovery-lookup-workflows-");
+    await writeFile(path.join(root, "triage.js"), "export const meta = {};\n");
+    await writeFile(path.join(root, "notes.md"), "not a workflow\n");
+
+    expect(await listWorkflowNames(root)).toEqual(["triage"]);
   });
 });

@@ -7,6 +7,7 @@ import {
   removeIfExists,
   resolveSafePath,
 } from "../../utils/fs.js";
+import { listRuntimeProjectionDirs } from "../../runtime/types.js";
 import { workspaceDescriptorFileName } from "../workspace-descriptor.js";
 import { workspaceStateDirName } from "../../workspace/state-directory.js";
 
@@ -17,15 +18,19 @@ const workspaceOverlayPaths = [
   "workspace",
   "agents",
   "skills",
+  "workflows",
   "package.json",
   "README.md",
   ".gitignore",
   "overrides",
-  ".codex",
   ".claude",
-  ".opencode",
+  ".agents",
+  ...listRuntimeProjectionDirs().filter(
+    (dir) => !dir.startsWith(".claude/") && !dir.startsWith(".agents/"),
+  ),
   ".devcontainer",
   "AGENTS.md",
+  // Team-owned and optional; carried over when present, never generated.
   "CLAUDE.md",
   workspaceDescriptorFileName,
 ];
@@ -71,7 +76,9 @@ async function copyPath(sourcePath: string, destinationPath: string): Promise<vo
   const stats = await stat(sourcePath);
   await ensureDir(path.dirname(destinationPath));
   if (stats.isDirectory()) {
-    await cp(sourcePath, destinationPath, { force: true, recursive: true });
+    // Keep relative links (e.g. `.claude/skills/<name>` -> `.agents/skills/<name>`) pointing
+    // inside the task root instead of back at the main workspace.
+    await cp(sourcePath, destinationPath, { force: true, recursive: true, verbatimSymlinks: true });
     return;
   }
   await cp(sourcePath, destinationPath, { force: true });

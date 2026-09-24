@@ -241,10 +241,9 @@ describe("end-to-end workspace lifecycle", () => {
       [
         "repos/",
         ".maestro/",
-        ".claude/",
         ".agents/skills/",
-        ".agents/agents/",
-        ".mcp.json",
+        ".claude/skills/",
+        ".claude/workflows/",
         "node_modules/",
         ".devcontainer/",
         "",
@@ -294,10 +293,9 @@ describe("end-to-end workspace lifecycle", () => {
         "# keep this",
         "repos/",
         ".maestro/",
-        ".claude/",
         ".agents/skills/",
-        ".agents/agents/",
-        ".mcp.json",
+        ".claude/skills/",
+        ".claude/workflows/",
         ".devcontainer/",
         "",
       ].join("\n"),
@@ -350,10 +348,9 @@ describe("end-to-end workspace lifecycle", () => {
         path.join(workspaceRoot, "plugins", "release-helper", ".codex-plugin", "plugin.json"),
       ),
     ).toBe(true);
-    expect(existsSync(path.join(workspaceRoot, ".mcp.json"))).toBe(true);
-    expect(await readFile(path.join(workspaceRoot, ".mcp.json"), "utf8")).toContain(
-      '"shared-docs"',
-    );
+    expect(existsSync(path.join(workspaceRoot, ".mcp.json"))).toBe(false);
+    // The pack ships a CLAUDE.md template, but Maestro never writes CLAUDE.md.
+    expect(existsSync(path.join(workspaceRoot, "CLAUDE.md"))).toBe(false);
     expect(
       JSON.parse(await readFile(path.join(workspaceRoot, ".claude", "settings.json"), "utf8")),
     ).toMatchObject({
@@ -417,7 +414,6 @@ describe("end-to-end workspace lifecycle", () => {
     const { workspaceRoot } = await createScenario();
     await installWorkspace(workspaceRoot);
     await rm(path.join(workspaceRoot, ".agents", "skills"), { recursive: true });
-    await rm(path.join(workspaceRoot, ".mcp.json"));
     await rm(path.join(workspaceRoot, "maestro.json"));
 
     const report = await doctorWorkspace(workspaceRoot);
@@ -833,7 +829,6 @@ async function createWorkspace(
       "spec:",
       "  includes:",
       "    - fragments/packs.yaml",
-      "    - fragments/mcp.yaml",
       "    - fragments/plugins.yaml",
       "    - fragments/repositories.yaml",
       "    - fragments/execution.yaml",
@@ -927,29 +922,6 @@ async function createWorkspace(
       "      version: ^1.0.0",
       "      visibility: private",
       `      source: ${input.packPrivate}`,
-    ].join("\n"),
-    "utf8",
-  );
-
-  await writeFile(
-    path.join(workspaceRoot, "fragments", "mcp.yaml"),
-    [
-      "apiVersion: maestro/v1",
-      "kind: WorkspaceFragment",
-      "metadata:",
-      "  name: mcp",
-      "spec:",
-      "  mcpServers:",
-      "    - name: shared-docs",
-      "      transport: stdio",
-      "      command: npx",
-      "      args:",
-      "        - -y",
-      '        - "@upstash/context7-mcp"',
-      "    - name: sentry",
-      "      transport: http",
-      "      url: https://mcp.sentry.dev/mcp",
-      "      bearerTokenEnvVar: SENTRY_AUTH_TOKEN",
     ].join("\n"),
     "utf8",
   );
@@ -1066,6 +1038,7 @@ async function createWorkspace(
       "  runtimes:",
       "    standard:",
       "      enabled: true",
+      "      agents: {}",
       "    claude-code:",
       "      enabled: true",
     ].join("\n"),
@@ -1242,13 +1215,9 @@ async function createPackGithubActions(packRoot: string, sampleCiRemote: string)
   );
   await writeFile(
     path.join(packRoot, "fragments", "runtimes.partial.yaml"),
-    [
-      "runtimes:",
-      "  standard:",
-      "    enabled: true",
-      "  claude-code:",
-      "    installProjectInstructions: true",
-    ].join("\n"),
+    ["runtimes:", "  standard:", "    enabled: true", "  claude-code:", "    enabled: true"].join(
+      "\n",
+    ),
     "utf8",
   );
 }

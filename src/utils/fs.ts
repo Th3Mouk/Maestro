@@ -1,5 +1,5 @@
 import { cp, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
-import { existsSync, type Dirent } from "node:fs";
+import type { Dirent } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import lockfile from "proper-lockfile";
@@ -104,10 +104,10 @@ export async function mapWithConcurrency<T, TResult>(
   return results;
 }
 
+// `rm` with `force` is a no-op on a missing path and removes a symlink itself, including a
+// dangling one that `existsSync` (which follows links) would report as absent.
 export async function removeIfExists(target: string): Promise<void> {
-  if (existsSync(target)) {
-    await rm(target, { recursive: true, force: true });
-  }
+  await rm(target, { recursive: true, force: true });
 }
 
 async function listEntryNames(

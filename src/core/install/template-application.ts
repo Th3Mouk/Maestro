@@ -4,7 +4,8 @@ import path from "node:path";
 import type { ResolvedWorkspace } from "../../workspace/types.js";
 import { pathExists, resolveSafePath, writeText } from "../../utils/fs.js";
 
-const TEMPLATE_TARGETS = ["AGENTS.md", "CLAUDE.md"] as const;
+// Maestro never writes CLAUDE.md: whether a workspace keeps one is the team's decision.
+const TEMPLATE_TARGETS = ["AGENTS.md"] as const;
 
 export async function applyWorkspaceTemplates(
   workspaceRoot: string,

@@ -9,15 +9,13 @@ spec:
   includes:
     - fragments/packs.yaml
     - fragments/plugins.yaml
-    - fragments/mcpServers.yaml
     - fragments/repositories.yaml
     - fragments/execution.yaml
     - fragments/runtimes.yaml
     - fragments/policies.yaml
   agents:
-    standard:
-      - planner
-      - repo-auditor
     claude-code:
       - planner
       - executor
+    codex:
+      - planner

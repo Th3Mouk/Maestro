@@ -113,8 +113,10 @@ describe("runtime projection mode", () => {
     const workspaceRoot = await createProjectionModeScenario([
       "    standard:",
       "      enabled: true",
+      "      agents: {}",
       "    claude-code:",
       "      enabled: true",
+      "      agents: {}",
     ]);
 
     await installWorkspace(workspaceRoot);
@@ -147,9 +149,11 @@ describe("runtime projection mode", () => {
       "    standard:",
       "      enabled: true",
       "      projectionMode: replace",
+      "      agents: {}",
       "    claude-code:",
       "      enabled: true",
       "      projectionMode: replace",
+      "      agents: {}",
     ]);
 
     await installWorkspace(workspaceRoot);

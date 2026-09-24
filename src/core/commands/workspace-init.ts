@@ -1,12 +1,13 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import YAML from "yaml";
-import type { RuntimeName } from "../../runtime/types.js";
+import { runtimeSupports, type RuntimeName } from "../../runtime/types.js";
 import type { WorkspaceManifest } from "../../workspace/types.js";
 import { pathExists, readText, writeText } from "../../utils/fs.js";
 import { getFrameworkRange } from "../../version.js";
 import { renderWorkspaceDescriptor, workspaceDescriptorFileName } from "../workspace-descriptor.js";
 import { renderDefaultWorkspaceGitignore } from "../workspace-gitignore.js";
+import { normalizeRuntimes } from "../../workspace/runtimes.js";
 import { workspaceManifestFileName } from "../workspace-manifest.js";
 
 const defaultRuntimeSelection: RuntimeName[] = ["standard", "claude-code"];
@@ -125,7 +126,8 @@ export async function initWorkspace(
       "- Open the workspace root in JetBrains, VS Code, or another IDE to work in the full materialized folder.",
       "- Open `maestro.code-workspace` only when you want an explicit multi-root projection in a compatible editor.",
       "- Managed repositories are materialized under `repos/<name>`.",
-      "- Project-scoped MCP servers declared in `maestro.yaml` are projected into `.mcp.json` for Claude Code.",
+      "- Skills are projected into `.agents/skills/` and `.claude/skills/`, workflows into `.claude/workflows/`, and agents into each configured runtime's native directory.",
+      "- MCP servers, hooks, and runtime settings are not managed by Maestro; configure them in each tool's own files.",
       "- Native plugin bundles stay in `plugins/`; Maestro does not re-encode their internals in the manifest.",
       "",
       "## Guardrails",
@@ -135,12 +137,15 @@ export async function initWorkspace(
       "- Use dry-run modes first when available before destructive operations.",
     ].join("\n"),
   );
-  await writeText(path.join(workspaceRoot, ".gitignore"), renderDefaultWorkspaceGitignore());
+  await writeText(
+    path.join(workspaceRoot, ".gitignore"),
+    renderDefaultWorkspaceGitignore(normalizeRuntimes(manifest)),
+  );
   await writeText(
     path.join(workspaceRoot, workspaceDescriptorFileName),
     renderWorkspaceDescriptor({
       execution: manifest.spec.execution,
-      runtimeNames: Object.entries(manifest.spec.runtimes)
+      runtimeNames: Object.entries(manifest.spec.runtimes ?? {})
         .filter(([, config]) => config?.enabled)
         .map(([runtime]) => runtime as RuntimeName),
       workspaceName: manifest.metadata.name,
@@ -149,19 +154,13 @@ export async function initWorkspace(
   );
 }
 
+// `standard` and `claude-code` project skills (and workflows) by default. Every other
+// runtime only has an agent directory, so selecting it means projecting its agents.
 function runtimeConfigFor(runtimeName: RuntimeName) {
-  switch (runtimeName) {
-    case "claude-code":
-      return {
-        enabled: true,
-        installProjectInstructions: true,
-        instructionsFile: "CLAUDE.md",
-      };
-    case "standard":
-      return {
-        enabled: true,
-      };
+  if (runtimeSupports(runtimeName, "skills")) {
+    return { enabled: true };
   }
+  return { enabled: true, agents: { mode: "merge" as const } };
 }
 
 async function renderWorkspaceReadme(
@@ -195,7 +194,7 @@ async function renderWorkspaceReadme(
     "",
     "- `repos/` for materialized repositories.",
     "- `.maestro/` for workspace state and reports.",
-    "- `.claude/` and `.agents/skills/` only when the corresponding runtimes are enabled in the manifest.",
+    "- `.agents/skills/`, `.claude/skills/`, `.claude/workflows/`, and runtime agent directories such as `.claude/agents/` or `.codex/agents/`, only for the projections enabled in the manifest.",
   ].join("\n");
 
   if (!(await pathExists(readmePath))) {

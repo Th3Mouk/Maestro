@@ -24,7 +24,7 @@ export async function initializeWorkspaceInstall(
   }
 
   await ensureWorkspaceSkeleton(workspaceRoot, resolvedWorkspace.manifest);
-  await ensureWorkspaceGitignore(workspaceRoot);
+  await ensureWorkspaceGitignore(workspaceRoot, resolvedWorkspace.runtimes);
   await withWorkspaceLock(workspaceRoot, async () => {
     await writeJson(getWorkspaceStateRoot(workspaceRoot, "lock.json"), resolvedWorkspace.lockfile);
   });

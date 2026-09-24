@@ -57,14 +57,16 @@ Maestro introduces partial or complete multi-repository workspaces on top of Git
 - emit `maestro.json`, the neutral descriptor for agents, harnesses, scripts, and other tooling;
 - distribute workspace assets through packs;
 - version native plugin bundles and repo-local plugin marketplaces alongside the workspace contract;
-- prepare runtime-specific configuration and optional execution artifacts for downstream tools and cloud execution;
+- write one `AGENTS.md` and project skills, subagents, and workflows only where coding agents still disagree on files, plus optional execution artifacts for downstream tools and cloud execution;
 - keep the resulting folder consumable by agents, headless harnesses, and IDEs, with tools such as VS Code or JetBrains opening the workspace root for setup and the task worktree root for active work;
 - generate `maestro.code-workspace` on demand for editors that support named multi-root workspaces;
 - project optional DevContainer artifacts from the workspace configuration when a team wants a containerized local environment;
 - create task-scoped worktrees so downstream agents and harnesses can work in one task worktree that contains the root worktree plus one worktree per managed repository;
 - run workspace-managed Git operations across repositories.
 
-By default, `maestro init` enables both runtimes: `standard` (the shared `.agents/skills/` convention read by Codex, Cursor, Devin, Kilo Code, OpenCode, and other Agent-Skills-compatible tools) and `claude-code` (native `.claude/` projection). Pass `--runtimes standard` or `--runtimes claude-code` to scaffold only one.
+Maestro follows the shared conventions first. `AGENTS.md` carries the instructions every tool reads, including Claude Code since v2.1.277, so Maestro never writes `CLAUDE.md`. Skills go to `.agents/skills/`, which Codex, Cursor, Copilot, Gemini CLI, OpenCode, Kilo Code, and Devin scan, and are linked into `.claude/skills/` for Claude Code. Subagents have no shared format, so each one is authored for its runtime and copied into that runtime's directory (`.claude/agents/`, `.codex/agents/`, `.github/agents/`, and so on). Claude Code workflows go to `.claude/workflows/`. MCP servers, hooks, and runtime settings stay in each tool's own files.
+
+By default, `maestro init` enables the `standard` and `claude-code` runtimes. Pass `--runtimes` with any supported runtime, for example `--runtimes standard,claude-code,codex`. See [Runtime projection](./docs/manifests/workspace.md#runtime-projection) for the canonical layout and every option.
 
 For example, a repository entry can keep the whole checkout:
 
@@ -101,7 +103,7 @@ flowchart LR
   B --> C["repos/ via partial clone + sparse checkout"]
   B --> D["runtime projections + optional execution artifacts"]
   B --> H["task-scoped worktrees"]
-  B --> E["packs, agents, skills, plugins, MCP"]
+  B --> E["packs, agents, skills, workflows, plugins"]
   B --> I["AGENTS.md CLI map"]
   D --> F["Agents / IDEs / execution harnesses"]
   I --> H
@@ -109,16 +111,16 @@ flowchart LR
 
 ## Core capabilities
 
-| Capability                       | What it gives you                                                                                                                                              |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Multi-repo workspaces            | One source of truth for a workspace repo plus the Git repositories it installs and governs                                                                     |
-| Partial or complete scope        | Expose only the code a task needs, or keep full repositories when broad context is required ([workspace manifest](./docs/manifests/workspace.md))              |
-| Controlled context               | Smaller context windows and less irrelevant code for AI runtimes                                                                                               |
-| Shared packs                     | Packs and plugin bundles for distributing agents, skills, policies, templates, and runtime-specific assets ([Pack core](./examples/packs/pack-core/pack.yaml)) |
-| Runtime adapters                 | Optional projections for specific tools without making Maestro the runtime or editor itself                                                                    |
-| Framework-managed execution      | Bootstrap scripts, isolated worktrees, and optional DevContainer artifacts generated from the workspace configuration                                          |
-| Local or cloud-hosted workspaces | The same workspace contract can be prepared for local use or controlled remote execution                                                                       |
-| Policy-backed operations         | Guardrails for branch naming, path restrictions, diff size, and workflow safety                                                                                |
+| Capability                       | What it gives you                                                                                                                                                                                                                                                                  |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Multi-repo workspaces            | One source of truth for a workspace repo plus the Git repositories it installs and governs                                                                                                                                                                                         |
+| Partial or complete scope        | Expose only the code a task needs, or keep full repositories when broad context is required ([workspace manifest](./docs/manifests/workspace.md))                                                                                                                                  |
+| Controlled context               | Smaller context windows and less irrelevant code for AI runtimes                                                                                                                                                                                                                   |
+| Shared packs                     | Packs and plugin bundles for distributing agents, skills, workflows, policies, and templates ([Pack core](./examples/packs/pack-core/pack.yaml))                                                                                                                                   |
+| Runtime projection               | Skills, subagents, and workflows projected into the directories Claude Code, Codex, Cursor, Copilot, Gemini CLI, OpenCode, Kilo Code, and Devin read, without making Maestro the runtime or editor itself ([runtime projection](./docs/manifests/workspace.md#runtime-projection)) |
+| Framework-managed execution      | Bootstrap scripts, isolated worktrees, and optional DevContainer artifacts generated from the workspace configuration                                                                                                                                                              |
+| Local or cloud-hosted workspaces | The same workspace contract can be prepared for local use or controlled remote execution                                                                                                                                                                                           |
+| Policy-backed operations         | Guardrails for branch naming, path restrictions, diff size, and workflow safety                                                                                                                                                                                                    |
 
 Architecture decisions and implementation constraints are documented in the architecture pages linked above.
 
