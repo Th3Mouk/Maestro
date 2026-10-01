@@ -40,7 +40,7 @@ export async function prepareTaskWorktreeWithResolvedWorkspace(
   workspaceRoot: string,
   resolvedWorkspace: ResolvedWorkspace,
   taskName: string,
-  options: { dryRun?: boolean; repos?: string[] },
+  options: { dryRun?: boolean; offline?: boolean; repos?: string[] },
   context: { gitAdapter: ExecutionSupportGitAdapter },
   concurrencyLimit: number,
 ): Promise<TaskWorktreeReport> {
@@ -107,6 +107,7 @@ export async function prepareTaskWorktreeWithResolvedWorkspace(
     branchPrefix: worktrees.branchPrefix,
     concurrencyLimit,
     gitAdapter,
+    offline: options.offline,
     repositories: selection.repositories,
     taskName,
     taskRoot,

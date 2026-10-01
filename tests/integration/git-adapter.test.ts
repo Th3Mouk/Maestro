@@ -312,6 +312,55 @@ describe("git adapter branch operations", () => {
   });
 });
 
+describe("git adapter default branch resolution", () => {
+  async function commitIn(repoRoot: string): Promise<void> {
+    await execa(
+      "git",
+      [
+        "-c",
+        "user.name=T",
+        "-c",
+        "user.email=t@example.invalid",
+        "-c",
+        "commit.gpgSign=false",
+        "commit",
+        "--allow-empty",
+        "-m",
+        "init",
+      ],
+      { cwd: repoRoot },
+    );
+  }
+
+  test("resolves origin/HEAD's target in a clone", async () => {
+    const root = await createManagedTempDir("git-adapter-default-origin-");
+    const source = path.join(root, "source");
+    await mkdir(source);
+    await execa("git", ["init", "--initial-branch=trunk"], { cwd: source });
+    await commitIn(source);
+    await execa("git", ["clone", source, path.join(root, "clone")]);
+
+    expect(await new GitAdapter().resolveDefaultBranchRef(path.join(root, "clone"))).toBe(
+      "origin/trunk",
+    );
+  });
+
+  test("falls back to main, then to HEAD, without origin/HEAD", async () => {
+    const root = await createManagedTempDir("git-adapter-default-local-");
+    const withMain = path.join(root, "with-main");
+    const withoutMain = path.join(root, "without-main");
+    await mkdir(withMain);
+    await mkdir(withoutMain);
+    await execa("git", ["init", "--initial-branch=main"], { cwd: withMain });
+    await commitIn(withMain);
+    await execa("git", ["init", "--initial-branch=master"], { cwd: withoutMain });
+    await commitIn(withoutMain);
+
+    expect(await new GitAdapter().resolveDefaultBranchRef(withMain)).toBe("main");
+    expect(await new GitAdapter().resolveDefaultBranchRef(withoutMain)).toBe("HEAD");
+  });
+});
+
 async function createBareRemoteRepo(
   root: string,
   name: string,

@@ -288,3 +288,83 @@ describe("partial worktrees with --repos", () => {
     expect(existsSync(created.root)).toBe(false);
   });
 });
+
+async function pushCommitToRemote(root: string, remote: string, message: string): Promise<string> {
+  const cloneRoot = path.join(root, `push-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  await execa("git", ["clone", remote, cloneRoot]);
+  await git(cloneRoot, ["commit", "--allow-empty", "-m", message]);
+  await git(cloneRoot, ["push", "origin", "main"]);
+  return git(cloneRoot, ["rev-parse", "HEAD"]);
+}
+
+describe("base refs", () => {
+  test("a new repository task branch starts from the freshly fetched origin branch", async () => {
+    const { remotes, root, workspaceRoot } = await createLifecycleWorkspace();
+    const remoteTip = await pushCommitToRemote(root, remotes.foods, "landed upstream");
+    const localMain = await git(path.join(workspaceRoot, "repos", "foods"), ["rev-parse", "main"]);
+
+    const report = await createTaskWorktree(workspaceRoot, "fresh-base", { repos: ["foods"] });
+
+    expect(report.status).toBe("ok");
+    expect(await git(path.join(report.root, "repos", "foods"), ["rev-parse", "HEAD"])).toBe(
+      remoteTip,
+    );
+    // The primary clone's checked-out branch is not moved.
+    expect(await git(path.join(workspaceRoot, "repos", "foods"), ["rev-parse", "main"])).toBe(
+      localMain,
+    );
+  });
+
+  test("--offline keeps the local reference branch", async () => {
+    const { remotes, root, workspaceRoot } = await createLifecycleWorkspace();
+    await pushCommitToRemote(root, remotes.foods, "landed upstream");
+    const localMain = await git(path.join(workspaceRoot, "repos", "foods"), ["rev-parse", "main"]);
+
+    const report = await createTaskWorktree(workspaceRoot, "offline", {
+      repos: ["foods"],
+      offline: true,
+    });
+
+    expect(await git(path.join(report.root, "repos", "foods"), ["rev-parse", "HEAD"])).toBe(
+      localMain,
+    );
+  });
+
+  test("a fetch failure is a warning and the local reference branch is used", async () => {
+    const { root, workspaceRoot } = await createLifecycleWorkspace();
+    const foodsClone = path.join(workspaceRoot, "repos", "foods");
+    await git(foodsClone, ["remote", "set-url", "origin", path.join(root, "missing.git")]);
+
+    const report = await createTaskWorktree(workspaceRoot, "no-network", { repos: ["foods"] });
+
+    expect(report.status).toBe("warning");
+    expect(report.issues).toEqual([expect.objectContaining({ code: "FETCH_FAILED" })]);
+    expect(report.repositories.map((entry) => entry.status)).toEqual(["created"]);
+  });
+
+  test("a reused task branch is never moved to the new base", async () => {
+    const { remotes, root, workspaceRoot } = await createLifecycleWorkspace();
+    const first = await createTaskWorktree(workspaceRoot, "keep", { repos: ["foods"] });
+    const taskTip = await git(path.join(first.root, "repos", "foods"), ["rev-parse", "HEAD"]);
+    await removeTaskWorktree(workspaceRoot, "keep");
+    await pushCommitToRemote(root, remotes.foods, "landed upstream");
+
+    const second = await createTaskWorktree(workspaceRoot, "keep", { repos: ["foods"] });
+
+    expect(second.repositories.map((entry) => entry.status)).toEqual(["reused"]);
+    expect(await git(path.join(second.root, "repos", "foods"), ["rev-parse", "HEAD"])).toBe(
+      taskTip,
+    );
+  });
+
+  test("the workspace-root task branch starts from the default branch, not the current one", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const mainTip = await git(workspaceRoot, ["rev-parse", "main"]);
+    await git(workspaceRoot, ["switch", "-c", "feature/local"]);
+    await git(workspaceRoot, ["commit", "--allow-empty", "-m", "feature work"]);
+
+    const report = await createTaskWorktree(workspaceRoot, "from-feature", { repos: ["foods"] });
+
+    expect(await git(report.root, ["rev-parse", "HEAD"])).toBe(mainTip);
+  });
+});

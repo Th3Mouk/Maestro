@@ -54,7 +54,7 @@ export async function bootstrapWorkspace(
 export async function prepareTaskWorktree(
   workspaceRoot: string,
   taskName: string,
-  options: { dryRun?: boolean; repos?: string[] } = {},
+  options: { dryRun?: boolean; offline?: boolean; repos?: string[] } = {},
   context: ExecutionServiceContext,
 ): Promise<TaskWorktreeReport> {
   const { resolveWorkspace } = await import("./workspace-service.js");

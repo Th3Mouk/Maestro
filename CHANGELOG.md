@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `maestro worktree create --repos <a,b>` checks out only the listed repositories instead of every managed repository, which saves disk, IDE indexing, and dependency seeding for tasks that touch one or two repositories. Repositories that are not selected are absent from `<taskRoot>/repos/`; Maestro never links them to the primary clone. Running `create --repos` again on an existing task adds the missing repositories and leaves the others untouched. An unknown name fails the command with `REPO_UNKNOWN` before anything is created.
 - `.maestro/execution/worktree.json` records `repositories`, the repositories that have a worktree in the task. `worktree remove` iterates over that list instead of the manifest, the task's `maestro.json` descriptor lists only those repositories, and `worktree list` reports them per task. Metadata written by earlier versions, without the field, falls back to the directories present under `<taskRoot>/repos/`.
+- `maestro worktree create --offline` skips the fetch described below and bases new task branches on the local reference branches.
+
+### Changed
+
+- The workspace-root task branch now starts from the workspace's default branch: `origin/HEAD`'s target when it resolves, else `main`. It used to start from `HEAD`, so a task created while the root checkout sat on a feature branch inherited that branch's commits.
+- New repository task branches now start from a fresh `origin/<branch>` instead of the local reference branch, which is often behind. `worktree create` fetches the reference branch of each repository that needs a new task branch (`git fetch origin <branch>`, with the usual repository concurrency), then branches from `origin/<branch>` when it exists. A failed fetch is a `FETCH_FAILED` warning, and the local reference branch is used. Reused task branches and existing worktrees are never moved or fetched for, and the primary clones' checked-out branches are not touched.
 
 ### Fixed
 

@@ -13,6 +13,26 @@ import type { TaskWorktreeGitAdapter } from "../../src/core/execution/task-workt
 import { createRepositoryFixture } from "../utils/execution-fixtures.js";
 import { createManagedTempDir } from "../utils/test-lifecycle.js";
 
+function createTaskWorktreeGitAdapterFixture(
+  overrides: Partial<TaskWorktreeGitAdapter> = {},
+): TaskWorktreeGitAdapter {
+  return {
+    ensureWorktree: vi.fn<TaskWorktreeGitAdapter["ensureWorktree"]>().mockResolvedValue("created"),
+    fetchBranch: vi.fn<TaskWorktreeGitAdapter["fetchBranch"]>().mockResolvedValue(undefined),
+    hasGitMetadata: vi.fn<TaskWorktreeGitAdapter["hasGitMetadata"]>().mockResolvedValue(true),
+    localBranchExists: vi
+      .fn<TaskWorktreeGitAdapter["localBranchExists"]>()
+      .mockResolvedValue(false),
+    remoteBranchExists: vi
+      .fn<TaskWorktreeGitAdapter["remoteBranchExists"]>()
+      .mockResolvedValue(true),
+    resolveDefaultBranchRef: vi
+      .fn<TaskWorktreeGitAdapter["resolveDefaultBranchRef"]>()
+      .mockResolvedValue("origin/main"),
+    ...overrides,
+  };
+}
+
 describe("task worktree execution collaborators", () => {
   test("creates a baseline report with empty collections", () => {
     expect(createTaskWorktreeReport("demo-workspace", "Feature / ABC", "/tmp/task")).toEqual({
@@ -63,10 +83,7 @@ describe("task worktree execution collaborators", () => {
     const hasGitMetadata = vi
       .fn<TaskWorktreeGitAdapter["hasGitMetadata"]>()
       .mockResolvedValue(true);
-    const gitAdapter = {
-      ensureWorktree,
-      hasGitMetadata,
-    };
+    const gitAdapter = createTaskWorktreeGitAdapterFixture({ ensureWorktree, hasGitMetadata });
 
     const issue = await prepareTaskWorkspaceRoot({
       branchPrefix: "task",
@@ -83,7 +100,7 @@ describe("task worktree execution collaborators", () => {
       workspaceRoot,
       taskRoot,
       "task/feature-abc/demo-workspace",
-      "HEAD",
+      "origin/main",
     );
   });
 
@@ -96,10 +113,7 @@ describe("task worktree execution collaborators", () => {
     const hasGitMetadata = vi
       .fn<TaskWorktreeGitAdapter["hasGitMetadata"]>()
       .mockResolvedValue(false);
-    const gitAdapter = {
-      ensureWorktree,
-      hasGitMetadata,
-    };
+    const gitAdapter = createTaskWorktreeGitAdapterFixture({ ensureWorktree, hasGitMetadata });
 
     const issue = await prepareTaskWorkspaceRoot({
       branchPrefix: "task",
@@ -131,10 +145,7 @@ describe("task worktree execution collaborators", () => {
     const hasGitMetadata = vi.fn<TaskWorktreeGitAdapter["hasGitMetadata"]>(
       async (candidate: string) => candidate.endsWith("/frontend"),
     );
-    const gitAdapter = {
-      ensureWorktree,
-      hasGitMetadata,
-    };
+    const gitAdapter = createTaskWorktreeGitAdapterFixture({ ensureWorktree, hasGitMetadata });
 
     const outcomes = await prepareTaskRepositories({
       branchPrefix: "task",
@@ -171,10 +182,7 @@ describe("task worktree execution collaborators", () => {
     const hasGitMetadata = vi
       .fn<TaskWorktreeGitAdapter["hasGitMetadata"]>()
       .mockResolvedValue(true);
-    const gitAdapter = {
-      ensureWorktree,
-      hasGitMetadata,
-    };
+    const gitAdapter = createTaskWorktreeGitAdapterFixture({ ensureWorktree, hasGitMetadata });
 
     await expect(
       prepareTaskRepositories({
@@ -190,6 +198,84 @@ describe("task worktree execution collaborators", () => {
 
     expect(gitAdapter.hasGitMetadata).not.toHaveBeenCalled();
     expect(gitAdapter.ensureWorktree).not.toHaveBeenCalled();
+  });
+
+  describe("repository base refs", () => {
+    async function prepareOne(gitAdapter: TaskWorktreeGitAdapter, offline = false) {
+      const workspaceRoot = await createManagedTempDir("maestro-task-base-");
+      const outcomes = await prepareTaskRepositories({
+        branchPrefix: "task",
+        concurrencyLimit: 1,
+        gitAdapter,
+        offline,
+        repositories: [createRepositoryFixture({ name: "foods" })],
+        taskName: "t",
+        taskRoot: path.join(workspaceRoot, "worktrees", "t"),
+        workspaceRoot,
+      });
+      return { outcome: outcomes[0], sourceRepoRoot: path.join(workspaceRoot, "repos", "foods") };
+    }
+
+    const hasSourceOnly = vi.fn<TaskWorktreeGitAdapter["hasGitMetadata"]>(
+      async (candidate) => !candidate.includes(path.join("worktrees", "t")),
+    );
+
+    test("fetches the reference branch and bases a new task branch on origin", async () => {
+      const gitAdapter = createTaskWorktreeGitAdapterFixture({ hasGitMetadata: hasSourceOnly });
+
+      const { outcome, sourceRepoRoot } = await prepareOne(gitAdapter);
+
+      expect(gitAdapter.fetchBranch).toHaveBeenCalledWith(sourceRepoRoot, "main");
+      expect(gitAdapter.ensureWorktree).toHaveBeenCalledWith(
+        sourceRepoRoot,
+        expect.any(String),
+        "task/t/foods",
+        "origin/main",
+      );
+      expect(outcome?.issue).toBeUndefined();
+    });
+
+    test("keeps the local reference branch and warns when the fetch fails", async () => {
+      const gitAdapter = createTaskWorktreeGitAdapterFixture({
+        fetchBranch: vi
+          .fn<TaskWorktreeGitAdapter["fetchBranch"]>()
+          .mockRejectedValue(new Error("network down")),
+        hasGitMetadata: hasSourceOnly,
+      });
+
+      const { outcome } = await prepareOne(gitAdapter);
+
+      expect(outcome?.issue).toMatchObject({ code: "FETCH_FAILED" });
+      expect(outcome?.issue?.message).toContain("network down");
+      expect(outcome?.repository?.status).toBe("created");
+      expect(gitAdapter.ensureWorktree).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        "task/t/foods",
+        "main",
+      );
+    });
+
+    test("does not fetch when offline", async () => {
+      const gitAdapter = createTaskWorktreeGitAdapterFixture({ hasGitMetadata: hasSourceOnly });
+
+      await prepareOne(gitAdapter, true);
+
+      expect(gitAdapter.fetchBranch).not.toHaveBeenCalled();
+    });
+
+    test("does not fetch for an existing task branch", async () => {
+      const gitAdapter = createTaskWorktreeGitAdapterFixture({
+        hasGitMetadata: hasSourceOnly,
+        localBranchExists: vi
+          .fn<TaskWorktreeGitAdapter["localBranchExists"]>()
+          .mockResolvedValue(true),
+      });
+
+      await prepareOne(gitAdapter);
+
+      expect(gitAdapter.fetchBranch).not.toHaveBeenCalled();
+    });
   });
 
   test("merges repository outcomes into a task worktree report", () => {

@@ -339,11 +339,40 @@ export class GitAdapter {
   }
 
   async localBranchExists(repoRoot: string, branchName: string): Promise<boolean> {
-    const { exitCode } = await execa(
+    return this.#refExists(repoRoot, `refs/heads/${branchName}`);
+  }
+
+  async remoteBranchExists(repoRoot: string, branchName: string): Promise<boolean> {
+    return this.#refExists(repoRoot, `refs/remotes/origin/${branchName}`);
+  }
+
+  /** Updates `origin/<branch>` from the remote. */
+  async fetchBranch(repoRoot: string, branchName: string): Promise<void> {
+    await this.#branchGuard.ensureValidBranchName(repoRoot, branchName);
+    await this.run(repoRoot, ["fetch", "--", "origin", branchName]);
+  }
+
+  /**
+   * The ref new branches of this repository start from: `origin/HEAD`'s target when it
+   * resolves, else `main`, else `HEAD` for a repository without a `main` branch.
+   */
+  async resolveDefaultBranchRef(repoRoot: string): Promise<string> {
+    const { exitCode, stdout } = await execa(
       "git",
-      ["rev-parse", "--verify", "--quiet", `refs/heads/${branchName}`],
+      ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
       { cwd: repoRoot, reject: false },
     );
+    if (exitCode === 0 && stdout.trim()) {
+      return stdout.trim();
+    }
+    return (await this.localBranchExists(repoRoot, "main")) ? "main" : "HEAD";
+  }
+
+  async #refExists(repoRoot: string, ref: string): Promise<boolean> {
+    const { exitCode } = await execa("git", ["rev-parse", "--verify", "--quiet", ref], {
+      cwd: repoRoot,
+      reject: false,
+    });
     return exitCode === 0;
   }
 
