@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { execa } from "execa";
@@ -366,5 +366,42 @@ describe("base refs", () => {
     const report = await createTaskWorktree(workspaceRoot, "from-feature", { repos: ["foods"] });
 
     expect(await git(report.root, ["rev-parse", "HEAD"])).toBe(mainTip);
+  });
+});
+
+describe("running from inside a task worktree", () => {
+  test("create resolves the main workspace instead of nesting worktrees under the task", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const outer = await createTaskWorktree(workspaceRoot, "outer", { repos: ["foods"] });
+
+    const inner = await createTaskWorktree(outer.root, "inner", { repos: ["foods"] });
+
+    expect(inner.status).toBe("ok");
+    expect(inner.issues[0]).toMatchObject({ code: "WORKSPACE_RESOLVED_FROM_TASK" });
+    expect(await realpath(path.dirname(inner.root))).toBe(
+      await realpath(path.join(workspaceRoot, "worktrees")),
+    );
+    expect(existsSync(path.join(outer.root, "worktrees"))).toBe(false);
+
+    const listed = await listTaskWorktrees(outer.root);
+    expect(listed.worktrees.map((entry) => entry.name).sort()).toEqual(["inner", "outer"]);
+
+    const removed = await removeTaskWorktree(outer.root, "inner");
+    expect(removed.status).toBe("ok");
+    expect(existsSync(inner.root)).toBe(false);
+  });
+
+  test("fails with WORKSPACE_IS_TASK_WORKTREE when the main workspace cannot be resolved", async () => {
+    const root = await createManagedTempDir("maestro-orphan-task-");
+    await mkdir(path.join(root, ".maestro", "execution"), { recursive: true });
+    await writeFile(path.join(root, ".maestro", "execution", "worktree.json"), "{}", "utf8");
+
+    const report = await createTaskWorktree(root, "nested");
+
+    expect(report.status).toBe("error");
+    expect(report.issues).toEqual([
+      expect.objectContaining({ code: "WORKSPACE_IS_TASK_WORKTREE" }),
+    ]);
+    expect(existsSync(path.join(root, "worktrees"))).toBe(false);
   });
 });
