@@ -60,7 +60,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         .command("remove")
         .summary("Remove an isolated task worktree across the managed repositories")
         .description(
-          "Remove the task worktree for the workspace and its managed repositories. Committed work remains on the task branches; uncommitted work is preserved unless --force is passed.",
+          "Remove the task worktree for the workspace and its managed repositories. Committed work remains on the task branches. A task with uncommitted changes or untracked files in any checkout is left untouched unless --force is passed.",
         )
         .requiredOption("--task <name>", "task or worktree name")
         .option(

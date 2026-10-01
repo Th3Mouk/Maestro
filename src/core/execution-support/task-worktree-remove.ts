@@ -7,7 +7,9 @@ import type { ResolvedWorkspace } from "../../workspace/types.js";
 import { sanitizeSegment } from "../execution/task-worktree.js";
 import { escalateStatus } from "../errors.js";
 import {
+  createWorktreeDirtyIssue,
   createWorktreeRemoveReport,
+  findDirtyCheckouts,
   mergeRemoveRepositoryOutcomes,
   removeTaskRepositories,
   type TaskWorktreeRemoveGitAdapter,
@@ -44,11 +46,30 @@ export async function removeTaskWorktreeWithResolvedWorkspace(
     return report;
   }
 
+  const repositoryNames = resolvedWorkspace.repositories.map((repository) => repository.name);
+  const force = options.force ?? false;
+
+  // A dirty task is left untouched: removing some checkouts and not others would strand work.
+  if (!force) {
+    const dirtyCheckouts = await findDirtyCheckouts({
+      concurrencyLimit,
+      gitAdapter: context.gitAdapter,
+      repositoryNames,
+      taskRoot,
+      workspaceName: resolvedWorkspace.manifest.metadata.name,
+    });
+    if (dirtyCheckouts.length > 0) {
+      report.status = "error";
+      report.issues.push(...dirtyCheckouts.map(createWorktreeDirtyIssue));
+      return report;
+    }
+  }
+
   if (options.dryRun) {
-    for (const repository of resolvedWorkspace.repositories) {
+    for (const name of repositoryNames) {
       report.repositories.push({
-        name: repository.name,
-        path: resolveSafePath(taskRoot, path.join("repos", repository.name), "dry-run path"),
+        name,
+        path: resolveSafePath(taskRoot, path.join("repos", name), "dry-run path"),
         status: "removed",
       });
     }
@@ -58,9 +79,9 @@ export async function removeTaskWorktreeWithResolvedWorkspace(
 
   const outcomes = await removeTaskRepositories({
     concurrencyLimit,
-    force: options.force ?? false,
+    force,
     gitAdapter: context.gitAdapter,
-    repositories: resolvedWorkspace.repositories,
+    repositoryNames,
     taskRoot,
     workspaceRoot,
   });
@@ -71,9 +92,7 @@ export async function removeTaskWorktreeWithResolvedWorkspace(
 
   if (await context.gitAdapter.hasGitMetadata(taskRoot)) {
     try {
-      const status = await context.gitAdapter.removeWorktree(workspaceRoot, taskRoot, {
-        force: options.force,
-      });
+      const status = await context.gitAdapter.removeWorktree(workspaceRoot, taskRoot, { force });
       report.workspaceRootStatus = status;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -89,7 +108,12 @@ export async function removeTaskWorktreeWithResolvedWorkspace(
     report.workspaceRootStatus = "missing";
   }
 
-  if (await pathExists(taskRoot)) {
+  // Deleting the task root wipes whatever a failed `git worktree remove` left behind,
+  // so it only runs once every removal succeeded, or under --force.
+  const everyRemovalSucceeded =
+    report.workspaceRootStatus !== "failed" &&
+    report.repositories.every((repository) => repository.status !== "failed");
+  if ((everyRemovalSucceeded || force) && (await pathExists(taskRoot))) {
     await removeIfExists(taskRoot);
   }
 

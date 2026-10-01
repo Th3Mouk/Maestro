@@ -5,6 +5,12 @@ All notable changes to `@th3mouk/maestro` will be documented in this file.
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0]
+
+### Fixed
+
+- `maestro worktree remove` no longer deletes uncommitted work. It used to delete the task root even when `git worktree remove` refused a dirty checkout, losing its uncommitted and untracked files and leaving a `prunable` entry in the source repository. It now checks every checkout of the task (workspace root and each repository) first: if any holds uncommitted changes or untracked files, nothing is removed and the report fails with one `WORKTREE_DIRTY` issue per dirty checkout (`path`, `changedFiles`). Ignored files such as `vendor/` or `node_modules/` do not count. The task root is deleted only once every `git worktree remove` succeeded, or under `--force`, which still discards the changes.
+
 ## [0.6.0]
 
 Claude Code 2.1.277 reads `AGENTS.md`, which leaves skills, subagents, and workflows as the only places where coding agents still disagree on files. This release makes Maestro project only those, stop owning instruction files and tool configuration, and cover every runtime whose subagent format is documented.

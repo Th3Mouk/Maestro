@@ -1,9 +1,10 @@
 import path from "node:path";
 import type { WorktreeRemoveReport } from "../../report/types.js";
-import type { RepositoryRef } from "../../workspace/types.js";
 import { mapWithConcurrency, resolveSafePath } from "../../utils/fs.js";
+import { errorMessage } from "../errors.js";
 
 export type TaskWorktreeRemoveGitAdapter = {
+  countUncommittedChanges: (repoRoot: string) => Promise<number>;
   hasGitMetadata: (repoRoot: string) => Promise<boolean>;
   removeWorktree: (
     repoRoot: string,
@@ -16,9 +17,16 @@ interface RemoveTaskRepositoriesOptions {
   concurrencyLimit: number;
   force: boolean;
   gitAdapter: TaskWorktreeRemoveGitAdapter;
-  repositories: RepositoryRef[];
+  repositoryNames: string[];
   taskRoot: string;
   workspaceRoot: string;
+}
+
+interface DirtyCheckout {
+  changedFiles: number;
+  error?: string;
+  name: string;
+  path: string;
 }
 
 interface RemoveTaskRepositoryOutcome {
@@ -45,24 +53,24 @@ export function createWorktreeRemoveReport(
 export async function removeTaskRepositories(
   options: RemoveTaskRepositoriesOptions,
 ): Promise<RemoveTaskRepositoryOutcome[]> {
-  return mapWithConcurrency(options.repositories, options.concurrencyLimit, async (repository) => {
+  return mapWithConcurrency(options.repositoryNames, options.concurrencyLimit, async (name) => {
     const sourceRepoRoot = resolveSafePath(
       options.workspaceRoot,
-      path.join("repos", repository.name),
+      path.join("repos", name),
       "workspace repository path",
     );
     const worktreePath = resolveSafePath(
       options.taskRoot,
-      path.join("repos", repository.name),
+      path.join("repos", name),
       "task repository path",
     );
 
     if (!(await options.gitAdapter.hasGitMetadata(sourceRepoRoot))) {
       return {
-        repository: { name: repository.name, path: worktreePath, status: "skipped" as const },
+        repository: { name, path: worktreePath, status: "skipped" as const },
         issue: {
           code: "REPO_MISSING",
-          message: `Source repository not installed: ${repository.name}`,
+          message: `Source repository not installed: ${name}`,
           path: sourceRepoRoot,
         },
       };
@@ -73,25 +81,83 @@ export async function removeTaskRepositories(
         force: options.force,
       });
       return {
-        repository: { name: repository.name, path: worktreePath, status },
+        repository: { name, path: worktreePath, status },
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return {
         repository: {
-          name: repository.name,
+          name,
           path: worktreePath,
           status: "failed" as const,
           message,
         },
         issue: {
           code: "WORKTREE_REMOVE_FAILED",
-          message: `Failed to remove worktree for ${repository.name}: ${message}`,
+          message: `Failed to remove worktree for ${name}: ${message}`,
           path: worktreePath,
         },
       };
     }
   });
+}
+
+/**
+ * Lists the task checkouts (workspace root first, then each repository) that hold uncommitted
+ * work. Untracked files count; ignored files (`vendor/`, `node_modules/`) do not.
+ */
+export async function findDirtyCheckouts(options: {
+  concurrencyLimit: number;
+  gitAdapter: TaskWorktreeRemoveGitAdapter;
+  repositoryNames: string[];
+  taskRoot: string;
+  workspaceName: string;
+}): Promise<DirtyCheckout[]> {
+  const checkouts = [
+    { name: options.workspaceName, path: options.taskRoot },
+    ...options.repositoryNames.map((name) => ({
+      name,
+      path: resolveSafePath(options.taskRoot, path.join("repos", name), "task repository path"),
+    })),
+  ];
+  const counted = await mapWithConcurrency(
+    checkouts,
+    options.concurrencyLimit,
+    async (checkout) => {
+      if (!(await options.gitAdapter.hasGitMetadata(checkout.path))) {
+        return { ...checkout, changedFiles: 0 };
+      }
+      try {
+        return {
+          ...checkout,
+          changedFiles: await options.gitAdapter.countUncommittedChanges(checkout.path),
+        };
+      } catch (error) {
+        // A checkout Git cannot read cannot be proven clean.
+        return { ...checkout, changedFiles: 0, error: errorMessage(error) };
+      }
+    },
+  );
+  return counted.filter((checkout) => checkout.changedFiles > 0 || "error" in checkout);
+}
+
+export function createWorktreeDirtyIssue(
+  checkout: DirtyCheckout,
+): WorktreeRemoveReport["issues"][number] {
+  if (checkout.error) {
+    return {
+      code: "WORKTREE_DIRTY",
+      message: `${checkout.name} could not be checked for uncommitted changes (${checkout.error}); pass --force to remove it anyway.`,
+      path: checkout.path,
+    };
+  }
+  const noun = checkout.changedFiles === 1 ? "change" : "changes";
+  return {
+    code: "WORKTREE_DIRTY",
+    message: `${checkout.name} has ${checkout.changedFiles} uncommitted ${noun}; commit or stash them, or pass --force to discard them.`,
+    path: checkout.path,
+    changedFiles: checkout.changedFiles,
+  };
 }
 
 export function mergeRemoveRepositoryOutcomes(
