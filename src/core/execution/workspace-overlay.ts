@@ -35,6 +35,20 @@ const workspaceOverlayPaths = [
   workspaceDescriptorFileName,
 ];
 
+const workspaceStatePaths = [
+  path.join(workspaceStateDirName, "execution"),
+  path.join(workspaceStateDirName, "lock.json"),
+  path.join(workspaceStateDirName, "state.json"),
+];
+
+/** Whether a task-root relative path (Git's `/` separators) is one the overlay writes. */
+export function isWorkspaceOverlayPath(relativePath: string): boolean {
+  return [...workspaceOverlayPaths, ...workspaceStatePaths].some((overlayPath) => {
+    const normalized = overlayPath.split(path.sep).join("/");
+    return relativePath === normalized || relativePath.startsWith(`${normalized}/`);
+  });
+}
+
 export async function syncWorkspaceOverlay(workspaceRoot: string, taskRoot: string): Promise<void> {
   await mapWithConcurrency(
     workspaceOverlayPaths,
@@ -49,12 +63,6 @@ export async function syncWorkspaceOverlay(workspaceRoot: string, taskRoot: stri
       await copyPath(sourcePath, destinationPath);
     },
   );
-
-  const workspaceStatePaths = [
-    path.join(workspaceStateDirName, "execution"),
-    path.join(workspaceStateDirName, "lock.json"),
-    path.join(workspaceStateDirName, "state.json"),
-  ];
 
   await mapWithConcurrency(
     workspaceStatePaths,

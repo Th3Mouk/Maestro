@@ -8,7 +8,7 @@ export type GitCommandAdapter = Pick<
   | "isUnbornRepository"
   | "ensureRepository"
   | "isClean"
-  | "countUncommittedChanges"
+  | "listUncommittedChanges"
   | "hasGitMetadata"
   | "getRemoteUrl"
   | "getCurrentBranch"

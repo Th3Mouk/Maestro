@@ -87,11 +87,17 @@ describe("HumanRenderer", () => {
       status: "ok",
       workspace: "/tmp/workspace",
       worktrees: [
-        { name: "feature-auth", root: "/tmp/worktrees/wt-1", createdAt: "2026-09-01T10:00:00Z" },
+        {
+          name: "feature-auth",
+          root: "/tmp/worktrees/wt-1",
+          createdAt: "2026-09-01T10:00:00Z",
+          repositories: ["foods"],
+        },
         {
           name: "bugfix-timeout",
           root: "/tmp/worktrees/wt-2",
           createdAt: "2026-09-05T14:30:00Z",
+          repositories: ["foods", "platform-api"],
         },
       ],
       issues: [
@@ -107,6 +113,7 @@ describe("HumanRenderer", () => {
     expect(output).toContain("Name");
     expect(output).toContain("Root");
     expect(output).toContain("Created");
+    expect(output).toContain("Repositories");
 
     const firstRow = rowContaining(output, "feature-auth");
     expect(firstRow).toContain("wt-1");

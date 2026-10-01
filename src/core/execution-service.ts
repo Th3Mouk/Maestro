@@ -1,26 +1,16 @@
-import type {
-  BootstrapReport,
-  TaskWorktreeCheckoutStatus,
-  TaskWorktreeReport,
-} from "../report/types.js";
+import type { BootstrapReport, TaskWorktreeReport } from "../report/types.js";
 import type { ResolvedWorkspace } from "../workspace/types.js";
 import { bootstrapWorkspaceWithResolvedWorkspace } from "./execution-support/bootstrap-workspace.js";
 import {
   projectEditorWorkspaceWithResolvedWorkspace,
   projectExecutionSupportWithResolvedWorkspace,
 } from "./execution-support/project-execution-support.js";
-import { prepareTaskWorktreeWithResolvedWorkspace } from "./execution-support/task-worktree.js";
+import {
+  prepareTaskWorktreeWithResolvedWorkspace,
+  type ExecutionSupportGitAdapter,
+} from "./execution-support/task-worktree.js";
 
-export type ExecutionGitAdapter = {
-  hasGitMetadata: (repoRoot: string) => Promise<boolean>;
-  ensureWorktree: (
-    repoRoot: string,
-    worktreePath: string,
-    branchName: string,
-    baseRef?: string,
-    dryRun?: boolean,
-  ) => Promise<TaskWorktreeCheckoutStatus>;
-};
+export type ExecutionGitAdapter = ExecutionSupportGitAdapter;
 
 interface ExecutionServiceContext {
   gitAdapter: ExecutionGitAdapter;
@@ -64,7 +54,7 @@ export async function bootstrapWorkspace(
 export async function prepareTaskWorktree(
   workspaceRoot: string,
   taskName: string,
-  options: { dryRun?: boolean } = {},
+  options: { dryRun?: boolean; repos?: string[] } = {},
   context: ExecutionServiceContext,
 ): Promise<TaskWorktreeReport> {
   const { resolveWorkspace } = await import("./workspace-service.js");

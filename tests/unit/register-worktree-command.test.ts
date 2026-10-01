@@ -68,6 +68,32 @@ describe("registerWorktreeCommand", () => {
     expect(runReportAction.mock.calls[0]?.[1]).toBe("worktree-create");
   });
 
+  test("create forwards --repos as a list of repository names", async () => {
+    const commandContext = createCommandContextFixture();
+    const program = buildProgram(commandContext);
+
+    await program.parseAsync(
+      [
+        "worktree",
+        "create",
+        "--workspace",
+        "./ws",
+        "--task",
+        "t",
+        "--repos",
+        "foods, platform-api,",
+      ],
+      { from: "user" },
+    );
+
+    expect(createTaskWorktree).toHaveBeenCalledWith(
+      path.resolve(process.cwd(), "./ws"),
+      "t",
+      { dryRun: false, repos: ["foods", "platform-api"] },
+      commandContext,
+    );
+  });
+
   test("create requires --task", async () => {
     const program = buildProgram(createCommandContextFixture());
 
