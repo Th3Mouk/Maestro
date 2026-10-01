@@ -127,7 +127,7 @@ describe("task worktree execution collaborators", () => {
     ];
     const ensureWorktree = vi
       .fn<TaskWorktreeGitAdapter["ensureWorktree"]>()
-      .mockResolvedValue("updated");
+      .mockResolvedValue("reused");
     const hasGitMetadata = vi.fn<TaskWorktreeGitAdapter["hasGitMetadata"]>(
       async (candidate: string) => candidate.endsWith("/frontend"),
     );
@@ -151,7 +151,7 @@ describe("task worktree execution collaborators", () => {
       branch: "task/feature-abc/frontend",
       name: "frontend",
       path: path.join(taskRoot, "repos", "frontend"),
-      status: "updated",
+      status: "reused",
     });
     expect(outcomes[1]?.issue).toMatchObject({
       code: "REPO_MISSING",
@@ -167,7 +167,7 @@ describe("task worktree execution collaborators", () => {
     const repositories = [createRepositoryFixture({ name: "../../evil" })];
     const ensureWorktree = vi
       .fn<TaskWorktreeGitAdapter["ensureWorktree"]>()
-      .mockResolvedValue("updated");
+      .mockResolvedValue("reused");
     const hasGitMetadata = vi
       .fn<TaskWorktreeGitAdapter["hasGitMetadata"]>()
       .mockResolvedValue(true);

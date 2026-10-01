@@ -70,10 +70,10 @@ export function renderIssues(
 }
 
 export function toneForMutationStatus(
-  status: "created" | "updated" | "unchanged",
+  status: "created" | "updated" | "reused" | "unchanged",
 ): "ok" | "neutral" | "dim" {
   if (status === "created") return "ok";
-  if (status === "updated") return "neutral";
+  if (status === "updated" || status === "reused") return "neutral";
   return "dim";
 }
 

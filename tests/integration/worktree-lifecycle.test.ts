@@ -147,3 +147,37 @@ describe("worktree remove keeps uncommitted work", () => {
     expect(existsSync(created.root)).toBe(false);
   });
 });
+
+describe("worktree create keeps existing task branches", () => {
+  test("create, commit, remove, create again keeps the commit as the branch tip", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const first = await createTaskWorktree(workspaceRoot, "reset-probe");
+    const foodsWorktree = path.join(first.root, "repos", "foods");
+    await git(foodsWorktree, ["commit", "--allow-empty", "-m", "probe commit"]);
+    await git(first.root, ["commit", "--allow-empty", "-m", "root probe commit"]);
+    const foodsTip = await git(foodsWorktree, ["rev-parse", "HEAD"]);
+    const rootTip = await git(first.root, ["rev-parse", "HEAD"]);
+
+    expect((await removeTaskWorktree(workspaceRoot, "reset-probe")).status).toBe("ok");
+    const second = await createTaskWorktree(workspaceRoot, "reset-probe");
+
+    expect(second.status).toBe("ok");
+    expect(second.repositories.find((entry) => entry.name === "foods")?.status).toBe("reused");
+    expect(await git(foodsWorktree, ["rev-parse", "HEAD"])).toBe(foodsTip);
+    expect(await git(foodsWorktree, ["rev-parse", "--abbrev-ref", "HEAD"])).toBe(
+      "platform/reset-probe/foods",
+    );
+    expect(await git(second.root, ["rev-parse", "HEAD"])).toBe(rootTip);
+  });
+
+  test("a new task branch starts from the reference branch", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+
+    const report = await createTaskWorktree(workspaceRoot, "fresh");
+
+    expect(report.repositories.map((entry) => entry.status)).toEqual(["created", "created"]);
+    expect(await git(path.join(report.root, "repos", "foods"), ["rev-parse", "HEAD"])).toBe(
+      await git(path.join(workspaceRoot, "repos", "foods"), ["rev-parse", "main"]),
+    );
+  });
+});

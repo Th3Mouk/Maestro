@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { TaskWorktreeReport } from "../../report/types.js";
+import type { TaskWorktreeCheckoutStatus, TaskWorktreeReport } from "../../report/types.js";
 import type { RuntimeName } from "../../runtime/types.js";
 import {
   ensureDir,
@@ -32,7 +32,7 @@ type ExecutionSupportGitAdapter = {
     branchName: string,
     baseRef?: string,
     dryRun?: boolean,
-  ) => Promise<"created" | "updated" | "unchanged">;
+  ) => Promise<TaskWorktreeCheckoutStatus>;
 };
 
 export async function prepareTaskWorktreeWithResolvedWorkspace(

@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { TaskWorktreeReport } from "../../report/types.js";
+import type { TaskWorktreeCheckoutStatus, TaskWorktreeReport } from "../../report/types.js";
 import type { RepositoryRef } from "../../workspace/types.js";
 import { ensureDir, mapWithConcurrency, resolveSafePath } from "../../utils/fs.js";
 import { getRepositoryReferenceBranch } from "../../workspace/repositories.js";
@@ -13,7 +13,7 @@ export type TaskWorktreeGitAdapter = {
     branchName: string,
     baseRef?: string,
     dryRun?: boolean,
-  ) => Promise<"created" | "updated" | "unchanged">;
+  ) => Promise<TaskWorktreeCheckoutStatus>;
 };
 
 interface PrepareTaskWorkspaceRootOptions {

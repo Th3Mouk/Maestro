@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - `maestro worktree remove` no longer deletes uncommitted work. It used to delete the task root even when `git worktree remove` refused a dirty checkout, losing its uncommitted and untracked files and leaving a `prunable` entry in the source repository. It now checks every checkout of the task (workspace root and each repository) first: if any holds uncommitted changes or untracked files, nothing is removed and the report fails with one `WORKTREE_DIRTY` issue per dirty checkout (`path`, `changedFiles`). Ignored files such as `vendor/` or `node_modules/` do not count. The task root is deleted only once every `git worktree remove` succeeded, or under `--force`, which still discards the changes.
+- `maestro worktree create` no longer resets an existing task branch. It ran `git worktree add -B`, so `remove` followed by `create --task <same name>` silently moved `<branchPrefix>/<task>/<repo>` back to the base ref, and the task's commits survived only in the reflog. An existing task branch is now checked out as is and reported with the new `reused` status; a missing one is created from the base ref with `git worktree add -b`. The same rule applies to the workspace-root worktree.
 
 ## [0.6.0]
 
