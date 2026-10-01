@@ -1,11 +1,10 @@
 import path from "node:path";
-import type { WorktreeRemoveReport, WorktreeListReport } from "../../report/types.js";
-import { listDirectories, pathExists, removeIfExists, resolveSafePath } from "../../utils/fs.js";
+import type { WorktreeRemoveReport } from "../../report/types.js";
+import { pathExists, removeIfExists, resolveSafePath } from "../../utils/fs.js";
 import type { ResolvedWorkspace } from "../../workspace/types.js";
 import { sanitizeSegment } from "../execution/task-worktree.js";
 import { escalateStatus } from "../errors.js";
 import {
-  getTaskWorktreeMetadataPath,
   listTaskRepositoryNames,
   readTaskWorktreeMetadata,
 } from "../execution/task-worktree-metadata.js";
@@ -132,45 +131,6 @@ export async function removeTaskWorktreeWithResolvedWorkspace(
     report.workspaceRootStatus !== "skipped";
   if ((everyRemovalSucceeded || force) && (await pathExists(taskRoot))) {
     await removeIfExists(taskRoot);
-  }
-
-  return report;
-}
-
-export async function listTaskWorktreesWithResolvedWorkspace(
-  workspaceRoot: string,
-  resolvedWorkspace: ResolvedWorkspace,
-): Promise<WorktreeListReport> {
-  const worktreesRoot = getTaskWorktreesRoot(workspaceRoot, resolvedWorkspace);
-  const report: WorktreeListReport = {
-    status: "ok",
-    workspace: resolvedWorkspace.manifest.metadata.name,
-    worktrees: [],
-    issues: [],
-  };
-
-  if (!(await pathExists(worktreesRoot))) {
-    return report;
-  }
-
-  const names = await listDirectories(worktreesRoot);
-  for (const name of names) {
-    const root = path.join(worktreesRoot, name);
-    const metadata = await readTaskWorktreeMetadata(root);
-    if (!metadata) {
-      report.status = escalateStatus(report.status, "warning");
-      report.issues.push({
-        code: "WORKTREE_METADATA_MISSING",
-        message: `No metadata found for worktree "${name}".`,
-        path: getTaskWorktreeMetadataPath(root),
-      });
-    }
-    report.worktrees.push({
-      name: metadata?.name ?? name,
-      root,
-      createdAt: metadata?.createdAt ?? "",
-      repositories: await listTaskRepositoryNames(root, metadata),
-    });
   }
 
   return report;

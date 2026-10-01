@@ -7,26 +7,32 @@ import type { CommandContext } from "../../src/cli/program/commands/command-type
 import type { HumanReportKind } from "../../src/cli/output/human-renderer.js";
 import type { OutputOptionValues } from "../../src/cli/program/shared-options.js";
 
-const { createTaskWorktree, listTaskWorktrees, removeTaskWorktree, runReportAction } = vi.hoisted(
-  () => ({
-    createTaskWorktree: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
-    listTaskWorktrees: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
-    removeTaskWorktree: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
-    runReportAction: vi.fn<
-      (
-        options: OutputOptionValues,
-        reportKind: HumanReportKind,
-        run: () => Promise<unknown>,
-      ) => Promise<void>
-    >(async (_options, _reportKind, run) => {
-      await run();
-    }),
+const {
+  createTaskWorktree,
+  listTaskWorktrees,
+  pruneTaskWorktrees,
+  removeTaskWorktree,
+  runReportAction,
+} = vi.hoisted(() => ({
+  createTaskWorktree: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  listTaskWorktrees: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  pruneTaskWorktrees: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  removeTaskWorktree: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  runReportAction: vi.fn<
+    (
+      options: OutputOptionValues,
+      reportKind: HumanReportKind,
+      run: () => Promise<unknown>,
+    ) => Promise<void>
+  >(async (_options, _reportKind, run) => {
+    await run();
   }),
-);
+}));
 
 vi.mock("../../src/core/commands/execution.js", () => ({
   createTaskWorktree,
   listTaskWorktrees,
+  pruneTaskWorktrees,
   removeTaskWorktree,
 }));
 
@@ -122,11 +128,52 @@ describe("registerWorktreeCommand", () => {
   });
 
   test("list resolves the workspace path and reports as worktree-list", async () => {
+    const commandContext = createCommandContextFixture();
+    const program = buildProgram(commandContext);
+
+    await program.parseAsync(["worktree", "list", "--workspace", "./ws", "--status"], {
+      from: "user",
+    });
+
+    expect(listTaskWorktrees).toHaveBeenCalledWith(
+      path.resolve(process.cwd(), "./ws"),
+      { status: true },
+      commandContext,
+    );
+    expect(runReportAction.mock.calls[0]?.[1]).toBe("worktree-list");
+  });
+
+  test("prune forwards its flags and reports as worktree-prune", async () => {
+    const commandContext = createCommandContextFixture();
+    const program = buildProgram(commandContext);
+
+    await program.parseAsync(
+      [
+        "worktree",
+        "prune",
+        "--workspace",
+        "./ws",
+        "--dry-run",
+        "--include-gone",
+        "--branches",
+        "--no-fetch",
+      ],
+      { from: "user" },
+    );
+
+    expect(pruneTaskWorktrees).toHaveBeenCalledWith(
+      path.resolve(process.cwd(), "./ws"),
+      { branches: true, dryRun: true, fetch: false, includeGone: true },
+      commandContext,
+    );
+    expect(runReportAction.mock.calls[0]?.[1]).toBe("worktree-prune");
+  });
+
+  test("prune fetches by default", async () => {
     const program = buildProgram(createCommandContextFixture());
 
-    await program.parseAsync(["worktree", "list", "--workspace", "./ws"], { from: "user" });
+    await program.parseAsync(["worktree", "prune", "--workspace", "./ws"], { from: "user" });
 
-    expect(listTaskWorktrees).toHaveBeenCalledWith(path.resolve(process.cwd(), "./ws"));
-    expect(runReportAction.mock.calls[0]?.[1]).toBe("worktree-list");
+    expect(pruneTaskWorktrees.mock.calls[0]?.[1]).toMatchObject({ fetch: true, dryRun: false });
   });
 });

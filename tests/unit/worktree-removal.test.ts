@@ -7,10 +7,8 @@ import {
   removeTaskRepositories,
   type TaskWorktreeRemoveGitAdapter,
 } from "../../src/core/execution/task-worktree-removal.js";
-import {
-  listTaskWorktreesWithResolvedWorkspace,
-  removeTaskWorktreeWithResolvedWorkspace,
-} from "../../src/core/execution-support/task-worktree-remove.js";
+import { removeTaskWorktreeWithResolvedWorkspace } from "../../src/core/execution-support/task-worktree-remove.js";
+import { listTaskWorktreesWithResolvedWorkspace } from "../../src/core/execution-support/task-worktree-list.js";
 import { listWorkspaceRepositoriesWithResolvedWorkspace } from "../../src/core/execution-support/repository-list.js";
 import { pathExists } from "../../src/utils/fs.js";
 import { createManagedTempDir } from "../utils/test-lifecycle.js";

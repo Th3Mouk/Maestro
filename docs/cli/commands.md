@@ -266,7 +266,7 @@ Dynamic Git arguments should be treated as data, not flags. The implementation r
 
 ## `worktree`
 
-Create, list, and remove isolated task worktrees spanning the workspace and its managed repositories.
+Create, list, remove, and prune isolated task worktrees spanning the workspace and its managed repositories.
 
 The generated task root is the unit to open in the editor. It contains the workspace-root worktree plus each managed repository worktree, so one task can span the full workspace without opening repo folders separately.
 
@@ -306,7 +306,20 @@ Enumerate task worktrees for this workspace with their creation time, root path,
 
 ```bash
 maestro worktree list
+maestro worktree list --status
 ```
+
+`--status` inspects every checkout of each task, concurrently, and adds `checkouts` (the workspace root first, named after the workspace, then each repository) and `prunable` to each worktree. Without it, `list` reads only the task metadata and stays fast. Each checkout reports:
+
+| Field        | Meaning                                                                                                                                                                                                                                 |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `branch`     | Current branch, `null` when detached.                                                                                                                                                                                                   |
+| `dirty`      | `git status --porcelain` lists something: untracked files count, ignored files do not, and neither do unedited files Maestro wrote into the task root.                                                                                  |
+| `localOnly`  | Commits no remote-tracking branch holds (`git rev-list HEAD --not --remotes`).                                                                                                                                                          |
+| `upstream`   | `tracking`, `gone` (an upstream is configured but its remote branch was deleted), or `none`.                                                                                                                                            |
+| `integrated` | The branch's work is in the reference branch: its tip is an ancestor of `origin/<reference>`, or the squash of `merge-base..tip` is patch-equivalent to a commit on it. The squash check catches branches merged by squash and deleted. |
+
+`prunable` applies the `worktree prune` rule below without `--include-gone`.
 
 ### `worktree remove`
 
@@ -320,6 +333,26 @@ maestro worktree remove --task release-prep --force
 Before removing anything, Maestro checks every checkout of the task: the workspace-root worktree and each repository worktree. A checkout is dirty when `git status --porcelain` lists anything, untracked files included. Ignored files (`vendor/`, `node_modules/`) do not count. If any checkout is dirty, the task is left untouched, the report status is `error` (exit code `1`), and each dirty checkout gets a `WORKTREE_DIRTY` issue with its `path` and `changedFiles` count. The task root is deleted only after every `git worktree remove` succeeded.
 
 Use `--force` to discard uncommitted changes and remove the worktrees anyway. `--dry-run` runs the same dirty check and previews the removal plan without touching the working tree.
+
+### `worktree prune`
+
+Remove every task whose work has landed, and delete its task branches.
+
+```bash
+maestro worktree prune --dry-run
+maestro worktree prune
+maestro worktree prune --include-gone --branches
+```
+
+- Maestro first runs `git fetch --prune` on the workspace and each repository, so `upstream` and `integrated` reflect the remote. `--no-fetch` skips it.
+- A task is prunable when every checkout is clean (`dirty: false`) and, for each, `localOnly` is `0` or `integrated` is true.
+- `--include-gone` also treats a clean checkout whose `upstream` is `gone` as landed. This covers squash merges the patch comparison misses, for example after conflict resolution. It is off by default, because a deleted remote branch is not proof the work landed.
+- Prunable tasks are removed through the same path as `worktree remove`, then the task branches their checkouts had checked out are deleted with `git branch -D`.
+- `--branches` also deletes orphan task branches: branches matching `<branchPrefix>/*/*` that no worktree has checked out and whose task is gone, under the same rule. Branches holding unintegrated commits are kept and listed.
+- `--dry-run` prints the plan, writing nothing but the fetched remote-tracking refs: the tasks it would remove, the branches it would delete, and the kept items.
+- The primary clones' checked-out branches are never touched.
+
+The `worktree-prune` report has the shape `{ removed: [...], deletedBranches: [{ name, branch }], kept: [{ name, reasons: [...] }], issues }`, where reasons read like `dirty: foods` or `2 local-only commits in platform-api`. `prune` only handles worktrees and branches; workspaces that own containers, databases, or proxy routes per task can read `maestro worktree prune --dry-run --json` to drive their own teardown before calling `remove`.
 
 ## `self`
 

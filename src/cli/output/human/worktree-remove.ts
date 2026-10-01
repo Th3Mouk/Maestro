@@ -37,7 +37,9 @@ export function formatWorktreeRemoveReport(
   );
 
   if (report.repositories.length === 0) {
-    return `${summary}\n${report.root}\nok - nothing to do${renderIssues(report.issues, ctx)}\n`;
+    // A refused removal (dirty task) touched nothing: the issues say why.
+    const nothingToDo = report.status === "error" ? "" : "\nok - nothing to do";
+    return `${summary}\n${report.root}${nothingToDo}${renderIssues(report.issues, ctx)}\n`;
   }
 
   const table = makeTable(["Repository", "Status", "Path", "Detail"], [20, 10, 48, 32]);

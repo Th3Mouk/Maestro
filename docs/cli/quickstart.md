@@ -151,8 +151,10 @@ maestro worktree create --task release-prep
 code .maestro/worktrees/release-prep
 ```
 
-That task folder contains the workspace-root worktree plus one worktree for each managed repository.
+That task folder contains the workspace-root worktree plus one worktree for each managed repository, or only the ones you list with `--repos foods,platform-api`.
 That is the normal day-to-day entrypoint for a task, whether you use VS Code or JetBrains.
+
+When the work has landed, `maestro worktree prune --dry-run` shows which tasks are safe to remove and why the others are kept; `maestro worktree prune` removes them.
 
 ## 8. Bootstrap repository dependencies
 
