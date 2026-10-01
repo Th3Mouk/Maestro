@@ -12,7 +12,7 @@ import {
   type OutputOptionValues,
 } from "../shared-options.js";
 import type { CommandContext } from "./command-types.js";
-import { runReportAction } from "./command-helpers.js";
+import { parseNameList, runReportAction } from "./command-helpers.js";
 
 export function registerWorktreeCommand(program: Command, commandContext: CommandContext): void {
   const worktree = program
@@ -25,6 +25,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         "",
         "Examples:",
         "  maestro worktree create --task release-prep",
+        "  maestro worktree create --task fix-login --repos foods,platform-api",
         "  maestro worktree list",
         "  maestro worktree remove --task release-prep",
       ].join("\n"),
@@ -38,16 +39,27 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         .description(
           "Create an isolated task worktree for the workspace and its managed repositories",
         )
-        .requiredOption("--task <name>", "task or worktree name"),
+        .requiredOption("--task <name>", "task or worktree name")
+        .option(
+          "--repos <names>",
+          "comma-separated repositories to check out (default: every managed repository); on an existing task, adds the missing ones",
+        ),
       "preview without writing",
     ),
   ).action(
-    async (options: OutputOptionValues & { workspace: string; task: string; dryRun?: boolean }) => {
+    async (
+      options: OutputOptionValues & {
+        workspace: string;
+        task: string;
+        repos?: string;
+        dryRun?: boolean;
+      },
+    ) => {
       await runReportAction(options, "worktree-create", () =>
         createTaskWorktree(
           resolveWorkspacePath(options.workspace),
           options.task,
-          { dryRun: options.dryRun },
+          { dryRun: options.dryRun, repos: parseNameList(options.repos) },
           commandContext,
         ),
       );

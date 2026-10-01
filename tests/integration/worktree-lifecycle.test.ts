@@ -5,7 +5,11 @@ import { execa } from "execa";
 import { describe, expect, test } from "vitest";
 import { installWorkspace } from "../../src/core/commands.js";
 import { createCommandContext } from "../../src/core/command-context.js";
-import { createTaskWorktree, removeTaskWorktree } from "../../src/core/commands/execution.js";
+import {
+  createTaskWorktree,
+  listTaskWorktrees,
+  removeTaskWorktree,
+} from "../../src/core/commands/execution.js";
 import { createManagedTempDir } from "../utils/test-lifecycle.js";
 
 const gitIdentity = ["-c", "user.name=Test User", "-c", "user.email=test@example.invalid"];
@@ -179,5 +183,108 @@ describe("worktree create keeps existing task branches", () => {
     expect(await git(path.join(report.root, "repos", "foods"), ["rev-parse", "HEAD"])).toBe(
       await git(path.join(workspaceRoot, "repos", "foods"), ["rev-parse", "main"]),
     );
+  });
+});
+
+async function readTaskMetadata(taskRoot: string): Promise<{ repositories?: string[] }> {
+  return JSON.parse(
+    await readFile(path.join(taskRoot, ".maestro", "execution", "worktree.json"), "utf8"),
+  ) as { repositories?: string[] };
+}
+
+describe("partial worktrees with --repos", () => {
+  test("only the selected repositories get a worktree, and the metadata records them", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+
+    const report = await createTaskWorktree(workspaceRoot, "one-repo", { repos: ["foods"] });
+
+    expect(report.status).toBe("ok");
+    expect(report.repositories.map((entry) => entry.name)).toEqual(["foods"]);
+    expect(existsSync(path.join(report.root, "repos", "foods", ".git"))).toBe(true);
+    expect(existsSync(path.join(report.root, "repos", "platform-api"))).toBe(false);
+    expect((await readTaskMetadata(report.root)).repositories).toEqual(["foods"]);
+    const descriptor = JSON.parse(
+      await readFile(path.join(report.root, "maestro.json"), "utf8"),
+    ) as {
+      repositories: Array<{ name: string }>;
+    };
+    expect(descriptor.repositories.map((entry) => entry.name)).toEqual(["foods"]);
+  });
+
+  test("a second create --repos adds a repository and a remove removes both and nothing else", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const first = await createTaskWorktree(workspaceRoot, "grow", { repos: ["foods"] });
+    await git(path.join(first.root, "repos", "foods"), ["commit", "--allow-empty", "-m", "wip"]);
+    const foodsTip = await git(path.join(first.root, "repos", "foods"), ["rev-parse", "HEAD"]);
+    const other = await createTaskWorktree(workspaceRoot, "other", { repos: ["platform-api"] });
+
+    const second = await createTaskWorktree(workspaceRoot, "grow", { repos: ["platform-api"] });
+
+    expect(second.repositories.map((entry) => entry.name)).toEqual(["platform-api"]);
+    expect(await git(path.join(first.root, "repos", "foods"), ["rev-parse", "HEAD"])).toBe(
+      foodsTip,
+    );
+    expect((await readTaskMetadata(first.root)).repositories).toEqual(["foods", "platform-api"]);
+    expect((await listTaskWorktrees(workspaceRoot)).worktrees).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "grow", repositories: ["foods", "platform-api"] }),
+      ]),
+    );
+
+    const removed = await removeTaskWorktree(workspaceRoot, "grow");
+
+    expect(removed.status).toBe("ok");
+    expect(removed.repositories.map((entry) => [entry.name, entry.status])).toEqual([
+      ["foods", "removed"],
+      ["platform-api", "removed"],
+    ]);
+    expect(existsSync(first.root)).toBe(false);
+    expect(existsSync(path.join(other.root, "repos", "platform-api", ".git"))).toBe(true);
+  });
+
+  test("an unknown repository fails the command and creates nothing", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+
+    const report = await createTaskWorktree(workspaceRoot, "typo", { repos: ["foods", "fods"] });
+
+    expect(report.status).toBe("error");
+    expect(report.issues).toEqual([expect.objectContaining({ code: "REPO_UNKNOWN" })]);
+    expect(existsSync(report.root)).toBe(false);
+  });
+
+  test("remove falls back to the directories under repos/ for metadata without the list", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    // Metadata written by 0.6: no repository list, no generated-file fingerprints.
+    const created = await createTaskWorktree(workspaceRoot, "legacy");
+    await writeFile(
+      path.join(created.root, ".maestro", "execution", "worktree.json"),
+      JSON.stringify({ name: "legacy", createdAt: "2026-01-01T00:00:00.000Z" }),
+      "utf8",
+    );
+
+    const removed = await removeTaskWorktree(workspaceRoot, "legacy");
+
+    expect(removed.issues).toEqual([]);
+    expect(removed.repositories.map((entry) => entry.name)).toEqual(["foods", "platform-api"]);
+    expect(existsSync(created.root)).toBe(false);
+  });
+
+  test("files Maestro wrote into the task root only count once they are edited", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    // The narrowed descriptor differs from the committed maestro.json.
+    const created = await createTaskWorktree(workspaceRoot, "generated", { repos: ["foods"] });
+    expect(await git(created.root, ["status", "--porcelain"])).toContain("maestro.json");
+
+    await writeFile(path.join(created.root, "maestro.json"), "{}\n", "utf8");
+    const refused = await removeTaskWorktree(workspaceRoot, "generated");
+    expect(refused.issues).toEqual([
+      expect.objectContaining({ code: "WORKTREE_DIRTY", path: created.root, changedFiles: 1 }),
+    ]);
+
+    await createTaskWorktree(workspaceRoot, "generated", { repos: ["foods"] });
+    const removed = await removeTaskWorktree(workspaceRoot, "generated");
+    expect(removed.issues).toEqual([]);
+    expect(removed.status).toBe("ok");
+    expect(existsSync(created.root)).toBe(false);
   });
 });

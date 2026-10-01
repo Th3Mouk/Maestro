@@ -326,6 +326,8 @@ In practice:
   - `rootDir`: local root used for generated task worktrees
   - `branchPrefix`: prefix used when creating worktree branches per task and per repository
 
+`maestro worktree create --task <name>` creates `<rootDir>/<name>/`: a worktree of the workspace root on the branch `<branchPrefix>/<name>/<workspace>`, plus `repos/<repository>/` worktrees on `<branchPrefix>/<name>/<repository>`. `--repos` limits the task to some repositories. The task's `.maestro/execution/worktree.json` records its name, creation time, and the repositories it holds. See [`worktree`](../cli/commands.md#worktree) for the full lifecycle.
+
 DevContainer projection is optional. Maestro uses native agent sandboxes and task-scoped worktrees for its execution path, while this manifest field controls whether the workspace also projects container files.
 
 ## Repository bootstrap

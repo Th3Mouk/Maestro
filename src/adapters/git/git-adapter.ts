@@ -270,10 +270,31 @@ export class GitAdapter {
     return stdout.trim().length === 0;
   }
 
-  /** Counts uncommitted changes, untracked files included and ignored files excluded. */
-  async countUncommittedChanges(repoRoot: string): Promise<number> {
-    const { stdout } = await this.run(repoRoot, ["status", "--porcelain", "--untracked-files=all"]);
-    return stdout.split("\n").filter(Boolean).length;
+  /**
+   * Lists the paths with uncommitted changes, relative to the checkout root. Untracked files
+   * are listed one by one; ignored files are left out.
+   */
+  async listUncommittedChanges(repoRoot: string): Promise<string[]> {
+    const { stdout } = await this.run(repoRoot, [
+      "status",
+      "--porcelain",
+      "-z",
+      "--untracked-files=all",
+    ]);
+    const fields = stdout.split("\0");
+    const paths: string[] = [];
+    for (let index = 0; index < fields.length; index += 1) {
+      const entry = fields[index];
+      if (entry.length < 4) {
+        continue;
+      }
+      paths.push(entry.slice(3));
+      // Renames and copies carry their original path in the next field.
+      if (entry[0] === "R" || entry[0] === "C") {
+        index += 1;
+      }
+    }
+    return paths;
   }
 
   async hasGitMetadata(repoRoot: string): Promise<boolean> {

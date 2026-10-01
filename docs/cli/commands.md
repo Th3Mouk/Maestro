@@ -280,7 +280,12 @@ Use `--task <name>` to name the task. `--dry-run` previews the plan without writ
 
 ```bash
 maestro worktree create --task release-prep
+maestro worktree create --task fix-login --repos foods,platform-api
 ```
+
+By default every managed repository gets a worktree. `--repos <a,b>` checks out only the listed repositories: the others are absent from `<taskRoot>/repos/`, never linked to the primary clone, so an edit cannot land there by mistake. Running `create --repos` again on an existing task adds the repositories it does not have yet and leaves the others untouched; it never removes one. A name the manifest does not declare fails the command with `REPO_UNKNOWN`, and nothing is created.
+
+The task records the repositories it holds in `.maestro/execution/worktree.json` (`repositories`). `worktree list` and `worktree remove` use that list rather than the manifest, and the task's `maestro.json` descriptor lists only those repositories.
 
 Each checkout gets a task branch named `<branchPrefix>/<task>/<repository>` (`<branchPrefix>/<task>/<workspace>` for the workspace root). When that branch already exists, for example after `worktree remove` kept it, Maestro checks it out as is and reports the repository as `reused`: its commits stay on it. A missing branch is created from the base ref and reported as `created`. A repository whose worktree is already in place is reported as `unchanged`.
 
@@ -288,7 +293,7 @@ Users should not need to assemble repository-specific worktrees by hand.
 
 ### `worktree list`
 
-Enumerate task worktrees for this workspace with their creation time and root path.
+Enumerate task worktrees for this workspace with their creation time, root path, and the repositories each one holds.
 
 ```bash
 maestro worktree list

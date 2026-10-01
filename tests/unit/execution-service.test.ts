@@ -142,6 +142,7 @@ describe("execution service", () => {
     const gitAdapter: ExecutionGitAdapter = {
       ensureWorktree: mockFn().mockResolvedValue("created"),
       hasGitMetadata: mockFn().mockResolvedValue(true),
+      listUncommittedChanges: mockFn().mockResolvedValue([]),
     };
 
     const report = await prepareTaskWorktree(workspaceRoot, "Feature / ABC", {}, { gitAdapter });
@@ -177,6 +178,7 @@ describe("execution service", () => {
     const gitAdapter: ExecutionGitAdapter = {
       ensureWorktree: mockFn().mockResolvedValue("created"),
       hasGitMetadata: mockFn().mockResolvedValue(true),
+      listUncommittedChanges: mockFn().mockResolvedValue([]),
     };
 
     const report = await prepareTaskWorktree(

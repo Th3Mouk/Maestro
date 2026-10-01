@@ -1,11 +1,14 @@
 import path from "node:path";
-import { readFile } from "node:fs/promises";
 import type { WorktreeRemoveReport, WorktreeListReport } from "../../report/types.js";
 import { listDirectories, pathExists, removeIfExists, resolveSafePath } from "../../utils/fs.js";
-import { workspaceStateDirName } from "../../workspace/state-directory.js";
 import type { ResolvedWorkspace } from "../../workspace/types.js";
 import { sanitizeSegment } from "../execution/task-worktree.js";
 import { escalateStatus } from "../errors.js";
+import {
+  getTaskWorktreeMetadataPath,
+  listTaskRepositoryNames,
+  readTaskWorktreeMetadata,
+} from "../execution/task-worktree-metadata.js";
 import {
   createWorktreeDirtyIssue,
   createWorktreeRemoveReport,
@@ -46,13 +49,16 @@ export async function removeTaskWorktreeWithResolvedWorkspace(
     return report;
   }
 
-  const repositoryNames = resolvedWorkspace.repositories.map((repository) => repository.name);
+  // The repositories the task actually holds, which may be a subset of the manifest.
+  const metadata = await readTaskWorktreeMetadata(taskRoot);
+  const repositoryNames = await listTaskRepositoryNames(taskRoot, metadata);
   const force = options.force ?? false;
 
   // A dirty task is left untouched: removing some checkouts and not others would strand work.
   if (!force) {
     const dirtyCheckouts = await findDirtyCheckouts({
       concurrencyLimit,
+      generatedFiles: metadata?.generatedFiles,
       gitAdapter: context.gitAdapter,
       repositoryNames,
       taskRoot,
@@ -90,9 +96,19 @@ export async function removeTaskWorktreeWithResolvedWorkspace(
   }
   mergeRemoveRepositoryOutcomes(report, outcomes);
 
-  if (await context.gitAdapter.hasGitMetadata(taskRoot)) {
+  const repositoriesRemoved = report.repositories.every(
+    (repository) => repository.status !== "failed",
+  );
+  if (!repositoriesRemoved && !force) {
+    // Removing the root would delete the repository worktrees still nested under it.
+    report.workspaceRootStatus = "skipped";
+  } else if (await context.gitAdapter.hasGitMetadata(taskRoot)) {
     try {
-      const status = await context.gitAdapter.removeWorktree(workspaceRoot, taskRoot, { force });
+      // The dirty check passed, so what remains in the root is what Maestro wrote there,
+      // which a plain `git worktree remove` would still refuse.
+      const status = await context.gitAdapter.removeWorktree(workspaceRoot, taskRoot, {
+        force: true,
+      });
       report.workspaceRootStatus = status;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -111,8 +127,9 @@ export async function removeTaskWorktreeWithResolvedWorkspace(
   // Deleting the task root wipes whatever a failed `git worktree remove` left behind,
   // so it only runs once every removal succeeded, or under --force.
   const everyRemovalSucceeded =
+    repositoriesRemoved &&
     report.workspaceRootStatus !== "failed" &&
-    report.repositories.every((repository) => repository.status !== "failed");
+    report.workspaceRootStatus !== "skipped";
   if ((everyRemovalSucceeded || force) && (await pathExists(taskRoot))) {
     await removeIfExists(taskRoot);
   }
@@ -139,23 +156,21 @@ export async function listTaskWorktreesWithResolvedWorkspace(
   const names = await listDirectories(worktreesRoot);
   for (const name of names) {
     const root = path.join(worktreesRoot, name);
-    const metadataPath = path.join(root, workspaceStateDirName, "execution", "worktree.json");
-    let createdAt = "";
-    let taskName = name;
-    try {
-      const raw = await readFile(metadataPath, "utf8");
-      const parsed = JSON.parse(raw) as { name?: string; createdAt?: string };
-      taskName = parsed.name ?? name;
-      createdAt = parsed.createdAt ?? "";
-    } catch {
+    const metadata = await readTaskWorktreeMetadata(root);
+    if (!metadata) {
       report.status = escalateStatus(report.status, "warning");
       report.issues.push({
         code: "WORKTREE_METADATA_MISSING",
         message: `No metadata found for worktree "${name}".`,
-        path: metadataPath,
+        path: getTaskWorktreeMetadataPath(root),
       });
     }
-    report.worktrees.push({ name: taskName, root, createdAt });
+    report.worktrees.push({
+      name: metadata?.name ?? name,
+      root,
+      createdAt: metadata?.createdAt ?? "",
+      repositories: await listTaskRepositoryNames(root, metadata),
+    });
   }
 
   return report;

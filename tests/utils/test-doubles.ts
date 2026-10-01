@@ -16,7 +16,7 @@ export function createGitCommandAdapterFixture(
     ensureRepository: mockFn().mockResolvedValue("unchanged"),
     ensureWorktree: mockFn().mockResolvedValue("unchanged"),
     commitAll: mockFn().mockResolvedValue(false),
-    countUncommittedChanges: mockFn().mockResolvedValue(0),
+    listUncommittedChanges: mockFn().mockResolvedValue([]),
     isUnbornRepository: mockFn().mockResolvedValue(false),
     getChangedFiles: mockFn().mockResolvedValue([]),
     getCommittedChangedFiles: mockFn().mockResolvedValue([]),

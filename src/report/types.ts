@@ -69,6 +69,8 @@ export interface WorktreeListReport {
     name: string;
     root: string;
     createdAt: string;
+    /** Repositories that have a worktree in the task. */
+    repositories: string[];
   }>;
   issues: Array<{ code: string; message: string; path?: string }>;
 }

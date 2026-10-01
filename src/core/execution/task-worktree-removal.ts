@@ -2,9 +2,13 @@ import path from "node:path";
 import type { WorktreeRemoveReport } from "../../report/types.js";
 import { mapWithConcurrency, resolveSafePath } from "../../utils/fs.js";
 import { errorMessage } from "../errors.js";
+import {
+  excludeGeneratedChanges,
+  type GeneratedFileFingerprints,
+} from "./task-worktree-generated-files.js";
 
 export type TaskWorktreeRemoveGitAdapter = {
-  countUncommittedChanges: (repoRoot: string) => Promise<number>;
+  listUncommittedChanges: (repoRoot: string) => Promise<string[]>;
   hasGitMetadata: (repoRoot: string) => Promise<boolean>;
   removeWorktree: (
     repoRoot: string,
@@ -108,6 +112,7 @@ export async function removeTaskRepositories(
  */
 export async function findDirtyCheckouts(options: {
   concurrencyLimit: number;
+  generatedFiles?: GeneratedFileFingerprints;
   gitAdapter: TaskWorktreeRemoveGitAdapter;
   repositoryNames: string[];
   taskRoot: string;
@@ -128,10 +133,13 @@ export async function findDirtyCheckouts(options: {
         return { ...checkout, changedFiles: 0 };
       }
       try {
-        return {
-          ...checkout,
-          changedFiles: await options.gitAdapter.countUncommittedChanges(checkout.path),
-        };
+        const changes = await options.gitAdapter.listUncommittedChanges(checkout.path);
+        // Only the workspace-root checkout receives files written by Maestro.
+        const userChanges =
+          checkout.path === options.taskRoot
+            ? await excludeGeneratedChanges(options.taskRoot, changes, options.generatedFiles)
+            : changes;
+        return { ...checkout, changedFiles: userChanges.length };
       } catch (error) {
         // A checkout Git cannot read cannot be proven clean.
         return { ...checkout, changedFiles: 0, error: errorMessage(error) };

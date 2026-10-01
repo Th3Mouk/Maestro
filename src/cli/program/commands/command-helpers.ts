@@ -8,15 +8,17 @@ import type { HumanReportKind } from "../../output/index.js";
 import type { ErrorCode, Renderer, RendererError } from "../../output/renderer.js";
 import type { OutputOptionValues } from "../shared-options.js";
 
-export function parseRuntimeNames(value?: string): RuntimeName[] | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  const runtimes = value
+/** Splits a comma-separated option value into unique, trimmed, non-empty names. */
+export function parseNameList(value?: string): string[] | undefined {
+  const names = (value ?? "")
     .split(",")
     .map((entry) => entry.trim())
     .filter(Boolean);
+  return names.length > 0 ? Array.from(new Set(names)) : undefined;
+}
+
+export function parseRuntimeNames(value?: string): RuntimeName[] | undefined {
+  const runtimes = parseNameList(value) ?? [];
 
   const invalidRuntimeNames = runtimes.filter(
     (runtime): runtime is string => !supportedRuntimeNames.includes(runtime as RuntimeName),
@@ -27,7 +29,7 @@ export function parseRuntimeNames(value?: string): RuntimeName[] | undefined {
     );
   }
 
-  return runtimes.length > 0 ? Array.from(new Set(runtimes as RuntimeName[])) : undefined;
+  return runtimes.length > 0 ? (runtimes as RuntimeName[]) : undefined;
 }
 
 function rendererFromOptions(options: OutputOptionValues, reportKind: HumanReportKind): Renderer {
