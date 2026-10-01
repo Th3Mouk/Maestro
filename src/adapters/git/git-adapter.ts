@@ -269,6 +269,12 @@ export class GitAdapter {
     return stdout.trim().length === 0;
   }
 
+  /** Counts uncommitted changes, untracked files included and ignored files excluded. */
+  async countUncommittedChanges(repoRoot: string): Promise<number> {
+    const { stdout } = await this.run(repoRoot, ["status", "--porcelain", "--untracked-files=all"]);
+    return stdout.split("\n").filter(Boolean).length;
+  }
+
   async hasGitMetadata(repoRoot: string): Promise<boolean> {
     return pathExists(path.join(repoRoot, ".git"));
   }

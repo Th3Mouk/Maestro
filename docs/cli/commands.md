@@ -294,14 +294,16 @@ maestro worktree list
 
 ### `worktree remove`
 
-Remove the task worktree for the workspace and its managed repositories. Committed work remains on the task branches; uncommitted work is preserved unless `--force` is passed.
+Remove the task worktree for the workspace and its managed repositories. Committed work remains on the task branches; uncommitted work is never deleted unless `--force` is passed.
 
 ```bash
 maestro worktree remove --task release-prep
 maestro worktree remove --task release-prep --force
 ```
 
-Use `--force` to drop uncommitted changes and remove worktrees anyway. `--dry-run` previews the removal plan without touching the working tree.
+Before removing anything, Maestro checks every checkout of the task: the workspace-root worktree and each repository worktree. A checkout is dirty when `git status --porcelain` lists anything, untracked files included. Ignored files (`vendor/`, `node_modules/`) do not count. If any checkout is dirty, the task is left untouched, the report status is `error` (exit code `1`), and each dirty checkout gets a `WORKTREE_DIRTY` issue with its `path` and `changedFiles` count. The task root is deleted only after every `git worktree remove` succeeded.
+
+Use `--force` to discard uncommitted changes and remove the worktrees anyway. `--dry-run` runs the same dirty check and previews the removal plan without touching the working tree.
 
 ## `self`
 

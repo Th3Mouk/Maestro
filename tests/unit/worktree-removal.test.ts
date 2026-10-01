@@ -23,6 +23,7 @@ function createRemoveGitAdapterFixture(
   overrides: Partial<TaskWorktreeRemoveGitAdapter> = {},
 ): TaskWorktreeRemoveGitAdapter {
   return {
+    countUncommittedChanges: vi.fn<() => Promise<number>>().mockResolvedValue(0),
     hasGitMetadata: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
     removeWorktree: vi.fn<() => Promise<"removed" | "missing">>().mockResolvedValue("removed"),
     ...overrides,
@@ -53,7 +54,7 @@ describe("removeTaskRepositories orchestrator", () => {
       concurrencyLimit: 2,
       force: false,
       gitAdapter,
-      repositories: [createRepositoryFixture({ name: "frontend" })],
+      repositoryNames: ["frontend"],
       taskRoot: "/tmp/ws/.maestro/worktrees/task",
       workspaceRoot: "/tmp/ws",
     });
@@ -77,10 +78,7 @@ describe("removeTaskRepositories orchestrator", () => {
       concurrencyLimit: 1,
       force: true,
       gitAdapter,
-      repositories: [
-        createRepositoryFixture({ name: "a" }),
-        createRepositoryFixture({ name: "b" }),
-      ],
+      repositoryNames: ["a", "b"],
       taskRoot: "/tmp/ws/.maestro/worktrees/task",
       workspaceRoot: "/tmp/ws",
     });
@@ -105,7 +103,7 @@ describe("removeTaskRepositories orchestrator", () => {
       concurrencyLimit: 2,
       force: false,
       gitAdapter,
-      repositories: [createRepositoryFixture({ name: "svc" })],
+      repositoryNames: ["svc"],
       taskRoot: "/tmp/ws/.maestro/worktrees/task",
       workspaceRoot: "/tmp/ws",
     });
@@ -163,7 +161,7 @@ describe("removeTaskWorktreeWithResolvedWorkspace", () => {
     expect(gitAdapter.removeWorktree).not.toHaveBeenCalled();
   });
 
-  test("dry-run reports all repositories as removed without invoking git", async () => {
+  test("dry-run reports all repositories as removed without removing anything", async () => {
     const workspaceRoot = await createManagedTempDir("maestro-remove-dryrun-");
     const taskRoot = path.join(workspaceRoot, ".maestro", "worktrees", "my-task");
     await mkdir(taskRoot, { recursive: true });
@@ -190,8 +188,8 @@ describe("removeTaskWorktreeWithResolvedWorkspace", () => {
     expect(report.repositories.map((r) => r.name)).toEqual(["frontend", "backend"]);
     expect(report.repositories.every((r) => r.status === "removed")).toBe(true);
     expect(report.workspaceRootStatus).toBe("removed");
-    expect(gitAdapter.hasGitMetadata).not.toHaveBeenCalled();
     expect(gitAdapter.removeWorktree).not.toHaveBeenCalled();
+    expect(await pathExists(taskRoot)).toBe(true);
   });
 
   test("happy path removes per-repo worktrees, workspace-root worktree, and task root", async () => {
@@ -263,6 +261,132 @@ describe("removeTaskWorktreeWithResolvedWorkspace", () => {
     expect(report.workspaceRootStatus).toBe("missing");
     expect(gitAdapter.removeWorktree).not.toHaveBeenCalled();
     expect(await pathExists(taskRoot)).toBe(false);
+  });
+});
+
+describe("removeTaskWorktreeWithResolvedWorkspace dirty guard", () => {
+  async function createTaskRoot(prefix: string) {
+    const workspaceRoot = await createManagedTempDir(prefix);
+    const taskRoot = path.join(workspaceRoot, ".maestro", "worktrees", "my-task");
+    await mkdir(path.join(taskRoot, "repos", "frontend"), { recursive: true });
+    await mkdir(path.join(taskRoot, "repos", "backend"), { recursive: true });
+    const resolvedWorkspace = createResolvedWorkspaceFixture({
+      repositories: [
+        createRepositoryFixture({ name: "frontend" }),
+        createRepositoryFixture({ name: "backend" }),
+      ],
+      workspaceName: "ws",
+    });
+    return { resolvedWorkspace, taskRoot, workspaceRoot };
+  }
+
+  test("leaves a dirty task untouched and reports one WORKTREE_DIRTY issue per dirty checkout", async () => {
+    const { resolvedWorkspace, taskRoot, workspaceRoot } =
+      await createTaskRoot("maestro-remove-dirty-");
+    const countUncommittedChanges = vi.fn<TaskWorktreeRemoveGitAdapter["countUncommittedChanges"]>(
+      async (checkout) => (checkout.endsWith(path.join("repos", "backend")) ? 2 : 0),
+    );
+    const gitAdapter = createRemoveGitAdapterFixture({ countUncommittedChanges });
+
+    const report = await removeTaskWorktreeWithResolvedWorkspace(
+      workspaceRoot,
+      resolvedWorkspace,
+      "my-task",
+      {},
+      { gitAdapter },
+      2,
+    );
+
+    expect(report.status).toBe("error");
+    expect(report.issues).toEqual([
+      expect.objectContaining({
+        code: "WORKTREE_DIRTY",
+        path: path.join(taskRoot, "repos", "backend"),
+        changedFiles: 2,
+      }),
+    ]);
+    expect(report.repositories).toEqual([]);
+    expect(gitAdapter.removeWorktree).not.toHaveBeenCalled();
+    expect(await pathExists(taskRoot)).toBe(true);
+  });
+
+  test("treats a checkout Git cannot read as dirty", async () => {
+    const { resolvedWorkspace, taskRoot, workspaceRoot } = await createTaskRoot(
+      "maestro-remove-unreadable-",
+    );
+    const gitAdapter = createRemoveGitAdapterFixture({
+      countUncommittedChanges: vi.fn<TaskWorktreeRemoveGitAdapter["countUncommittedChanges"]>(
+        async (checkout) => {
+          if (checkout === taskRoot) {
+            throw new Error("not a git repository");
+          }
+          return 0;
+        },
+      ),
+    });
+
+    const report = await removeTaskWorktreeWithResolvedWorkspace(
+      workspaceRoot,
+      resolvedWorkspace,
+      "my-task",
+      {},
+      { gitAdapter },
+      2,
+    );
+
+    expect(report.status).toBe("error");
+    expect(report.issues[0]).toMatchObject({ code: "WORKTREE_DIRTY", path: taskRoot });
+    expect(report.issues[0]?.message).toContain("not a git repository");
+    expect(gitAdapter.removeWorktree).not.toHaveBeenCalled();
+  });
+
+  test("--force skips the dirty check and discards the changes", async () => {
+    const { resolvedWorkspace, taskRoot, workspaceRoot } = await createTaskRoot(
+      "maestro-remove-dirty-force-",
+    );
+    const gitAdapter = createRemoveGitAdapterFixture({
+      countUncommittedChanges: vi.fn<() => Promise<number>>().mockResolvedValue(3),
+    });
+
+    const report = await removeTaskWorktreeWithResolvedWorkspace(
+      workspaceRoot,
+      resolvedWorkspace,
+      "my-task",
+      { force: true },
+      { gitAdapter },
+      2,
+    );
+
+    expect(report.status).toBe("ok");
+    expect(gitAdapter.countUncommittedChanges).not.toHaveBeenCalled();
+    expect(await pathExists(taskRoot)).toBe(false);
+  });
+
+  test("keeps the task root when a git worktree removal fails", async () => {
+    const { resolvedWorkspace, taskRoot, workspaceRoot } =
+      await createTaskRoot("maestro-remove-partial-");
+    const removeWorktree = vi.fn<TaskWorktreeRemoveGitAdapter["removeWorktree"]>(
+      async (_repoRoot, worktreePath) => {
+        if (worktreePath.endsWith(path.join("repos", "backend"))) {
+          throw new Error("locked");
+        }
+        return "removed";
+      },
+    );
+    const gitAdapter = createRemoveGitAdapterFixture({ removeWorktree });
+
+    const report = await removeTaskWorktreeWithResolvedWorkspace(
+      workspaceRoot,
+      resolvedWorkspace,
+      "my-task",
+      {},
+      { gitAdapter },
+      2,
+    );
+
+    expect(report.status).toBe("warning");
+    expect(report.repositories.find((entry) => entry.name === "backend")?.status).toBe("failed");
+    expect(await pathExists(taskRoot)).toBe(true);
   });
 });
 

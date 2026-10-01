@@ -56,7 +56,7 @@ export interface WorktreeRemoveReport {
     message?: string;
   }>;
   workspaceRootStatus: "removed" | "missing" | "skipped" | "failed";
-  issues: Array<{ code: string; message: string; path?: string }>;
+  issues: Array<{ code: string; message: string; path?: string; changedFiles?: number }>;
 }
 
 export interface WorktreeListReport {
