@@ -8,6 +8,7 @@ import type {
   TaskWorktreeReport,
   WorkspaceGitReport,
   WorktreeListReport,
+  WorktreePruneReport,
   WorktreeRemoveReport,
 } from "../../src/report/types.js";
 
@@ -411,5 +412,106 @@ describe("HumanRenderer", () => {
     expect(buffer).toContain("Code: WORKSPACE_NOT_FOUND");
     expect(buffer).toContain("path: /tmp/missing");
     expect(buffer).not.toContain("at ");
+  });
+
+  test("formats a WorktreeListReport with --status as one row per checkout", () => {
+    const report: WorktreeListReport = {
+      status: "ok",
+      workspace: "ws",
+      worktrees: [
+        {
+          name: "fix-login",
+          root: "/tmp/worktrees/fix-login",
+          createdAt: "2026-09-01T10:00:00Z",
+          repositories: ["foods"],
+          prunable: false,
+          checkouts: [
+            {
+              name: "ws",
+              path: "/tmp/worktrees/fix-login",
+              branch: "platform/fix-login/ws",
+              dirty: false,
+              localOnly: 0,
+              upstream: "none",
+              integrated: true,
+            },
+            {
+              name: "foods",
+              path: "/tmp/worktrees/fix-login/repos/foods",
+              branch: null,
+              dirty: true,
+              localOnly: 2,
+              upstream: "gone",
+              integrated: false,
+            },
+          ],
+        },
+      ],
+      issues: [],
+    };
+    const output = capture((stream) =>
+      new HumanRenderer("worktree-list", { color: false }).render(report, stream),
+    );
+
+    expect(output).toContain("Checkout");
+    expect(rowContaining(output, "foods")).toContain("(detached)");
+    expect(rowContaining(output, "foods")).toContain("dirty, 2 local-only, upstream gone");
+    expect(output).toContain("kept");
+  });
+
+  test("formats a WorktreePruneReport with removed tasks, deleted branches, and kept items", () => {
+    const report: WorktreePruneReport = {
+      status: "ok",
+      workspace: "ws",
+      dryRun: true,
+      removed: ["landed"],
+      deletedBranches: [{ name: "foods", branch: "platform/landed/foods" }],
+      kept: [{ name: "wip", reasons: ["dirty: foods", "2 local-only commits in api"] }],
+      issues: [],
+    };
+    const output = capture((stream) =>
+      new HumanRenderer("worktree-prune", { color: false }).render(report, stream),
+    );
+
+    expect(output).toContain("worktree prune (dry run): ok (1 would remove, 1 branches, 1 kept)");
+    expect(rowContaining(output, "landed ")).toContain("remove");
+    expect(rowContaining(output, "platform/landed/foods")).toContain("branch in foods");
+    expect(rowContaining(output, "wip")).toContain("dirty: foods; 2 local-only commits in api");
+  });
+
+  test("formats an empty WorktreePruneReport as nothing to do", () => {
+    const report: WorktreePruneReport = {
+      status: "ok",
+      workspace: "ws",
+      dryRun: false,
+      removed: [],
+      deletedBranches: [],
+      kept: [],
+      issues: [],
+    };
+    const output = capture((stream) =>
+      new HumanRenderer("worktree-prune", { color: false }).render(report, stream),
+    );
+
+    expect(output).toContain("worktree prune: ok (0 removed, 0 branches, 0 kept)");
+    expect(output).toContain("ok - nothing to do");
+  });
+
+  test("a refused WorktreeRemoveReport does not claim there was nothing to do", () => {
+    const report: WorktreeRemoveReport = {
+      status: "error",
+      workspace: "ws",
+      name: "wip",
+      root: "/tmp/worktrees/wip",
+      repositories: [],
+      workspaceRootStatus: "skipped",
+      issues: [{ code: "WORKTREE_DIRTY", message: "foods has 1 uncommitted change" }],
+    };
+    const output = capture((stream) =>
+      new HumanRenderer("worktree-remove", { color: false }).render(report, stream),
+    );
+
+    expect(output).not.toContain("nothing to do");
+    expect(output).toContain("WORKTREE_DIRTY");
   });
 });

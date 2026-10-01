@@ -8,6 +8,7 @@ import { createCommandContext } from "../../src/core/command-context.js";
 import {
   createTaskWorktree,
   listTaskWorktrees,
+  pruneTaskWorktrees,
   removeTaskWorktree,
 } from "../../src/core/commands/execution.js";
 import { createManagedTempDir } from "../utils/test-lifecycle.js";
@@ -403,5 +404,200 @@ describe("running from inside a task worktree", () => {
       expect.objectContaining({ code: "WORKSPACE_IS_TASK_WORKTREE" }),
     ]);
     expect(existsSync(path.join(root, "worktrees"))).toBe(false);
+  });
+});
+
+async function branchExists(repoRoot: string, branch: string): Promise<boolean> {
+  const { exitCode } = await execa(
+    "git",
+    ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`],
+    {
+      cwd: repoRoot,
+      reject: false,
+    },
+  );
+  return exitCode === 0;
+}
+
+/** Commits a file on the task's foods branch and pushes it with an upstream. */
+async function commitAndPushTaskWork(taskRoot: string, file: string): Promise<string> {
+  const foods = path.join(taskRoot, "repos", "foods");
+  await writeFile(path.join(foods, file), `${file}\n`, "utf8");
+  await git(foods, ["add", file]);
+  await git(foods, ["commit", "-m", `add ${file}`]);
+  await git(foods, ["push", "-u", "origin", "HEAD"]);
+  return git(foods, ["rev-parse", "--abbrev-ref", "HEAD"]);
+}
+
+/** Squash-merges a branch into the remote main from a separate clone, then deletes it remotely. */
+async function squashMergeOnRemote(root: string, remote: string, branch: string): Promise<void> {
+  const cloneRoot = path.join(root, `squash-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  await execa("git", ["clone", remote, cloneRoot]);
+  await git(cloneRoot, ["merge", "--squash", `origin/${branch}`]);
+  await git(cloneRoot, ["commit", "-m", `squash ${branch}`]);
+  await git(cloneRoot, ["push", "origin", "main"]);
+  await git(cloneRoot, ["push", "origin", "--delete", branch]);
+}
+
+describe("worktree prune", () => {
+  test("an untouched task is pruned along with its task branches", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const task = await createTaskWorktree(workspaceRoot, "untouched");
+    const foodsClone = path.join(workspaceRoot, "repos", "foods");
+
+    const report = await pruneTaskWorktrees(workspaceRoot);
+
+    expect(report.status).toBe("ok");
+    expect(report.removed).toEqual(["untouched"]);
+    expect(report.deletedBranches).toEqual(
+      expect.arrayContaining([
+        { name: "lifecycle", branch: "platform/untouched/lifecycle" },
+        { name: "foods", branch: "platform/untouched/foods" },
+        { name: "platform-api", branch: "platform/untouched/platform-api" },
+      ]),
+    );
+    expect(existsSync(task.root)).toBe(false);
+    expect(await branchExists(foodsClone, "platform/untouched/foods")).toBe(false);
+    expect(await branchExists(workspaceRoot, "platform/untouched/lifecycle")).toBe(false);
+    expect(await git(foodsClone, ["rev-parse", "--abbrev-ref", "HEAD"])).toBe("main");
+  });
+
+  test("a squash-merged task branch is integrated by patch: pruned and its branch deleted", async () => {
+    const { remotes, root, workspaceRoot } = await createLifecycleWorkspace();
+    const task = await createTaskWorktree(workspaceRoot, "squashed", { repos: ["foods"] });
+    const branch = await commitAndPushTaskWork(task.root, "feature.txt");
+    await squashMergeOnRemote(root, remotes.foods, branch);
+
+    const listed = await listTaskWorktrees(workspaceRoot, { status: true });
+    // fetch has not run yet: list --status does not fetch.
+    expect(listed.worktrees[0]?.checkouts?.map((checkout) => checkout.name)).toEqual([
+      "lifecycle",
+      "foods",
+    ]);
+
+    const report = await pruneTaskWorktrees(workspaceRoot);
+
+    expect(report.removed).toEqual(["squashed"]);
+    expect(report.deletedBranches).toEqual(expect.arrayContaining([{ name: "foods", branch }]));
+    expect(existsSync(task.root)).toBe(false);
+    expect(await branchExists(path.join(workspaceRoot, "repos", "foods"), branch)).toBe(false);
+  });
+
+  test("list --status reports the checkout state after a squash merge", async () => {
+    const { remotes, root, workspaceRoot } = await createLifecycleWorkspace();
+    const task = await createTaskWorktree(workspaceRoot, "state", { repos: ["foods"] });
+    const branch = await commitAndPushTaskWork(task.root, "feature.txt");
+    await squashMergeOnRemote(root, remotes.foods, branch);
+    await git(path.join(workspaceRoot, "repos", "foods"), ["fetch", "--prune"]);
+
+    const listed = await listTaskWorktrees(workspaceRoot, { status: true });
+
+    expect(listed.worktrees[0]?.prunable).toBe(true);
+    expect(listed.worktrees[0]?.checkouts?.[1]).toMatchObject({
+      name: "foods",
+      branch,
+      dirty: false,
+      localOnly: 1,
+      upstream: "gone",
+      integrated: true,
+    });
+  });
+
+  test("a dirty task is kept with its reason", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const task = await createTaskWorktree(workspaceRoot, "dirty");
+    await writeFile(path.join(task.root, "repos", "foods", "WIP.txt"), "wip\n", "utf8");
+
+    const report = await pruneTaskWorktrees(workspaceRoot);
+
+    expect(report.removed).toEqual([]);
+    expect(report.kept).toEqual([{ name: "dirty", reasons: ["dirty: foods"] }]);
+    expect(existsSync(path.join(task.root, "repos", "foods", "WIP.txt"))).toBe(true);
+  });
+
+  test("an unpushed commit keeps the task", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const task = await createTaskWorktree(workspaceRoot, "unpushed", { repos: ["platform-api"] });
+    await git(path.join(task.root, "repos", "platform-api"), [
+      "commit",
+      "--allow-empty",
+      "-m",
+      "a",
+    ]);
+    await git(path.join(task.root, "repos", "platform-api"), [
+      "commit",
+      "--allow-empty",
+      "-m",
+      "b",
+    ]);
+
+    const report = await pruneTaskWorktrees(workspaceRoot);
+
+    expect(report.kept).toEqual([
+      { name: "unpushed", reasons: ["2 local-only commits in platform-api"] },
+    ]);
+    expect(existsSync(task.root)).toBe(true);
+  });
+
+  test("a gone but unintegrated branch is kept, and pruned with --include-gone", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const task = await createTaskWorktree(workspaceRoot, "gone", { repos: ["foods"] });
+    const branch = await commitAndPushTaskWork(task.root, "abandoned.txt");
+    await git(path.join(task.root, "repos", "foods"), ["push", "origin", "--delete", branch]);
+
+    const kept = await pruneTaskWorktrees(workspaceRoot);
+    expect(kept.kept).toEqual([
+      {
+        name: "gone",
+        reasons: ["1 local-only commit in foods (upstream gone; --include-gone prunes it)"],
+      },
+    ]);
+    expect(existsSync(task.root)).toBe(true);
+
+    const pruned = await pruneTaskWorktrees(workspaceRoot, { includeGone: true });
+    expect(pruned.removed).toEqual(["gone"]);
+    expect(existsSync(task.root)).toBe(false);
+  });
+
+  test("--branches deletes an integrated orphan branch and keeps one with unique commits", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const foodsClone = path.join(workspaceRoot, "repos", "foods");
+    await git(foodsClone, ["branch", "platform/old/foods", "main"]);
+    await git(foodsClone, ["switch", "-c", "platform/wip/foods"]);
+    await git(foodsClone, ["commit", "--allow-empty", "-m", "unique"]);
+    await git(foodsClone, ["switch", "main"]);
+
+    const withoutFlag = await pruneTaskWorktrees(workspaceRoot);
+    expect(withoutFlag.deletedBranches).toEqual([]);
+
+    const report = await pruneTaskWorktrees(workspaceRoot, { branches: true });
+
+    expect(report.deletedBranches).toEqual([{ name: "foods", branch: "platform/old/foods" }]);
+    expect(report.kept).toEqual([
+      { name: "platform/wip/foods", reasons: ["1 local-only commit in foods"] },
+    ]);
+    expect(await branchExists(foodsClone, "platform/old/foods")).toBe(false);
+    expect(await branchExists(foodsClone, "platform/wip/foods")).toBe(true);
+  });
+
+  test("--dry-run prints the plan and writes nothing", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const task = await createTaskWorktree(workspaceRoot, "planned", { repos: ["foods"] });
+    const foodsClone = path.join(workspaceRoot, "repos", "foods");
+    await git(foodsClone, ["branch", "platform/orphan/foods", "main"]);
+
+    const report = await pruneTaskWorktrees(workspaceRoot, { dryRun: true, branches: true });
+
+    expect(report.dryRun).toBe(true);
+    expect(report.removed).toEqual(["planned"]);
+    expect(report.deletedBranches).toEqual(
+      expect.arrayContaining([
+        { name: "foods", branch: "platform/planned/foods" },
+        { name: "foods", branch: "platform/orphan/foods" },
+      ]),
+    );
+    expect(existsSync(path.join(task.root, "repos", "foods", ".git"))).toBe(true);
+    expect(await branchExists(foodsClone, "platform/planned/foods")).toBe(true);
+    expect(await branchExists(foodsClone, "platform/orphan/foods")).toBe(true);
   });
 });

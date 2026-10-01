@@ -6,14 +6,17 @@ import {
 import type {
   TaskWorktreeReport,
   WorktreeListReport,
+  WorktreePruneReport,
   WorktreeRemoveReport,
 } from "../../report/types.js";
 import { loadWorkspaceManifest, resolveWorkspace } from "../workspace-service.js";
 import { resolveMainWorkspaceRoot } from "../execution-support/main-workspace.js";
+import { removeTaskWorktreeWithResolvedWorkspace } from "../execution-support/task-worktree-remove.js";
+import { listTaskWorktreesWithResolvedWorkspace } from "../execution-support/task-worktree-list.js";
 import {
-  removeTaskWorktreeWithResolvedWorkspace,
-  listTaskWorktreesWithResolvedWorkspace,
-} from "../execution-support/task-worktree-remove.js";
+  pruneTaskWorktreesWithResolvedWorkspace,
+  type PruneOptions,
+} from "../execution-support/task-worktree-prune.js";
 import { listWorkspaceRepositoriesWithResolvedWorkspace } from "../execution-support/repository-list.js";
 import type { CommandContext } from "../command-context.js";
 import { createCommandContext } from "../command-context.js";
@@ -115,7 +118,11 @@ export async function removeTaskWorktree(
   return withResolutionIssue(report, resolution.issue);
 }
 
-export async function listTaskWorktrees(workspaceRoot: string): Promise<WorktreeListReport> {
+export async function listTaskWorktrees(
+  workspaceRoot: string,
+  options: { status?: boolean } = {},
+  context: CommandContext = createCommandContext(),
+): Promise<WorktreeListReport> {
   const resolution = await resolveMainWorkspaceRoot(workspaceRoot);
   if ("error" in resolution) {
     return {
@@ -130,6 +137,37 @@ export async function listTaskWorktrees(workspaceRoot: string): Promise<Worktree
   const report = await listTaskWorktreesWithResolvedWorkspace(
     resolution.workspaceRoot,
     resolvedWorkspace,
+    options,
+    { gitAdapter: context.gitAdapter },
+  );
+  return withResolutionIssue(report, resolution.issue);
+}
+
+export async function pruneTaskWorktrees(
+  workspaceRoot: string,
+  options: PruneOptions = {},
+  context: CommandContext = createCommandContext(),
+): Promise<WorktreePruneReport> {
+  const resolution = await resolveMainWorkspaceRoot(workspaceRoot);
+  if ("error" in resolution) {
+    return {
+      status: "error",
+      workspace: await readWorkspaceName(workspaceRoot),
+      dryRun: options.dryRun ?? false,
+      removed: [],
+      deletedBranches: [],
+      kept: [],
+      issues: [resolution.error],
+    };
+  }
+
+  const resolvedWorkspace = await resolveWorkspace(resolution.workspaceRoot);
+  const report = await pruneTaskWorktreesWithResolvedWorkspace(
+    resolution.workspaceRoot,
+    resolvedWorkspace,
+    options,
+    { gitAdapter: context.gitAdapter },
+    4,
   );
   return withResolutionIssue(report, resolution.issue);
 }

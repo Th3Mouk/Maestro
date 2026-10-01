@@ -1,6 +1,7 @@
 import path from "node:path";
 import { execa } from "execa";
 import { GitBranchGuard } from "./internal/git-branch-guard.js";
+import { GitCheckoutInspector, type GitRefState } from "./internal/git-checkout-inspector.js";
 import { GitCommandExecutor } from "./internal/git-command-executor.js";
 import { GitRepositoryConfigurer } from "./internal/git-repository-configurer.js";
 import { GitSparseCheckout } from "./internal/git-sparse-checkout.js";
@@ -27,6 +28,7 @@ export class GitAdapter {
   readonly #commandExecutor = new GitCommandExecutor();
   readonly #branchGuard = new GitBranchGuard(this.#commandExecutor);
   readonly #sparseCheckout = new GitSparseCheckout(this.#commandExecutor);
+  readonly #checkoutInspector = new GitCheckoutInspector();
   readonly #repositoryConfigurer = new GitRepositoryConfigurer(
     this.#branchGuard,
     this.#sparseCheckout,
@@ -366,6 +368,23 @@ export class GitAdapter {
       return stdout.trim();
     }
     return (await this.localBranchExists(repoRoot, "main")) ? "main" : "HEAD";
+  }
+
+  /** Branch, local-only commits, upstream, and integration of `tip` against `referenceRef`. */
+  async inspectRef(repoRoot: string, referenceRef: string, tip = "HEAD"): Promise<GitRefState> {
+    return this.#checkoutInspector.inspect(repoRoot, referenceRef, tip);
+  }
+
+  async listTaskBranches(
+    repoRoot: string,
+    prefix: string,
+  ): Promise<Array<{ branch: string; checkedOut: boolean }>> {
+    return this.#checkoutInspector.listTaskBranches(repoRoot, prefix);
+  }
+
+  async deleteBranch(repoRoot: string, branchName: string): Promise<void> {
+    await this.#branchGuard.ensureValidBranchName(repoRoot, branchName);
+    await this.run(repoRoot, ["branch", "-D", "--", branchName]);
   }
 
   async #refExists(repoRoot: string, ref: string): Promise<boolean> {

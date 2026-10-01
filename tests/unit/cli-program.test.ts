@@ -60,18 +60,35 @@ describe("CLI program assembly", () => {
     }
   });
 
-  test("worktree group exposes create, remove, list", () => {
+  test("worktree group exposes create, remove, list, prune", () => {
     const worktree = findCommand(createProgram(), "worktree");
     const names = worktree.commands.map((entry) => entry.name()).sort();
-    expect(names).toEqual(["create", "list", "remove"]);
+    expect(names).toEqual(["create", "list", "prune", "remove"]);
 
     expect(getFlags(findCommand(worktree, "create"))).toEqual(
-      expect.arrayContaining(["--workspace <path>", "--dry-run", "--task <name>"]),
+      expect.arrayContaining([
+        "--workspace <path>",
+        "--dry-run",
+        "--task <name>",
+        "--repos <names>",
+        "--offline",
+      ]),
+    );
+    expect(getFlags(findCommand(worktree, "prune"))).toEqual(
+      expect.arrayContaining([
+        "--workspace <path>",
+        "--dry-run",
+        "--include-gone",
+        "--branches",
+        "--no-fetch",
+      ]),
     );
     expect(getFlags(findCommand(worktree, "remove"))).toEqual(
       expect.arrayContaining(["--workspace <path>", "--dry-run", "--task <name>", "--force"]),
     );
-    expect(getFlags(findCommand(worktree, "list"))).toContain("--workspace <path>");
+    expect(getFlags(findCommand(worktree, "list"))).toEqual(
+      expect.arrayContaining(["--workspace <path>", "--status"]),
+    );
   });
 
   test("self group exposes upgrade", () => {

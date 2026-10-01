@@ -2,6 +2,7 @@ import type { Command } from "commander";
 import {
   createTaskWorktree,
   listTaskWorktrees,
+  pruneTaskWorktrees,
   removeTaskWorktree,
 } from "../../../core/commands/execution.js";
 import {
@@ -17,7 +18,7 @@ import { parseNameList, runReportAction } from "./command-helpers.js";
 export function registerWorktreeCommand(program: Command, commandContext: CommandContext): void {
   const worktree = program
     .command("worktree")
-    .summary("Create, list, and remove isolated task worktrees")
+    .summary("Create, list, remove, and prune isolated task worktrees")
     .description("Manage isolated task worktrees spanning the workspace and managed repositories")
     .addHelpText(
       "after",
@@ -26,8 +27,9 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         "Examples:",
         "  maestro worktree create --task release-prep",
         "  maestro worktree create --task fix-login --repos foods,platform-api",
-        "  maestro worktree list",
+        "  maestro worktree list --status",
         "  maestro worktree remove --task release-prep",
+        "  maestro worktree prune --dry-run",
       ].join("\n"),
     );
 
@@ -116,11 +118,62 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
       worktree
         .command("list")
         .summary("List existing task worktrees for this workspace")
-        .description("Enumerate task worktrees with their creation time and root path"),
+        .description(
+          "Enumerate task worktrees with their creation time, root path, and repositories",
+        )
+        .option(
+          "--status",
+          "inspect each checkout: branch, uncommitted changes, local-only commits, upstream, integration, and whether prune would remove the task",
+        ),
     ),
-  ).action(async (options: OutputOptionValues & { workspace: string }) => {
+  ).action(async (options: OutputOptionValues & { workspace: string; status?: boolean }) => {
     await runReportAction(options, "worktree-list", () =>
-      listTaskWorktrees(resolveWorkspacePath(options.workspace)),
+      listTaskWorktrees(
+        resolveWorkspacePath(options.workspace),
+        { status: options.status },
+        commandContext,
+      ),
     );
   });
+
+  addOutputOptions(
+    addWorkspaceAndDryRunOptions(
+      worktree
+        .command("prune")
+        .summary("Remove task worktrees whose work has landed")
+        .description(
+          "Remove every task whose checkouts are clean and hold no work missing from a remote or the reference branch, then delete its task branches. Unsafe tasks are kept and listed with their reasons.",
+        )
+        .option(
+          "--include-gone",
+          "also prune clean branches whose upstream was deleted (a deleted remote branch is not proof the work landed)",
+        )
+        .option("--branches", "also delete orphan task branches that no task worktree holds")
+        .option("--no-fetch", "skip `git fetch --prune` on the workspace and each repository"),
+      "print the plan without removing anything",
+    ),
+  ).action(
+    async (
+      options: OutputOptionValues & {
+        workspace: string;
+        dryRun?: boolean;
+        includeGone?: boolean;
+        branches?: boolean;
+        fetch: boolean;
+      },
+    ) => {
+      await runReportAction(options, "worktree-prune", () =>
+        pruneTaskWorktrees(
+          resolveWorkspacePath(options.workspace),
+          {
+            branches: options.branches,
+            dryRun: options.dryRun,
+            fetch: options.fetch,
+            includeGone: options.includeGone,
+          },
+          commandContext,
+        ),
+      );
+    },
+  );
 }

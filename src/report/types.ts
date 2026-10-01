@@ -62,6 +62,23 @@ export interface WorktreeRemoveReport {
   issues: Array<{ code: string; message: string; path?: string; changedFiles?: number }>;
 }
 
+/** State of one checkout of a task: the workspace-root worktree or a repository worktree. */
+export interface TaskCheckoutState {
+  name: string;
+  path: string;
+  /** Current branch, `null` when detached. */
+  branch: string | null;
+  /** Uncommitted changes, untracked files included and ignored files excluded. */
+  dirty: boolean;
+  /** Commits that no remote-tracking ref holds. */
+  localOnly: number;
+  upstream: "tracking" | "gone" | "none";
+  /** The branch's work is in the reference branch, merged or squash-merged. */
+  integrated: boolean;
+  /** Set when Git could not inspect the checkout; the other fields are then meaningless. */
+  error?: string;
+}
+
 export interface WorktreeListReport {
   status: ReportStatus;
   workspace: string;
@@ -71,7 +88,24 @@ export interface WorktreeListReport {
     createdAt: string;
     /** Repositories that have a worktree in the task. */
     repositories: string[];
+    /** With `--status`: the workspace root first, then each repository. */
+    checkouts?: TaskCheckoutState[];
+    /** With `--status`: whether `worktree prune` would remove the task. */
+    prunable?: boolean;
   }>;
+  issues: Array<{ code: string; message: string; path?: string }>;
+}
+
+export interface WorktreePruneReport {
+  status: ReportStatus;
+  workspace: string;
+  dryRun: boolean;
+  /** Tasks removed (or, with `--dry-run`, that would be). */
+  removed: string[];
+  /** Branches deleted (or, with `--dry-run`, that would be), per checkout or repository. */
+  deletedBranches: Array<{ name: string; branch: string }>;
+  /** Tasks and orphan branches left in place, each with why. */
+  kept: Array<{ name: string; reasons: string[] }>;
   issues: Array<{ code: string; message: string; path?: string }>;
 }
 

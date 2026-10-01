@@ -7,11 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.0]
 
+Claude Code's `WorktreeCreate`/`WorktreeRemove` hooks and workspace navigators now route every agent and human worktree through `maestro worktree`, so its safety and its cost apply to every session and subagent. This release makes `remove` and `create` unable to lose work, lets a task check out only the repositories it touches, bases new task branches on fresh default refs, and adds `list --status` and `prune` to clean up the tasks whose work has landed.
+
 ### Added
 
 - `maestro worktree create --repos <a,b>` checks out only the listed repositories instead of every managed repository, which saves disk, IDE indexing, and dependency seeding for tasks that touch one or two repositories. Repositories that are not selected are absent from `<taskRoot>/repos/`; Maestro never links them to the primary clone. Running `create --repos` again on an existing task adds the missing repositories and leaves the others untouched. An unknown name fails the command with `REPO_UNKNOWN` before anything is created.
 - `.maestro/execution/worktree.json` records `repositories`, the repositories that have a worktree in the task. `worktree remove` iterates over that list instead of the manifest, the task's `maestro.json` descriptor lists only those repositories, and `worktree list` reports them per task. Metadata written by earlier versions, without the field, falls back to the directories present under `<taskRoot>/repos/`.
 - `maestro worktree create --offline` skips the fetch described below and bases new task branches on the local reference branches.
+- `maestro worktree list --status` inspects every checkout of each task (workspace root first, then each repository) and reports `checkouts: [{ name, path, branch, dirty, localOnly, upstream, integrated }]` plus a derived `prunable`. `integrated` is true when the branch tip is an ancestor of `origin/<reference>`, or when the squash of `merge-base..tip` is patch-equivalent to a commit on it, which catches branches squash-merged with `delete_branch_on_merge`. Without `--status`, `list` stays as fast as before.
+- `maestro worktree prune [--dry-run] [--include-gone] [--branches] [--no-fetch]` removes every task whose checkouts are all clean and hold no local-only work that is not integrated, through the same path as `remove`, then deletes its task branches with `git branch -D`. It runs `git fetch --prune` on the workspace and each repository first, unless `--no-fetch`. `--include-gone` also prunes clean branches whose upstream was deleted (off by default: a deleted remote branch is not proof the work landed). `--branches` also deletes orphan task branches (`<branchPrefix>/*/*` with no worktree) under the same rule and lists the ones it keeps. `--dry-run` prints the plan. The `worktree-prune` report lists `removed`, `deletedBranches`, and `kept` items, each with its reasons (`dirty: foods`, `2 local-only commits in platform-api`, …). Workspaces can drive their own teardown (containers, databases, routes) from `prune --dry-run --json` before calling `remove`.
 
 ### Changed
 
