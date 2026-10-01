@@ -56,7 +56,7 @@ export async function bootstrapWorkspace(
 export async function createTaskWorktree(
   workspaceRoot: string,
   taskName: string,
-  options: { dryRun?: boolean; repos?: string[] } = {},
+  options: { dryRun?: boolean; offline?: boolean; repos?: string[] } = {},
   context: CommandContext = createCommandContext(),
 ) {
   return prepareTaskWorktree(workspaceRoot, taskName, options, {

@@ -289,6 +289,13 @@ The task records the repositories it holds in `.maestro/execution/worktree.json`
 
 Each checkout gets a task branch named `<branchPrefix>/<task>/<repository>` (`<branchPrefix>/<task>/<workspace>` for the workspace root). When that branch already exists, for example after `worktree remove` kept it, Maestro checks it out as is and reports the repository as `reused`: its commits stay on it. A missing branch is created from the base ref and reported as `created`. A repository whose worktree is already in place is reported as `unchanged`.
 
+The base ref of a new branch is:
+
+- for the workspace root, the workspace's default branch: `origin/HEAD`'s target when it resolves, else `main` (never the branch the root checkout currently sits on);
+- for a repository, `origin/<branch>` of its reference branch, fetched first (`git fetch origin <branch>`) so a stale local branch does not become the task's base. If the fetch fails, Maestro reports a `FETCH_FAILED` warning and uses the local reference branch. `--offline` skips the fetch and uses the local reference branch.
+
+Reused branches are never moved, and the primary clones' checked-out branches are left alone.
+
 Users should not need to assemble repository-specific worktrees by hand.
 
 ### `worktree list`

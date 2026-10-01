@@ -3,10 +3,15 @@ import type { TaskWorktreeCheckoutStatus, TaskWorktreeReport } from "../../repor
 import type { RepositoryRef } from "../../workspace/types.js";
 import { ensureDir, mapWithConcurrency, resolveSafePath } from "../../utils/fs.js";
 import { getRepositoryReferenceBranch } from "../../workspace/repositories.js";
+import { errorMessage } from "../errors.js";
 import { createTaskBranchName } from "./task-worktree.js";
 
 export type TaskWorktreeGitAdapter = {
+  fetchBranch: (repoRoot: string, branchName: string) => Promise<void>;
   hasGitMetadata: (repoRoot: string) => Promise<boolean>;
+  localBranchExists: (repoRoot: string, branchName: string) => Promise<boolean>;
+  remoteBranchExists: (repoRoot: string, branchName: string) => Promise<boolean>;
+  resolveDefaultBranchRef: (repoRoot: string) => Promise<string>;
   ensureWorktree: (
     repoRoot: string,
     worktreePath: string,
@@ -29,6 +34,8 @@ interface PrepareTaskRepositoriesOptions {
   branchPrefix?: string;
   concurrencyLimit: number;
   gitAdapter: TaskWorktreeGitAdapter;
+  /** Keep the local reference branch as the base instead of fetching `origin/<branch>`. */
+  offline?: boolean;
   repositories: RepositoryRef[];
   taskName: string;
   taskRoot: string;
@@ -86,11 +93,12 @@ export async function prepareTaskWorkspaceRoot(
   await ensureDir(path.dirname(options.taskRoot));
 
   if (await options.gitAdapter.hasGitMetadata(options.workspaceRoot)) {
+    // The workspace's default branch, not whatever branch the root checkout sits on.
     await options.gitAdapter.ensureWorktree(
       options.workspaceRoot,
       options.taskRoot,
       createTaskBranchName(options.branchPrefix, options.taskName, options.workspaceName),
-      "HEAD",
+      await options.gitAdapter.resolveDefaultBranchRef(options.workspaceRoot),
     );
     return undefined;
   }
@@ -129,14 +137,24 @@ export async function prepareTaskRepositories(
     }
 
     const branch = createTaskBranchName(options.branchPrefix, options.taskName, repository.name);
+    const base = await resolveRepositoryBaseRef({
+      branch,
+      gitAdapter: options.gitAdapter,
+      offline: options.offline ?? false,
+      referenceBranch: getRepositoryReferenceBranch(repository),
+      repositoryName: repository.name,
+      sourceRepoRoot,
+      targetRepoRoot,
+    });
     const status = await options.gitAdapter.ensureWorktree(
       sourceRepoRoot,
       targetRepoRoot,
       branch,
-      getRepositoryReferenceBranch(repository),
+      base.ref,
     );
 
     return {
+      issue: base.issue,
       repository: {
         branch,
         name: repository.name,
@@ -147,6 +165,47 @@ export async function prepareTaskRepositories(
   });
 }
 
+/**
+ * New task branches start from `origin/<reference>`, fetched first unless offline, so a stale
+ * local reference branch does not silently become the task's base. An existing task branch
+ * or worktree is reused as is, so nothing is fetched for it.
+ */
+async function resolveRepositoryBaseRef(options: {
+  branch: string;
+  gitAdapter: TaskWorktreeGitAdapter;
+  offline: boolean;
+  referenceBranch: string;
+  repositoryName: string;
+  sourceRepoRoot: string;
+  targetRepoRoot: string;
+}): Promise<{ issue?: TaskWorktreeReport["issues"][number]; ref: string }> {
+  const { gitAdapter, referenceBranch, sourceRepoRoot } = options;
+  if (
+    (await gitAdapter.hasGitMetadata(options.targetRepoRoot)) ||
+    (await gitAdapter.localBranchExists(sourceRepoRoot, options.branch))
+  ) {
+    return { ref: referenceBranch };
+  }
+
+  let issue: TaskWorktreeReport["issues"][number] | undefined;
+  if (!options.offline) {
+    try {
+      await gitAdapter.fetchBranch(sourceRepoRoot, referenceBranch);
+    } catch (error) {
+      issue = {
+        code: "FETCH_FAILED",
+        message: `Could not fetch origin/${referenceBranch} for ${options.repositoryName}; the local ${referenceBranch} is used as the base: ${errorMessage(error)}`,
+        path: sourceRepoRoot,
+      };
+    }
+  }
+
+  if (!issue && (await gitAdapter.remoteBranchExists(sourceRepoRoot, referenceBranch))) {
+    return { ref: `origin/${referenceBranch}` };
+  }
+  return { issue, ref: referenceBranch };
+}
+
 export function mergeTaskRepositoryOutcomes(
   report: TaskWorktreeReport,
   outcomes: TaskRepositoryOutcome[],
@@ -154,7 +213,6 @@ export function mergeTaskRepositoryOutcomes(
   for (const outcome of outcomes) {
     if (outcome.issue) {
       report.issues.push(outcome.issue);
-      continue;
     }
 
     if (outcome.repository) {

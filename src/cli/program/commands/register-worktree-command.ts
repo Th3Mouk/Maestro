@@ -43,6 +43,10 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         .option(
           "--repos <names>",
           "comma-separated repositories to check out (default: every managed repository); on an existing task, adds the missing ones",
+        )
+        .option(
+          "--offline",
+          "do not fetch: base new task branches on the local reference branches instead of origin",
         ),
       "preview without writing",
     ),
@@ -52,6 +56,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         workspace: string;
         task: string;
         repos?: string;
+        offline?: boolean;
         dryRun?: boolean;
       },
     ) => {
@@ -59,7 +64,11 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         createTaskWorktree(
           resolveWorkspacePath(options.workspace),
           options.task,
-          { dryRun: options.dryRun, repos: parseNameList(options.repos) },
+          {
+            dryRun: options.dryRun,
+            offline: options.offline,
+            repos: parseNameList(options.repos),
+          },
           commandContext,
         ),
       );

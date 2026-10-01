@@ -143,6 +143,10 @@ describe("execution service", () => {
       ensureWorktree: mockFn().mockResolvedValue("created"),
       hasGitMetadata: mockFn().mockResolvedValue(true),
       listUncommittedChanges: mockFn().mockResolvedValue([]),
+      fetchBranch: mockFn().mockResolvedValue(undefined),
+      localBranchExists: mockFn().mockResolvedValue(false),
+      remoteBranchExists: mockFn().mockResolvedValue(false),
+      resolveDefaultBranchRef: mockFn().mockResolvedValue("HEAD"),
     };
 
     const report = await prepareTaskWorktree(workspaceRoot, "Feature / ABC", {}, { gitAdapter });
@@ -179,6 +183,10 @@ describe("execution service", () => {
       ensureWorktree: mockFn().mockResolvedValue("created"),
       hasGitMetadata: mockFn().mockResolvedValue(true),
       listUncommittedChanges: mockFn().mockResolvedValue([]),
+      fetchBranch: mockFn().mockResolvedValue(undefined),
+      localBranchExists: mockFn().mockResolvedValue(false),
+      remoteBranchExists: mockFn().mockResolvedValue(false),
+      resolveDefaultBranchRef: mockFn().mockResolvedValue("HEAD"),
     };
 
     const report = await prepareTaskWorktree(
