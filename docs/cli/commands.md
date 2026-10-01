@@ -282,6 +282,8 @@ Use `--task <name>` to name the task. `--dry-run` previews the plan without writ
 maestro worktree create --task release-prep
 ```
 
+Each checkout gets a task branch named `<branchPrefix>/<task>/<repository>` (`<branchPrefix>/<task>/<workspace>` for the workspace root). When that branch already exists, for example after `worktree remove` kept it, Maestro checks it out as is and reports the repository as `reused`: its commits stay on it. A missing branch is created from the base ref and reported as `created`. A repository whose worktree is already in place is reported as `unchanged`.
+
 Users should not need to assemble repository-specific worktrees by hand.
 
 ### `worktree list`

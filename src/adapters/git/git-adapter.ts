@@ -4,6 +4,7 @@ import { GitBranchGuard } from "./internal/git-branch-guard.js";
 import { GitCommandExecutor } from "./internal/git-command-executor.js";
 import { GitRepositoryConfigurer } from "./internal/git-repository-configurer.js";
 import { GitSparseCheckout } from "./internal/git-sparse-checkout.js";
+import type { TaskWorktreeCheckoutStatus } from "../../report/types.js";
 import type { RepositoryRef } from "../../workspace/types.js";
 import { pathExists } from "../../utils/fs.js";
 import {
@@ -289,21 +290,40 @@ export class GitAdapter {
     branchName: string,
     baseRef = "HEAD",
     dryRun = false,
-  ): Promise<"created" | "updated" | "unchanged"> {
+  ): Promise<TaskWorktreeCheckoutStatus> {
     await this.#branchGuard.ensureValidBranchName(repoRoot, branchName);
     const exists = await this.hasGitMetadata(worktreePath);
     if (exists) {
       return "unchanged";
     }
 
+    // An existing task branch is checked out as is: resetting it to the base ref would
+    // orphan the commits a previous worktree for the same task left on it.
+    const branchExists = await this.localBranchExists(repoRoot, branchName);
     if (dryRun) {
-      return "created";
+      return branchExists ? "reused" : "created";
     }
 
-    await execa("git", ["worktree", "add", "-B", branchName, "--", worktreePath, baseRef], {
+    // Forget registrations whose directory is gone, so they do not hold the branch.
+    await execa("git", ["worktree", "prune"], { cwd: repoRoot });
+    if (branchExists) {
+      await execa("git", ["worktree", "add", "--", worktreePath, branchName], { cwd: repoRoot });
+      return "reused";
+    }
+
+    await execa("git", ["worktree", "add", "-b", branchName, "--", worktreePath, baseRef], {
       cwd: repoRoot,
     });
     return "created";
+  }
+
+  async localBranchExists(repoRoot: string, branchName: string): Promise<boolean> {
+    const { exitCode } = await execa(
+      "git",
+      ["rev-parse", "--verify", "--quiet", `refs/heads/${branchName}`],
+      { cwd: repoRoot, reject: false },
+    );
+    return exitCode === 0;
   }
 
   async removeWorktree(

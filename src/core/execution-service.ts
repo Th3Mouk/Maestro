@@ -1,4 +1,8 @@
-import type { BootstrapReport, TaskWorktreeReport } from "../report/types.js";
+import type {
+  BootstrapReport,
+  TaskWorktreeCheckoutStatus,
+  TaskWorktreeReport,
+} from "../report/types.js";
 import type { ResolvedWorkspace } from "../workspace/types.js";
 import { bootstrapWorkspaceWithResolvedWorkspace } from "./execution-support/bootstrap-workspace.js";
 import {
@@ -15,7 +19,7 @@ export type ExecutionGitAdapter = {
     branchName: string,
     baseRef?: string,
     dryRun?: boolean,
-  ) => Promise<"created" | "updated" | "unchanged">;
+  ) => Promise<TaskWorktreeCheckoutStatus>;
 };
 
 interface ExecutionServiceContext {

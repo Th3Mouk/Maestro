@@ -24,6 +24,9 @@ export interface BootstrapReport {
   issues: Array<{ code: string; message: string; path?: string }>;
 }
 
+/** `reused`: the task branch already existed and was checked out as is, keeping its commits. */
+export type TaskWorktreeCheckoutStatus = "created" | "reused" | "unchanged";
+
 export interface TaskWorktreeReport {
   status: ReportStatus;
   workspace: string;
@@ -33,7 +36,7 @@ export interface TaskWorktreeReport {
     name: string;
     path: string;
     branch: string;
-    status: "created" | "updated" | "unchanged";
+    status: TaskWorktreeCheckoutStatus;
   }>;
   issues: Array<{ code: string; message: string; path?: string }>;
 }
