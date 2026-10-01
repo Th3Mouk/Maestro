@@ -272,6 +272,8 @@ The generated task root is the unit to open in the editor. It contains the works
 
 When shared workspace state or report files are involved, worktree and related commands should prefer explicit lock discipline over implicit last-writer-wins behavior.
 
+Every `worktree` subcommand can run from inside a task root. When the resolved `--workspace` (the current directory by default) contains `.maestro/execution/worktree.json`, Maestro resolves the main workspace through `git rev-parse --git-common-dir`, operates on it, and reports a `WORKSPACE_RESOLVED_FROM_TASK` issue naming both paths. A task worktree is never created under another task. If the main workspace cannot be resolved, the command fails with `WORKSPACE_IS_TASK_WORKTREE`.
+
 ### `worktree create`
 
 Create an isolated task worktree for the workspace and its managed repositories. The command creates a dedicated worktree for the workspace root when possible, and one worktree per managed repository under the task name.
