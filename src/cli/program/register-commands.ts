@@ -4,6 +4,7 @@ import { registerEditorWorkspaceCommand } from "./commands/register-editor-works
 import { registerInitCommand } from "./commands/register-init-command.js";
 import { registerRepoCommand } from "./commands/register-repo-command.js";
 import { registerSelfCommand } from "./commands/register-self-command.js";
+import { registerShellInitCommand } from "./commands/register-shell-init-command.js";
 import { registerWorkspaceCommand } from "./commands/register-workspace-command.js";
 import { registerWorktreeCommand } from "./commands/register-worktree-command.js";
 
@@ -13,5 +14,6 @@ export function registerProgramCommands(program: Command, commandContext: Comman
   registerRepoCommand(program, commandContext);
   registerWorktreeCommand(program, commandContext);
   registerEditorWorkspaceCommand(program);
+  registerShellInitCommand(program);
   registerSelfCommand(program);
 }
