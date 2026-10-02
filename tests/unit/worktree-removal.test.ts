@@ -28,6 +28,15 @@ function createRemoveGitAdapterFixture(
   };
 }
 
+/** Marks a directory as a Maestro task; its repositories fall back to `repos/*`. */
+async function writeTaskMetadata(taskRoot: string, name: string): Promise<void> {
+  await mkdir(path.join(taskRoot, ".maestro", "execution"), { recursive: true });
+  await writeFile(
+    path.join(taskRoot, ".maestro", "execution", "worktree.json"),
+    JSON.stringify({ name, createdAt: "2026-01-01T00:00:00.000Z" }),
+  );
+}
+
 describe("createWorktreeRemoveReport", () => {
   test("returns a pristine ok report with empty repositories and issues", () => {
     const report = createWorktreeRemoveReport("ws", "fix-bug", "/tmp/task");
@@ -199,6 +208,7 @@ describe("removeTaskWorktreeWithResolvedWorkspace", () => {
     const workspaceRoot = await createManagedTempDir("maestro-remove-happy-");
     const taskRoot = path.join(workspaceRoot, ".maestro", "worktrees", "my-task");
     await mkdir(path.join(taskRoot, "repos", "frontend"), { recursive: true });
+    await writeTaskMetadata(taskRoot, "my-task");
 
     const resolvedWorkspace = createResolvedWorkspaceFixture({
       repositories: [createRepositoryFixture({ name: "frontend" })],
@@ -241,7 +251,7 @@ describe("removeTaskWorktreeWithResolvedWorkspace", () => {
   test("workspace-root removal marked missing when task root has no git metadata", async () => {
     const workspaceRoot = await createManagedTempDir("maestro-remove-no-meta-");
     const taskRoot = path.join(workspaceRoot, ".maestro", "worktrees", "t");
-    await mkdir(taskRoot, { recursive: true });
+    await writeTaskMetadata(taskRoot, "t");
 
     const resolvedWorkspace = createResolvedWorkspaceFixture({
       repositories: [],
@@ -267,12 +277,40 @@ describe("removeTaskWorktreeWithResolvedWorkspace", () => {
   });
 });
 
+describe("removeTaskWorktreeWithResolvedWorkspace foreign directories", () => {
+  test("a directory without task metadata is reported and left untouched", async () => {
+    const workspaceRoot = await createManagedTempDir("maestro-remove-foreign-");
+    const taskRoot = path.join(workspaceRoot, ".maestro", "worktrees", "hand-made");
+    await mkdir(path.join(taskRoot, "src"), { recursive: true });
+    const gitAdapter = createRemoveGitAdapterFixture({
+      hasGitMetadata: vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
+    });
+
+    const report = await removeTaskWorktreeWithResolvedWorkspace(
+      workspaceRoot,
+      createResolvedWorkspaceFixture({ repositories: [], workspaceName: "ws" }),
+      "hand-made",
+      { force: true },
+      { gitAdapter },
+      2,
+    );
+
+    expect(report.status).toBe("warning");
+    expect(report.issues).toEqual([
+      expect.objectContaining({ code: "WORKTREE_FOREIGN", path: taskRoot }),
+    ]);
+    expect(gitAdapter.removeWorktree).not.toHaveBeenCalled();
+    expect(await pathExists(path.join(taskRoot, "src"))).toBe(true);
+  });
+});
+
 describe("removeTaskWorktreeWithResolvedWorkspace dirty guard", () => {
   async function createTaskRoot(prefix: string) {
     const workspaceRoot = await createManagedTempDir(prefix);
     const taskRoot = path.join(workspaceRoot, ".maestro", "worktrees", "my-task");
     await mkdir(path.join(taskRoot, "repos", "frontend"), { recursive: true });
     await mkdir(path.join(taskRoot, "repos", "backend"), { recursive: true });
+    await writeTaskMetadata(taskRoot, "my-task");
     const resolvedWorkspace = createResolvedWorkspaceFixture({
       repositories: [
         createRepositoryFixture({ name: "frontend" }),
@@ -411,7 +449,7 @@ describe("listTaskWorktreesWithResolvedWorkspace", () => {
     });
   });
 
-  test("returns populated report with metadata, warns when metadata missing", async () => {
+  test("returns populated report with metadata, and lists a directory without metadata as foreign", async () => {
     const workspaceRoot = await createManagedTempDir("maestro-list-populated-");
     const worktreesRoot = path.join(workspaceRoot, ".maestro", "worktrees");
 
@@ -434,13 +472,16 @@ describe("listTaskWorktreesWithResolvedWorkspace", () => {
 
     const report = await listTaskWorktreesWithResolvedWorkspace(workspaceRoot, resolvedWorkspace);
 
-    expect(report.status).toBe("warning");
-    expect(report.worktrees).toHaveLength(2);
-    const a = report.worktrees.find((w) => w.name === "task-a");
-    expect(a).toMatchObject({ name: "task-a", createdAt: "2026-01-01T00:00:00.000Z", root: aRoot });
-    const b = report.worktrees.find((w) => w.name === "task-b");
-    expect(b).toMatchObject({ name: "task-b", createdAt: "", root: bRoot });
-    expect(report.issues[0]?.code).toBe("WORKTREE_METADATA_MISSING");
+    expect(report.status).toBe("ok");
+    expect(report.worktrees).toEqual([
+      expect.objectContaining({
+        name: "task-a",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        root: aRoot,
+      }),
+    ]);
+    expect(report.foreign).toEqual([{ path: bRoot, kind: "directory" }]);
+    expect(report.issues).toEqual([]);
   });
 });
 

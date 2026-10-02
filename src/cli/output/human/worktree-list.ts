@@ -1,5 +1,6 @@
 import type { TaskCheckoutState, WorktreeListReport } from "../../../report/types.js";
 import {
+  dim,
   makeTable,
   paintStatus,
   renderIssues,
@@ -19,11 +20,11 @@ export function formatWorktreeListReport(
   );
 
   if (report.worktrees.length === 0) {
-    return `${summary}\n${report.workspace}\nok - nothing to do${renderIssues(report.issues, ctx)}\n`;
+    return `${summary}\n${report.workspace}\nok - nothing to do${renderForeign(report, ctx)}${renderIssues(report.issues, ctx)}\n`;
   }
 
   if (report.worktrees.some((worktree) => worktree.checkouts)) {
-    return `${summary}\n${report.workspace}\n${formatCheckoutTable(report, ctx)}${renderIssues(report.issues, ctx)}\n`;
+    return `${summary}\n${report.workspace}\n${formatCheckoutTable(report, ctx)}${renderForeign(report, ctx)}${renderIssues(report.issues, ctx)}\n`;
   }
 
   const table = makeTable(["Name", "Repositories", "Root", "Created"], [24, 24, 48, 26]);
@@ -36,7 +37,18 @@ export function formatWorktreeListReport(
     ]);
   }
 
-  return `${summary}\n${report.workspace}\n${table.toString()}${renderIssues(report.issues, ctx)}\n`;
+  return `${summary}\n${report.workspace}\n${table.toString()}${renderForeign(report, ctx)}${renderIssues(report.issues, ctx)}\n`;
+}
+
+function renderForeign(report: WorktreeListReport, ctx: HumanFormatContext): string {
+  if (!report.foreign?.length) {
+    return "";
+  }
+  const lines = report.foreign.map((entry) => {
+    const source = entry.source ? ` of ${entry.source}` : "";
+    return `  - ${entry.path} ${dim(`(${entry.kind}${source})`, ctx)}`;
+  });
+  return `\nNot task worktrees (left untouched):\n${lines.join("\n")}`;
 }
 
 function describeCheckout(checkout: TaskCheckoutState): string {

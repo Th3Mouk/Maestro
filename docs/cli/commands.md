@@ -180,6 +180,16 @@ This command is most useful after `workspace install` has materialized repositor
 
 As the release hardening work lands, this command is also the right place to report missing safety artifacts such as invalid workspace-relative paths or stale shared-state outputs.
 
+It also checks the task worktrees `maestro worktree list` cannot see from `rootDir`:
+
+| Code                | Meaning                                                                                                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `TASK_OUTSIDE_ROOT` | A worktree of the workspace root (`git worktree list`) lives outside `rootDir`, for example one created by another tool or by hand. `list` and `prune` do not see it.          |
+| `TASK_NESTED`       | A workspace-root worktree lives inside another task's worktree, as invocations of Maestro before 0.7 could create.                                                             |
+| `WORKTREE_PRUNABLE` | The workspace or a repository still registers a worktree whose directory is gone, which can hold its branch. `maestro workspace doctor --fix` runs `git worktree prune` there. |
+
+`--fix` repairs only what is safe to repair (stale worktree registrations) and lists what it did under `fixes` in the report.
+
 ## `editor-workspace`
 
 Generate the optional `maestro.code-workspace` file for editors that support named multi-root workspaces.
@@ -320,6 +330,8 @@ maestro worktree list --status
 | `integrated` | The branch's work is in the reference branch: its tip is an ancestor of `origin/<reference>`, or the squash of `merge-base..tip` is patch-equivalent to a commit on it. The squash check catches branches merged by squash and deleted. |
 
 `prunable` applies the `worktree prune` rule below without `--include-gone`.
+
+A directory under `rootDir` without `.maestro/execution/worktree.json` was not created by `maestro worktree create`. `list` reports it under `foreign: [{ path, kind, source }]`, where `kind` is `git-worktree` (with `source`, the repository it belongs to), `git-repository`, or `directory`, and never as a task. `remove` and `prune` never touch it and report a `WORKTREE_FOREIGN` issue instead.
 
 ### `worktree remove`
 

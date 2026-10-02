@@ -18,6 +18,7 @@ import { createTaskBranchName, sanitizeSegment } from "../execution/task-worktre
 import type { TaskWorktreeRemoveGitAdapter } from "../execution/task-worktree-removal.js";
 import { listWorktreeHookCommands, planWorktreeHooks } from "../execution/worktree-hooks.js";
 import {
+  createForeignDirectoryIssue,
   inspectTaskWorktrees,
   listTaskWorktreeEntries,
   type TaskWorktreeEntry,
@@ -93,9 +94,13 @@ export async function pruneTaskWorktreesWithResolvedWorkspace(
 
   const sources = await listBranchSources(prune);
   const worktreesRoot = getTaskWorktreesRoot(workspaceRoot, resolvedWorkspace);
-  let entries = (await pathExists(worktreesRoot))
+  const inventory = (await pathExists(worktreesRoot))
     ? await listTaskWorktreeEntries(worktreesRoot)
-    : [];
+    : { entries: [], foreign: [] };
+  let entries = inventory.entries;
+  if (!options.tasks) {
+    prune.report.issues.push(...inventory.foreign.map(createForeignDirectoryIssue));
+  }
 
   let scope: TaskScope | undefined;
   if (options.tasks) {

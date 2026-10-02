@@ -50,8 +50,9 @@ export async function updateWorkspace(
 export async function doctorWorkspace(
   workspaceRoot: string,
   context: CommandContext = createCommandContext(),
+  options: { fix?: boolean } = {},
 ): Promise<DoctorReport> {
-  return doctorWorkspaceCommand(workspaceRoot, context);
+  return doctorWorkspaceCommand(workspaceRoot, context, options);
 }
 
 export async function checkoutWorkspaceGitBranches(
