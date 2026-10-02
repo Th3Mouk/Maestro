@@ -1,4 +1,6 @@
 import {
+  access,
+  constants,
   cp,
   mkdir,
   mkdtemp,
@@ -64,6 +66,22 @@ export async function resolveRealPath(target: string): Promise<string> {
       ? target
       : path.join(await resolveRealPath(parent), path.basename(target));
   }
+}
+
+/** Whether `executable` is an executable file in one of the `PATH` directories. */
+export async function isExecutableOnPath(
+  executable: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<boolean> {
+  for (const directory of (env.PATH ?? "").split(path.delimiter).filter(Boolean)) {
+    try {
+      await access(path.join(directory, executable), constants.X_OK);
+      return true;
+    } catch {
+      // Not in this directory.
+    }
+  }
+  return false;
 }
 
 export async function pathExists(target: string): Promise<boolean> {

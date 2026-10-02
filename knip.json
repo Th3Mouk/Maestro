@@ -25,5 +25,5 @@
     "src/types.ts": ["types"],
     "src/workspace/types.ts": ["types"]
   },
-  "ignoreBinaries": ["gh", "tar"]
+  "ignoreBinaries": ["fzf", "gh", "tar"]
 }

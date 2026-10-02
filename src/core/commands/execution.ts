@@ -6,6 +6,7 @@ import {
 import type {
   TaskWorktreeReport,
   WorktreeListReport,
+  WorktreeOpenReport,
   WorktreePruneReport,
   WorktreeRemoveReport,
 } from "../../report/types.js";
@@ -22,6 +23,13 @@ import {
   type PruneOptions,
 } from "../execution-support/task-worktree-prune.js";
 import { listWorkspaceRepositoriesWithResolvedWorkspace } from "../execution-support/repository-list.js";
+import {
+  launchTaskEditor,
+  locateTaskWorktree,
+  type TaskLocation,
+  type TaskPicker,
+} from "../execution-support/task-worktree-open.js";
+import type { ResolvedWorkspace } from "../../workspace/types.js";
 import type { ForgeName } from "../../adapters/forge/github-forge.js";
 import type { CommandContext } from "../command-context.js";
 import { createCommandContext } from "../command-context.js";
@@ -176,6 +184,108 @@ export async function pruneTaskWorktrees(
     4,
   );
   return withResolutionIssue(report, resolution.issue);
+}
+
+/** `worktree path`: the root of a task, `@root` for the main workspace, or a picked one. */
+export async function getTaskWorktreePath(
+  workspaceRoot: string,
+  task: string | undefined,
+  options: { pick?: TaskPicker } = {},
+  context: CommandContext = createCommandContext(),
+): Promise<WorktreeOpenReport> {
+  return (await locateForCommand(workspaceRoot, task, options, context)).report;
+}
+
+/**
+ * `worktree open`: locates the task like `worktree path` (with `create`, creating a missing
+ * task first, hooks included), then opens it in the editor.
+ */
+export async function openTaskWorktree(
+  workspaceRoot: string,
+  task: string | undefined,
+  options: {
+    create?: boolean;
+    editor?: string;
+    env?: NodeJS.ProcessEnv;
+    pick?: TaskPicker;
+    platform?: NodeJS.Platform;
+  } = {},
+  context: CommandContext = createCommandContext(),
+): Promise<WorktreeOpenReport> {
+  let located = await locateForCommand(workspaceRoot, task, options, context);
+  let created: TaskWorktreeReport | undefined;
+  const missing = located.report.issues.some((issue) => issue.code === "WORKTREE_NOT_FOUND");
+  if (options.create && task !== undefined && missing) {
+    created = await createTaskWorktree(workspaceRoot, task, {}, context);
+    if (created.status === "error") {
+      return { ...located.report, created, issues: created.issues };
+    }
+    located = await locateForCommand(workspaceRoot, task, options, context);
+  }
+
+  const { location, report, resolvedWorkspace } = located;
+  if (created) {
+    report.created = created;
+  }
+  if (!location || !resolvedWorkspace) {
+    return report;
+  }
+  await launchTaskEditor(report, location, {
+    editor: options.editor,
+    env: options.env ?? process.env,
+    launcher: context.launchEditor,
+    manifestEditor: resolvedWorkspace.execution.worktrees?.editor,
+    platform: options.platform ?? process.platform,
+  });
+  return report;
+}
+
+async function locateForCommand(
+  workspaceRoot: string,
+  task: string | undefined,
+  options: { pick?: TaskPicker },
+  context: CommandContext,
+): Promise<{
+  location?: TaskLocation;
+  report: WorktreeOpenReport;
+  resolvedWorkspace?: ResolvedWorkspace;
+}> {
+  const resolution = await resolveMainWorkspaceRoot(workspaceRoot);
+  if ("error" in resolution) {
+    return {
+      report: {
+        status: "error",
+        workspace: await readWorkspaceName(workspaceRoot),
+        name: task ?? "",
+        root: "",
+        issues: [resolution.error],
+      },
+    };
+  }
+
+  const resolvedWorkspace = await resolveWorkspace(resolution.workspaceRoot);
+  const report: WorktreeOpenReport = {
+    status: "ok",
+    workspace: resolvedWorkspace.manifest.metadata.name,
+    name: task ?? "",
+    root: "",
+    issues: [],
+  };
+  const location = await locateTaskWorktree(
+    resolution.workspaceRoot,
+    resolvedWorkspace,
+    task,
+    options,
+    context,
+  );
+  if ("issue" in location) {
+    report.status = "error";
+    report.issues.push(location.issue);
+    return { report, resolvedWorkspace };
+  }
+  report.name = location.name;
+  report.root = location.target.root;
+  return { location, report: withResolutionIssue(report, resolution.issue), resolvedWorkspace };
 }
 
 function withResolutionIssue<Report extends { issues: Array<{ code: string; message: string }> }>(

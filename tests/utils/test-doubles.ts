@@ -58,6 +58,7 @@ export function createCommandContextFixture(
       github: { findMergedPullRequest: mockFn().mockResolvedValue(undefined) },
     },
     gitAdapter: createGitCommandAdapterFixture(overrides.gitAdapter),
+    launchEditor: mockFn().mockResolvedValue(undefined),
     stderr: overrides.stderr ?? process.stderr,
     renderer: overrides.renderer ?? new JsonRenderer(),
   };

@@ -27,6 +27,8 @@ export const worktreeExecutionSchema = z.object({
   rootDir: z.string().optional(),
   branchPrefix: z.string().optional(),
   hooks: worktreeHooksSchema.optional(),
+  /** The editor `worktree open` launches when neither --editor nor $MAESTRO_EDITOR is set. */
+  editor: z.string().min(1).optional(),
   /** Asks this forge whether a branch whose upstream is gone was merged. */
   forge: z.enum(["github"]).optional(),
 });

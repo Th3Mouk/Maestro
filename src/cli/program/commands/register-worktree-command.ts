@@ -3,10 +3,13 @@ import {
   runClaudeWorktreeCreateHook,
   runClaudeWorktreeRemoveHook,
 } from "../../../core/commands/claude-worktree-hook.js";
-import { createRenderer } from "../../output/index.js";
+import { createRenderer, resolveFormat } from "../../output/index.js";
+import type { WorktreeOpenReport } from "../../../report/types.js";
 import {
   createTaskWorktree,
+  getTaskWorktreePath,
   listTaskWorktrees,
+  openTaskWorktree,
   pruneTaskWorktrees,
   removeTaskWorktree,
 } from "../../../core/commands/execution.js";
@@ -20,6 +23,7 @@ import {
 import type { CommandContext } from "./command-types.js";
 import { parseNameList, runReportAction } from "./command-helpers.js";
 import { readStdin } from "./stdin.js";
+import { pickTask } from "./task-picker.js";
 
 function collectTaskName(value: string, previous: string[] | undefined): string[] {
   return [...(previous ?? []), value];
@@ -38,6 +42,8 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         "  maestro worktree create --task release-prep",
         "  maestro worktree create --task fix-login --repos foods,platform-api",
         "  maestro worktree list --status",
+        "  maestro worktree open fix-login --editor cursor",
+        '  cd "$(maestro worktree path fix-login)"',
         "  maestro worktree remove --task release-prep",
         "  maestro worktree prune --dry-run",
         "  maestro worktree prune --task release-prep",
@@ -268,4 +274,99 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
       process.exitCode = 1;
     }
   });
+
+  addWorkspaceOption(
+    worktree
+      .command("path")
+      .summary("Print the absolute root of a task worktree")
+      .description(
+        "Print the absolute root of a task worktree on stdout (@root for the main workspace). Without a task, pick one interactively (fzf when available); without a terminal, the task is required.",
+      )
+      .argument("[task]", "task name, or @root for the main workspace"),
+  ).action(
+    async (task: string | undefined, options: OutputOptionValues & { workspace: string }) => {
+      await printTaskRoot("path", options, () =>
+        getTaskWorktreePath(
+          resolveWorkspacePath(options.workspace),
+          task,
+          { pick: interactivePicker() },
+          commandContext,
+        ),
+      );
+    },
+  );
+
+  addOutputOptions(
+    addWorkspaceOption(
+      worktree
+        .command("open")
+        .summary("Open a task worktree in an editor, then print its root")
+        .description(
+          "Open a task worktree in an editor (--editor, else $MAESTRO_EDITOR, else spec.execution.worktrees.editor, else vscode), then print its absolute root on stdout. The report goes to stderr. Without a task, pick one interactively.",
+        )
+        .argument("[task]", "task name, or @root for the main workspace")
+        .option(
+          "--editor <id>",
+          "vscode, cursor, devin, phpstorm, idea, webstorm, none, or custom ($MAESTRO_EDITOR_COMMAND with {root} and {workspaceFile})",
+        )
+        .option(
+          "--create",
+          "create the task first (postCreate hooks included) when it does not exist",
+        ),
+    ),
+  ).action(
+    async (
+      task: string | undefined,
+      options: OutputOptionValues & { workspace: string; editor?: string; create?: boolean },
+    ) => {
+      await printTaskRoot("open", options, () =>
+        openTaskWorktree(
+          resolveWorkspacePath(options.workspace),
+          task,
+          { create: options.create, editor: options.editor, pick: interactivePicker() },
+          commandContext,
+        ),
+      );
+    },
+  );
+}
+
+/** The picker, only when a human can answer it. */
+function interactivePicker() {
+  return process.stdin.isTTY && process.stderr.isTTY ? pickTask : undefined;
+}
+
+/**
+ * Prints only the task root on stdout, so `cd "$(maestro worktree path …)"` works. For
+ * `open`, the report goes to stderr (human unless --format json); failures always do.
+ */
+async function printTaskRoot(
+  command: "path" | "open",
+  options: OutputOptionValues,
+  run: () => Promise<WorktreeOpenReport>,
+): Promise<void> {
+  try {
+    const report = await run();
+    if (command === "open" || report.status === "error") {
+      const format = resolveFormat({
+        formatFlag: options.format,
+        jsonFlag: options.json,
+        env: {},
+        isTTY: true,
+      });
+      createRenderer(format, {
+        reportKind: command === "open" ? "worktree-open" : "worktree-path",
+        color: options.color !== false && Boolean(process.stderr.isTTY),
+      }).render(report, process.stderr);
+    }
+    if (report.status !== "error") {
+      process.stdout.write(`${report.root}\n`);
+    }
+    process.exitCode = report.status === "error" ? 1 : 0;
+  } catch (error) {
+    process.stderr.write(
+      `maestro worktree ${command}: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
+    process.exitCode = 1;
+  }
 }

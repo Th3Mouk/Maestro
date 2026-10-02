@@ -6,6 +6,11 @@ import {
 
 export const editorWorkspaceFileName = "maestro.code-workspace";
 
+/** The editor workspace file `worktree create` writes in a task root. */
+export function getTaskEditorWorkspaceFileName(taskDirectoryName: string): string {
+  return `${taskDirectoryName}.code-workspace`;
+}
+
 interface EditorWorkspaceOptions {
   repositories: RepositoryRef[];
   workspaceName?: string;

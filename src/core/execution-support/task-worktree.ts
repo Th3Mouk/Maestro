@@ -34,6 +34,7 @@ import {
   planWorktreeHooks,
   runWorktreeHooks,
 } from "../execution/worktree-hooks.js";
+import { getTaskEditorWorkspaceFileName, renderEditorWorkspace } from "../editor-workspace.js";
 import { renderWorkspaceDescriptor, workspaceDescriptorFileName } from "../workspace-descriptor.js";
 import { getTaskWorktreesRoot } from "./worktree-root.js";
 
@@ -143,7 +144,18 @@ export async function prepareTaskWorktreeWithResolvedWorkspace(
     ...report.repositories.map((repository) => repository.name),
   ]);
 
+  const editorWorkspaceFile = getTaskEditorWorkspaceFileName(sanitizedTaskName);
   await withWorkspaceLock(taskRoot, async () => {
+    // Lists the workspace root and only the repositories this task holds.
+    await writeText(
+      path.join(taskRoot, editorWorkspaceFile),
+      renderEditorWorkspace({
+        repositories: resolvedWorkspace.repositories.filter((repository) =>
+          taskRepositoryNames.includes(repository.name),
+        ),
+        workspaceName: resolvedWorkspace.manifest.metadata.name,
+      }),
+    );
     await writeText(
       path.join(taskRoot, workspaceDescriptorFileName),
       renderWorkspaceDescriptor({
@@ -160,7 +172,10 @@ export async function prepareTaskWorktreeWithResolvedWorkspace(
       createdAt: previousMetadata?.createdAt ?? new Date().toISOString(),
       root: taskRoot,
       repositories: taskRepositoryNames,
-      generatedFiles: await fingerprintTaskRootGeneratedFiles(gitAdapter, taskRoot),
+      generatedFiles: await fingerprintTaskRootGeneratedFiles(gitAdapter, taskRoot, [
+        workspaceDescriptorFileName,
+        editorWorkspaceFile,
+      ]),
     };
     await writeJson(getTaskWorktreeMetadataPath(taskRoot), metadata);
   });
@@ -193,12 +208,13 @@ export async function prepareTaskWorktreeWithResolvedWorkspace(
 }
 
 /**
- * Records the descriptor and overlay copies that differ from the task branch right after
+ * Records the descriptor, editor workspace file, and overlay copies that differ from the task branch right after
  * Maestro wrote them, so they do not make the task look dirty to `remove` and `prune`.
  */
 async function fingerprintTaskRootGeneratedFiles(
   gitAdapter: ExecutionSupportGitAdapter,
   taskRoot: string,
+  generatedRootFiles: string[],
 ): Promise<TaskWorktreeMetadata["generatedFiles"]> {
   if (!(await gitAdapter.hasGitMetadata(taskRoot))) {
     return undefined;
@@ -208,7 +224,7 @@ async function fingerprintTaskRootGeneratedFiles(
     taskRoot,
     changes.filter(
       (relativePath) =>
-        relativePath === workspaceDescriptorFileName || isWorkspaceOverlayPath(relativePath),
+        generatedRootFiles.includes(relativePath) || isWorkspaceOverlayPath(relativePath),
     ),
   );
 }

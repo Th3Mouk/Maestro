@@ -8,6 +8,7 @@ import { formatWorktreeCreateReport } from "./human/worktree-create.js";
 import { formatWorktreeRemoveReport } from "./human/worktree-remove.js";
 import { formatWorktreeListReport } from "./human/worktree-list.js";
 import { formatWorktreePruneReport } from "./human/worktree-prune.js";
+import { formatWorktreeOpenReport } from "./human/worktree-open.js";
 import { formatRepoListReport } from "./human/repo-list.js";
 import { formatWorkspaceGitReport } from "./human/workspace-git.js";
 import type {
@@ -18,6 +19,7 @@ import type {
   TaskWorktreeReport,
   WorkspaceGitReport,
   WorktreeListReport,
+  WorktreeOpenReport,
   WorktreePruneReport,
   WorktreeRemoveReport,
 } from "../../report/types.js";
@@ -30,6 +32,8 @@ export type HumanReportKind =
   | "worktree-remove"
   | "worktree-list"
   | "worktree-prune"
+  | "worktree-open"
+  | "worktree-path"
   | "repo-list"
   | "workspace-git";
 
@@ -83,6 +87,10 @@ export class HumanRenderer implements Renderer {
         return formatWorktreeListReport(report as WorktreeListReport, this.ctx);
       case "worktree-prune":
         return formatWorktreePruneReport(report as WorktreePruneReport, this.ctx);
+      case "worktree-open":
+        return formatWorktreeOpenReport(report as WorktreeOpenReport, this.ctx);
+      case "worktree-path":
+        return formatWorktreeOpenReport(report as WorktreeOpenReport, this.ctx, "path");
       case "repo-list":
         return formatRepoListReport(report as RepoListReport, this.ctx);
       case "workspace-git":

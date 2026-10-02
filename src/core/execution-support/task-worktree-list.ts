@@ -17,7 +17,7 @@ import { getTaskWorktreesRoot } from "./worktree-root.js";
 
 const FORGE_CONCURRENCY_LIMIT = 4;
 
-type ListGitAdapter = CheckoutStateGitAdapter & {
+export type TaskWorktreeListGitAdapter = CheckoutStateGitAdapter & {
   getRemoteUrl: (repoRoot: string) => Promise<string>;
   readUpstreamBranch: (repoRoot: string, branchName: string) => Promise<string | undefined>;
 };
@@ -28,7 +28,7 @@ export async function listTaskWorktreesWithResolvedWorkspace(
   options: { forge?: ForgeName | "none"; status?: boolean } = {},
   context?: {
     forgeClients?: Partial<Record<ForgeName, ForgeClient>>;
-    gitAdapter: ListGitAdapter;
+    gitAdapter: TaskWorktreeListGitAdapter;
   },
 ): Promise<WorktreeListReport> {
   const worktreesRoot = getTaskWorktreesRoot(workspaceRoot, resolvedWorkspace);

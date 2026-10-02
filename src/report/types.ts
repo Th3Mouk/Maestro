@@ -143,6 +143,21 @@ export interface WorktreePruneReport {
   issues: Array<{ code: string; message: string; path?: string }>;
 }
 
+/** `worktree path` and `worktree open`: the resolved task root, and what was launched. */
+export interface WorktreeOpenReport {
+  status: ReportStatus;
+  workspace: string;
+  /** The task, or `@root` for the main workspace. */
+  name: string;
+  root: string;
+  /** With `open`: the editor id, and the command that launched it (absent for `none`). */
+  editor?: string;
+  launch?: string;
+  /** With `open --create`: the task did not exist and was created first. */
+  created?: TaskWorktreeReport;
+  issues: Array<{ code: string; message: string; path?: string }>;
+}
+
 export interface RepoListReport {
   status: ReportStatus;
   workspace: string;

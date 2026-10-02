@@ -1,6 +1,6 @@
 import path from "node:path";
 import { Command } from "commander";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { registerWorktreeCommand } from "../../src/cli/program/commands/register-worktree-command.js";
 import { createCommandContextFixture } from "../utils/test-doubles.js";
 import type { CommandContext } from "../../src/cli/program/commands/command-types.js";
@@ -9,12 +9,16 @@ import type { OutputOptionValues } from "../../src/cli/program/shared-options.js
 
 const {
   createTaskWorktree,
+  getTaskWorktreePath,
   listTaskWorktrees,
+  openTaskWorktree,
   pruneTaskWorktrees,
   removeTaskWorktree,
   runReportAction,
 } = vi.hoisted(() => ({
   createTaskWorktree: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  getTaskWorktreePath: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
+  openTaskWorktree: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   listTaskWorktrees: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   pruneTaskWorktrees: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
   removeTaskWorktree: vi.fn<(...args: unknown[]) => Promise<unknown>>(),
@@ -31,6 +35,8 @@ const {
 
 vi.mock("../../src/core/commands/execution.js", () => ({
   createTaskWorktree,
+  getTaskWorktreePath,
+  openTaskWorktree,
   listTaskWorktrees,
   pruneTaskWorktrees,
   removeTaskWorktree,
@@ -238,5 +244,93 @@ describe("registerWorktreeCommand", () => {
     await program.parseAsync(["worktree", "prune", "--workspace", "./ws"], { from: "user" });
 
     expect(pruneTaskWorktrees.mock.calls[0]?.[1]).toMatchObject({ fetch: true, dryRun: false });
+  });
+
+  describe("path and open", () => {
+    let stdout: string[];
+    let stderr: string[];
+
+    beforeEach(() => {
+      stdout = [];
+      stderr = [];
+      vi.spyOn(process.stdout, "write").mockImplementation((chunk) => {
+        stdout.push(String(chunk));
+        return true;
+      });
+      vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
+        stderr.push(String(chunk));
+        return true;
+      });
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      process.exitCode = undefined;
+    });
+
+    test("path prints only the root on stdout", async () => {
+      getTaskWorktreePath.mockResolvedValue({
+        status: "ok",
+        workspace: "ws",
+        name: "a",
+        root: "/ws/worktrees/a",
+        issues: [],
+      });
+
+      await buildProgram(createCommandContextFixture()).parseAsync(
+        ["worktree", "path", "a", "--workspace", "./ws"],
+        { from: "user" },
+      );
+
+      expect(stdout.join("")).toBe("/ws/worktrees/a\n");
+      expect(stderr.join("")).toBe("");
+      expect(process.exitCode).toBe(0);
+    });
+
+    test("a failing path writes the issue to stderr and nothing to stdout", async () => {
+      getTaskWorktreePath.mockResolvedValue({
+        status: "error",
+        workspace: "ws",
+        name: "",
+        root: "",
+        issues: [{ code: "TASK_REQUIRED", message: "Name the task." }],
+      });
+
+      await buildProgram(createCommandContextFixture()).parseAsync(
+        ["worktree", "path", "--workspace", "./ws"],
+        { from: "user" },
+      );
+
+      expect(stdout.join("")).toBe("");
+      expect(stderr.join("")).toContain("TASK_REQUIRED");
+      expect(process.exitCode).toBe(1);
+    });
+
+    test("open forwards --editor and --create, reports on stderr, and prints the root", async () => {
+      const commandContext = createCommandContextFixture();
+      openTaskWorktree.mockResolvedValue({
+        status: "ok",
+        workspace: "ws",
+        name: "a",
+        root: "/ws/worktrees/a",
+        editor: "cursor",
+        launch: "cursor /ws/worktrees/a/a.code-workspace",
+        issues: [],
+      });
+
+      await buildProgram(commandContext).parseAsync(
+        ["worktree", "open", "a", "--workspace", "./ws", "--editor", "cursor", "--create"],
+        { from: "user" },
+      );
+
+      expect(openTaskWorktree).toHaveBeenCalledWith(
+        path.resolve(process.cwd(), "./ws"),
+        "a",
+        expect.objectContaining({ create: true, editor: "cursor" }),
+        commandContext,
+      );
+      expect(stdout.join("")).toBe("/ws/worktrees/a\n");
+      expect(stderr.join("")).toContain("worktree open a: ok");
+    });
   });
 });
