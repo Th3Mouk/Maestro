@@ -5,6 +5,8 @@ export default defineConfig({
     clearMocks: true,
     environment: "node",
     include: ["tests/**/*.test.ts"],
+    // Integration tests drive real Git repositories; 5 s is too tight on a loaded runner.
+    testTimeout: 30_000,
     coverage: {
       enabled: false,
       provider: "v8",
