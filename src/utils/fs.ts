@@ -1,4 +1,14 @@
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  realpath,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import type { Dirent } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -39,6 +49,21 @@ function sortValue(value: unknown): unknown {
   }
 
   return value;
+}
+
+/**
+ * The real path of `target`, symlinks resolved. When `target` does not exist, its closest
+ * existing parent is resolved instead, so paths Git prints (always resolved) still compare.
+ */
+export async function resolveRealPath(target: string): Promise<string> {
+  try {
+    return await realpath(target);
+  } catch {
+    const parent = path.dirname(target);
+    return parent === target
+      ? target
+      : path.join(await resolveRealPath(parent), path.basename(target));
+  }
 }
 
 export async function pathExists(target: string): Promise<boolean> {

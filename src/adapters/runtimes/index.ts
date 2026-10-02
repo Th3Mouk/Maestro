@@ -193,42 +193,127 @@ class LayoutRuntimeProjector implements RuntimeProjector {
     }
 
     if (this.name === "claude-code") {
-      await projectClaudePluginSettings(workspaceRoot, resolvedWorkspace);
+      await projectClaudeSettings(workspaceRoot, resolvedWorkspace, projection);
     }
   }
 }
 
+/** The `.claude/settings.json` hook entries Maestro owns when `worktreeHooks` is on. */
+export const claudeWorktreeHookCommands = {
+  WorktreeCreate: "maestro worktree hook claude-create",
+  WorktreeRemove: "maestro worktree hook claude-remove",
+} as const;
+
+// `postCreate` hooks may seed large dependency trees.
+const claudeWorktreeHookTimeoutSeconds = 600;
+
 /**
- * Merges plugin keys into `.claude/settings.json` without owning the file: permissions,
- * hooks, MCP, and everything else a team versions there stay untouched.
+ * Merges plugin keys and the worktree hooks into `.claude/settings.json` without owning the
+ * file: permissions, other hooks, MCP, and everything else a team versions there stay
+ * untouched. Turning `worktreeHooks` off removes exactly the Maestro hook entries.
  */
-async function projectClaudePluginSettings(
+async function projectClaudeSettings(
   workspaceRoot: string,
   resolvedWorkspace: ResolvedWorkspace,
+  projection: ResolvedRuntimeProjection,
 ): Promise<void> {
   const claudePlugins = resolvedWorkspace.plugins["claude-code"];
-  if (!claudePlugins?.enabled && !claudePlugins?.marketplaces) {
+  const managesPlugins = Boolean(claudePlugins?.enabled || claudePlugins?.marketplaces);
+  const settingsPath = path.join(workspaceRoot, ".claude", "settings.json");
+  const settingsExist = await pathExists(settingsPath);
+  if (!managesPlugins && !projection.worktreeHooks && !settingsExist) {
     return;
   }
 
-  const settingsPath = path.join(workspaceRoot, ".claude", "settings.json");
-  const settings = (await pathExists(settingsPath))
-    ? parseSettings(await readFile(settingsPath, "utf8"), settingsPath)
-    : {};
+  const original = settingsExist ? await readFile(settingsPath, "utf8") : undefined;
+  const settings = original === undefined ? {} : parseSettings(original, settingsPath);
 
-  // Markers written by Maestro <= 0.5 into a file it used to own outright.
-  if (settings.generated === true) {
-    delete settings.generated;
-    delete settings.workspace;
-  }
-  if (claudePlugins.enabled) {
-    settings.enabledPlugins = claudePlugins.enabled;
-  }
-  if (claudePlugins.marketplaces) {
-    settings.extraKnownMarketplaces = claudePlugins.marketplaces;
+  if (managesPlugins) {
+    // Markers written by Maestro <= 0.5 into a file it used to own outright.
+    if (settings.generated === true) {
+      delete settings.generated;
+      delete settings.workspace;
+    }
+    if (claudePlugins?.enabled) {
+      settings.enabledPlugins = claudePlugins.enabled;
+    }
+    if (claudePlugins?.marketplaces) {
+      settings.extraKnownMarketplaces = claudePlugins.marketplaces;
+    }
   }
 
-  await writeJson(settingsPath, settings);
+  const hooksChanged = projection.worktreeHooks
+    ? addClaudeWorktreeHooks(settings)
+    : removeClaudeWorktreeHooks(settings);
+
+  if (managesPlugins || hooksChanged || original === undefined) {
+    await writeJson(settingsPath, settings);
+  }
+}
+
+type ClaudeHookGroup = { hooks?: Array<Record<string, unknown>>; [key: string]: unknown };
+
+function readHookGroups(settings: Record<string, unknown>, event: string): ClaudeHookGroup[] {
+  const hooks = settings.hooks;
+  if (!hooks || typeof hooks !== "object" || Array.isArray(hooks)) {
+    return [];
+  }
+  const groups = (hooks as Record<string, unknown>)[event];
+  return Array.isArray(groups) ? (groups as ClaudeHookGroup[]) : [];
+}
+
+function isMaestroHook(hook: Record<string, unknown>, command: string): boolean {
+  return hook.type === "command" && hook.command === command;
+}
+
+/** Adds each missing Maestro hook entry. Returns whether the settings changed. */
+function addClaudeWorktreeHooks(settings: Record<string, unknown>): boolean {
+  let changed = false;
+  for (const [event, command] of Object.entries(claudeWorktreeHookCommands)) {
+    const groups = readHookGroups(settings, event);
+    if (groups.some((group) => group.hooks?.some((hook) => isMaestroHook(hook, command)))) {
+      continue;
+    }
+    const hooks =
+      settings.hooks && typeof settings.hooks === "object" && !Array.isArray(settings.hooks)
+        ? (settings.hooks as Record<string, unknown>)
+        : {};
+    hooks[event] = [
+      ...groups,
+      {
+        hooks: [{ type: "command", command, timeout: claudeWorktreeHookTimeoutSeconds }],
+      },
+    ];
+    settings.hooks = hooks;
+    changed = true;
+  }
+  return changed;
+}
+
+/** Removes the Maestro hook entries, and the groups and keys they leave empty. */
+function removeClaudeWorktreeHooks(settings: Record<string, unknown>): boolean {
+  let changed = false;
+  for (const [event, command] of Object.entries(claudeWorktreeHookCommands)) {
+    const groups = readHookGroups(settings, event);
+    if (!groups.some((group) => group.hooks?.some((hook) => isMaestroHook(hook, command)))) {
+      continue;
+    }
+    const kept = groups.flatMap((group) => {
+      const hooks = group.hooks?.filter((hook) => !isMaestroHook(hook, command));
+      return hooks && hooks.length === 0 ? [] : [{ ...group, hooks }];
+    });
+    const allHooks = settings.hooks as Record<string, unknown>;
+    if (kept.length > 0) {
+      allHooks[event] = kept;
+    } else {
+      delete allHooks[event];
+    }
+    if (Object.keys(allHooks).length === 0) {
+      delete settings.hooks;
+    }
+    changed = true;
+  }
+  return changed;
 }
 
 function parseSettings(content: string, settingsPath: string): Record<string, unknown> {
@@ -240,7 +325,7 @@ function parseSettings(content: string, settingsPath: string): Record<string, un
   } catch {
     // Fall through to the shared error below.
   }
-  throw new Error(`Cannot merge plugin settings: ${settingsPath} is not a JSON object.`);
+  throw new Error(`Cannot merge Claude Code settings: ${settingsPath} is not a JSON object.`);
 }
 
 export function createBuiltInProjectors(): RuntimeProjector[] {

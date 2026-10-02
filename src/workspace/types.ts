@@ -90,6 +90,8 @@ export interface ResolvedRuntimeProjection {
   skills?: SkillAssetProjection;
   agents?: AssetProjection;
   workflows?: AssetProjection;
+  /** Claude Code only: merge the Maestro `WorktreeCreate`/`WorktreeRemove` hooks into settings. */
+  worktreeHooks?: boolean;
 }
 
 export interface ResolvedPolicy {

@@ -1,7 +1,6 @@
 import path from "node:path";
-import { realpath } from "node:fs/promises";
 import type { DoctorReport } from "../../report/types.js";
-import { resolveSafePath } from "../../utils/fs.js";
+import { resolveRealPath, resolveSafePath } from "../../utils/fs.js";
 import type { ResolvedWorkspace } from "../../workspace/types.js";
 import type { GitCommandAdapter } from "../command-context.js";
 import { errorMessage } from "../errors.js";
@@ -131,16 +130,4 @@ async function checkPrunableWorktrees(
 function isInside(candidate: string, parent: string): boolean {
   const relative = path.relative(parent, candidate);
   return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
-}
-
-async function resolveRealPath(target: string): Promise<string> {
-  try {
-    return await realpath(target);
-  } catch {
-    // A missing rootDir: resolve its closest existing parent so the prefix still matches.
-    const parent = path.dirname(target);
-    return parent === target
-      ? target
-      : path.join(await resolveRealPath(parent), path.basename(target));
-  }
 }

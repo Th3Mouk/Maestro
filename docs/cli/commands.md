@@ -156,7 +156,7 @@ Resolve packs, merge fragments, write the lockfile, initialize the workspace roo
 
 In the first-run lifecycle, `workspace install` is the command that turns the workspace contract into a usable directory. It does not run dependency bootstrap automatically. It initializes the workspace root Git repository first when the workspace is not already under Git, creates the boot commit when the repository is unborn, then materializes the repositories and leaves dependency installation to `repo bootstrap`.
 
-That projection refreshes `maestro.json` as the canonical machine-readable workspace view, while `.maestro/` stores the internal lockfile, state, and reports. It also projects skills, agents, and workflows into the directories of the runtimes enabled in `spec.runtimes`, or into the canonical layout (`.agents/skills/`, `.claude/skills/`, `.claude/workflows/`) when `spec.runtimes` is omitted. It does not write `CLAUDE.md`, `.mcp.json`, hooks, or runtime settings; it only merges declared plugin activation into `.claude/settings.json`.
+That projection refreshes `maestro.json` as the canonical machine-readable workspace view, while `.maestro/` stores the internal lockfile, state, and reports. It also projects skills, agents, and workflows into the directories of the runtimes enabled in `spec.runtimes`, or into the canonical layout (`.agents/skills/`, `.claude/skills/`, `.claude/workflows/`) when `spec.runtimes` is omitted. It does not write `CLAUDE.md`, `.mcp.json`, hooks, or runtime settings; it only merges declared plugin activation, and the Maestro worktree hooks when `runtimes.claude-code.worktreeHooks` is on, into `.claude/settings.json`.
 
 By default, projection only touches the names Maestro is about to write, so hand-placed or third-party skills, agents, and workflows already there survive (`mode: merge`). Set `mode: replace` on an asset, or `projectionMode: replace` on a runtime, to wipe the target directory on every install instead. See [Runtime projection](../manifests/workspace.md#runtime-projection).
 
@@ -389,6 +389,45 @@ spec:
 - A merged pull request makes the checkout `integrated: true` with `integratedBy: "forge"` and `pr: <number>`. Git checks set `integratedBy: "git"`. The `worktree-prune` report lists them under `mergedPullRequests: [{ item, checkout, pr }]`, and the human output reads `merged in #2028`.
 - When `gh` is missing or unauthenticated, the report gets one `FORGE_UNAVAILABLE` warning and every verdict falls back to Git alone. It is never an error.
 - Lookups run concurrently, bounded like the fetch. `list --status` still never fetches.
+
+### `worktree hook`
+
+Adapters for Claude Code's `WorktreeCreate` and `WorktreeRemove` command hooks. Claude Code replaces its own `git worktree` with these hooks for `claude --worktree <name>`, subagents with `isolation: worktree`, and background sessions. Wired to Maestro, every agent worktree becomes a task worktree, with the workspace's skills, `AGENTS.md`, and lifecycle hooks.
+
+```bash
+maestro worktree hook claude-create   # stdin {"name": ...}          → stdout: absolute task root
+maestro worktree hook claude-remove   # stdin {"worktree_path": ...} → exit 0 removed, 1 kept
+```
+
+- `claude-create` sanitizes `name` like `--task` (and rejects a name with nothing left), resolves the main workspace from the current directory (so it works from inside a task root), runs `worktree create` with its `postCreate` hooks, and prints **only** the task root on stdout, as an absolute path with every symlink resolved, which Claude Code requires. The report and the hook output go to stderr. It exits non-zero when the creation fails, and Claude Code then aborts.
+- `claude-remove` accepts only a path equal to `<rootDir>/<task>` of the resolved workspace and exits 1 for any other path. It runs `worktree remove` without `--force`: a task with uncommitted work stays, and the hook exits 1, which Claude Code reports.
+
+Set `runtimes.claude-code.worktreeHooks: true` in the manifest and `workspace install` merges both hooks into `.claude/settings.json`, following the same "merge without owning the file" rule as plugin settings:
+
+```json
+{
+  "hooks": {
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          { "type": "command", "command": "maestro worktree hook claude-create", "timeout": 600 }
+        ]
+      }
+    ],
+    "WorktreeRemove": [
+      {
+        "hooks": [
+          { "type": "command", "command": "maestro worktree hook claude-remove", "timeout": 600 }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The `timeout` is 600 seconds because `postCreate` may seed large dependency trees. Re-running install changes nothing, other keys and hooks stay untouched, and setting `worktreeHooks: false` removes exactly those two entries. The commands call `maestro` from `PATH`.
+
+Claude Code keeps a subagent's worktree when a hook created it, even when the subagent changed nothing. `maestro worktree prune` collects those tasks like any other landed task.
 
 ### Lifecycle hooks
 
