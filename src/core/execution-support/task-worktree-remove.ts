@@ -16,14 +16,32 @@ import {
   removeTaskRepositories,
   type TaskWorktreeRemoveGitAdapter,
 } from "../execution/task-worktree-removal.js";
+import {
+  listWorktreeHookCommands,
+  planWorktreeHooks,
+  runWorktreeHooks,
+  type WorktreeHookTrigger,
+} from "../execution/worktree-hooks.js";
 import { getTaskWorktreesRoot } from "./worktree-root.js";
+
+export interface TaskWorktreeRemoveOptions {
+  dryRun?: boolean;
+  force?: boolean;
+  /** `false` skips the `preRemove` hooks. */
+  hooks?: boolean;
+}
 
 export async function removeTaskWorktreeWithResolvedWorkspace(
   workspaceRoot: string,
   resolvedWorkspace: ResolvedWorkspace,
   taskName: string,
-  options: { force?: boolean; dryRun?: boolean },
-  context: { gitAdapter: TaskWorktreeRemoveGitAdapter },
+  options: TaskWorktreeRemoveOptions,
+  context: {
+    gitAdapter: TaskWorktreeRemoveGitAdapter;
+    stderr?: NodeJS.WritableStream;
+    /** `prune` when called for a task `prune` is removing. */
+    trigger?: WorktreeHookTrigger;
+  },
   concurrencyLimit: number,
 ): Promise<WorktreeRemoveReport> {
   const sanitizedTaskName = sanitizeSegment(taskName);
@@ -70,7 +88,18 @@ export async function removeTaskWorktreeWithResolvedWorkspace(
     }
   }
 
+  const hookCommands =
+    options.hooks === false ? [] : listWorktreeHookCommands(resolvedWorkspace, "preRemove");
+  const trigger = context.trigger ?? "remove";
+
   if (options.dryRun) {
+    if (hookCommands.length > 0) {
+      report.hooks = planWorktreeHooks(
+        hookCommands,
+        "preRemove",
+        trigger === "prune" ? (metadata?.name ?? taskName) : undefined,
+      );
+    }
     for (const name of repositoryNames) {
       report.repositories.push({
         name,
@@ -80,6 +109,26 @@ export async function removeTaskWorktreeWithResolvedWorkspace(
     }
     report.workspaceRootStatus = "removed";
     return report;
+  }
+
+  // The teardown runs once the safety checks passed and before anything is removed.
+  if (hookCommands.length > 0) {
+    const { failure, runs } = await runWorktreeHooks(hookCommands, {
+      hook: "preRemove",
+      stderr: context.stderr ?? process.stderr,
+      task: { name: metadata?.name ?? taskName, repositories: repositoryNames, root: taskRoot },
+      trigger,
+      workspaceRoot,
+    });
+    report.hooks = runs;
+    if (failure) {
+      report.issues.push({ code: "HOOK_FAILED", message: failure.message, path: taskRoot });
+      if (!force) {
+        report.status = "error";
+        return report;
+      }
+      report.status = escalateStatus(report.status, "warning");
+    }
   }
 
   const outcomes = await removeTaskRepositories({

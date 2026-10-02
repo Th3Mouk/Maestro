@@ -1,5 +1,9 @@
 import path from "node:path";
-import type { TaskCheckoutState, WorktreePruneReport } from "../../report/types.js";
+import type {
+  TaskCheckoutState,
+  WorktreeHookRun,
+  WorktreePruneReport,
+} from "../../report/types.js";
 import { mapWithConcurrency, pathExists, resolveSafePath } from "../../utils/fs.js";
 import { getRepositoryReferenceBranch } from "../../workspace/repositories.js";
 import type { ResolvedWorkspace } from "../../workspace/types.js";
@@ -12,6 +16,7 @@ import {
 } from "../execution/checkout-state.js";
 import { createTaskBranchName, sanitizeSegment } from "../execution/task-worktree.js";
 import type { TaskWorktreeRemoveGitAdapter } from "../execution/task-worktree-removal.js";
+import { listWorktreeHookCommands, planWorktreeHooks } from "../execution/worktree-hooks.js";
 import {
   inspectTaskWorktrees,
   listTaskWorktreeEntries,
@@ -36,6 +41,8 @@ export interface PruneOptions {
   dryRun?: boolean;
   /** `false` skips `git fetch --prune`. */
   fetch?: boolean;
+  /** `false` skips the `preRemove` hooks. */
+  hooks?: boolean;
   /** Also treat a clean branch whose upstream is gone as landed. */
   includeGone?: boolean;
 }
@@ -50,6 +57,7 @@ interface BranchSource {
 interface PruneContext {
   concurrencyLimit: number;
   gitAdapter: PruneGitAdapter;
+  stderr?: NodeJS.WritableStream;
   options: PruneOptions;
   report: WorktreePruneReport;
   resolvedWorkspace: ResolvedWorkspace;
@@ -60,12 +68,13 @@ export async function pruneTaskWorktreesWithResolvedWorkspace(
   workspaceRoot: string,
   resolvedWorkspace: ResolvedWorkspace,
   options: PruneOptions,
-  context: { gitAdapter: PruneGitAdapter },
+  context: { gitAdapter: PruneGitAdapter; stderr?: NodeJS.WritableStream },
   concurrencyLimit: number,
 ): Promise<WorktreePruneReport> {
   const prune: PruneContext = {
     concurrencyLimit,
     gitAdapter: context.gitAdapter,
+    stderr: context.stderr,
     options,
     report: {
       status: "ok",
@@ -165,6 +174,16 @@ async function pruneTask(
   if (prune.options.dryRun) {
     report.removed.push(entry.name);
     report.deletedBranches.push(...branches.map(({ name, branch }) => ({ name, branch })));
+    if (prune.options.hooks !== false) {
+      appendHookRuns(
+        report,
+        planWorktreeHooks(
+          listWorktreeHookCommands(prune.resolvedWorkspace, "preRemove"),
+          "preRemove",
+          entry.name,
+        ),
+      );
+    }
     return true;
   }
 
@@ -172,10 +191,22 @@ async function pruneTask(
     prune.workspaceRoot,
     prune.resolvedWorkspace,
     entry.directoryName,
-    {},
-    { gitAdapter: prune.gitAdapter },
+    { hooks: prune.options.hooks },
+    { gitAdapter: prune.gitAdapter, stderr: prune.stderr, trigger: "prune" },
     prune.concurrencyLimit,
   );
+  appendHookRuns(report, removal.hooks ?? []);
+  const failedHook = removal.hooks?.find((run) => run.status === "failed");
+  if (failedHook) {
+    // The teardown refused before anything was removed: the task stays whole.
+    report.status = escalateStatus(report.status, "warning");
+    report.issues.push(...removal.issues);
+    report.kept.push({
+      name: entry.name,
+      reasons: [`preRemove hook failed (exit ${failedHook.exitCode ?? "?"})`],
+    });
+    return false;
+  }
   if (removal.status !== "ok") {
     report.status = escalateStatus(report.status, "warning");
     report.issues.push(...removal.issues);
@@ -191,6 +222,12 @@ async function pruneTask(
     await deleteBranch(prune, branch);
   }
   return true;
+}
+
+function appendHookRuns(report: WorktreePruneReport, runs: WorktreeHookRun[]): void {
+  if (runs.length > 0) {
+    report.hooks = [...(report.hooks ?? []), ...runs];
+  }
 }
 
 /**

@@ -24,6 +24,16 @@ export interface BootstrapReport {
   issues: Array<{ code: string; message: string; path?: string }>;
 }
 
+/** A worktree lifecycle hook command: run, failed, or (with `--dry-run`) planned. */
+export interface WorktreeHookRun {
+  hook: "postCreate" | "preRemove";
+  command: string;
+  status: "ok" | "failed" | "planned";
+  exitCode?: number;
+  /** The task the command ran for, in a `prune` report. */
+  task?: string;
+}
+
 /** `reused`: the task branch already existed and was checked out as is, keeping its commits. */
 export type TaskWorktreeCheckoutStatus = "created" | "reused" | "unchanged";
 
@@ -38,6 +48,8 @@ export interface TaskWorktreeReport {
     branch: string;
     status: TaskWorktreeCheckoutStatus;
   }>;
+  /** Present when the workspace declares `postCreate` hooks. */
+  hooks?: WorktreeHookRun[];
   issues: Array<{ code: string; message: string; path?: string }>;
 }
 
@@ -59,6 +71,8 @@ export interface WorktreeRemoveReport {
     message?: string;
   }>;
   workspaceRootStatus: "removed" | "missing" | "skipped" | "failed";
+  /** Present when the workspace declares `preRemove` hooks. */
+  hooks?: WorktreeHookRun[];
   issues: Array<{ code: string; message: string; path?: string; changedFiles?: number }>;
 }
 
@@ -106,6 +120,8 @@ export interface WorktreePruneReport {
   deletedBranches: Array<{ name: string; branch: string }>;
   /** Tasks and orphan branches left in place, each with why. */
   kept: Array<{ name: string; reasons: string[] }>;
+  /** `preRemove` hooks run (or planned) for the removed tasks. */
+  hooks?: WorktreeHookRun[];
   issues: Array<{ code: string; message: string; path?: string }>;
 }
 

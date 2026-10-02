@@ -11,7 +11,11 @@ import type {
 } from "../../report/types.js";
 import { loadWorkspaceManifest, resolveWorkspace } from "../workspace-service.js";
 import { resolveMainWorkspaceRoot } from "../execution-support/main-workspace.js";
-import { removeTaskWorktreeWithResolvedWorkspace } from "../execution-support/task-worktree-remove.js";
+import {
+  removeTaskWorktreeWithResolvedWorkspace,
+  type TaskWorktreeRemoveOptions,
+} from "../execution-support/task-worktree-remove.js";
+import type { TaskWorktreeCreateOptions } from "../execution-support/task-worktree.js";
 import { listTaskWorktreesWithResolvedWorkspace } from "../execution-support/task-worktree-list.js";
 import {
   pruneTaskWorktreesWithResolvedWorkspace,
@@ -66,7 +70,7 @@ export async function bootstrapWorkspace(
 export async function createTaskWorktree(
   workspaceRoot: string,
   taskName: string,
-  options: { dryRun?: boolean; offline?: boolean; repos?: string[] } = {},
+  options: TaskWorktreeCreateOptions = {},
   context: CommandContext = createCommandContext(),
 ): Promise<TaskWorktreeReport> {
   const resolution = await resolveMainWorkspaceRoot(workspaceRoot);
@@ -83,6 +87,7 @@ export async function createTaskWorktree(
 
   const report = await prepareTaskWorktree(resolution.workspaceRoot, taskName, options, {
     gitAdapter: context.gitAdapter,
+    stderr: context.stderr,
   });
   return withResolutionIssue(report, resolution.issue);
 }
@@ -90,7 +95,7 @@ export async function createTaskWorktree(
 export async function removeTaskWorktree(
   workspaceRoot: string,
   taskName: string,
-  options: { force?: boolean; dryRun?: boolean } = {},
+  options: TaskWorktreeRemoveOptions = {},
   context: CommandContext = createCommandContext(),
 ): Promise<WorktreeRemoveReport> {
   const resolution = await resolveMainWorkspaceRoot(workspaceRoot);
@@ -112,7 +117,7 @@ export async function removeTaskWorktree(
     resolvedWorkspace,
     taskName,
     options,
-    { gitAdapter: context.gitAdapter },
+    { gitAdapter: context.gitAdapter, stderr: context.stderr },
     4,
   );
   return withResolutionIssue(report, resolution.issue);
@@ -166,7 +171,7 @@ export async function pruneTaskWorktrees(
     resolution.workspaceRoot,
     resolvedWorkspace,
     options,
-    { gitAdapter: context.gitAdapter },
+    { gitAdapter: context.gitAdapter, stderr: context.stderr },
     4,
   );
   return withResolutionIssue(report, resolution.issue);

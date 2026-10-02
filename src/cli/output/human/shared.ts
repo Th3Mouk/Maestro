@@ -1,6 +1,6 @@
 import Table from "cli-table3";
 import pc from "picocolors";
-import type { ReportStatus } from "../../../report/types.js";
+import type { ReportStatus, WorktreeHookRun } from "../../../report/types.js";
 
 export interface HumanFormatContext {
   color: boolean;
@@ -67,6 +67,21 @@ export function renderIssues(
     return "";
   }
   return `\nIssues:\n${issues.map((issue) => formatIssueLine(issue, ctx)).join("\n")}`;
+}
+
+export function renderHookRuns(
+  runs: ReadonlyArray<WorktreeHookRun> | undefined,
+  ctx: HumanFormatContext,
+): string {
+  if (!runs || runs.length === 0) {
+    return "";
+  }
+  const tones = { ok: "ok", failed: "error", planned: "dim" } as const;
+  const lines = runs.map((run) => {
+    const task = run.task ? ` ${dim(`[${run.task}]`, ctx)}` : "";
+    return `  - ${run.hook} ${paintStatus(run.status, tones[run.status], ctx)}: ${run.command}${task}`;
+  });
+  return `\nHooks:\n${lines.join("\n")}`;
 }
 
 export function toneForMutationStatus(

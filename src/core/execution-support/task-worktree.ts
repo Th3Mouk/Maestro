@@ -29,6 +29,11 @@ import {
   type TaskWorktreeMetadata,
 } from "../execution/task-worktree-metadata.js";
 import { isWorkspaceOverlayPath, syncWorkspaceOverlay } from "../execution/workspace-overlay.js";
+import {
+  listWorktreeHookCommands,
+  planWorktreeHooks,
+  runWorktreeHooks,
+} from "../execution/worktree-hooks.js";
 import { renderWorkspaceDescriptor, workspaceDescriptorFileName } from "../workspace-descriptor.js";
 import { getTaskWorktreesRoot } from "./worktree-root.js";
 
@@ -36,15 +41,25 @@ export type ExecutionSupportGitAdapter = TaskWorktreeGitAdapter & {
   listUncommittedChanges: (repoRoot: string) => Promise<string[]>;
 };
 
+export interface TaskWorktreeCreateOptions {
+  dryRun?: boolean;
+  /** `false` skips the `postCreate` hooks. */
+  hooks?: boolean;
+  offline?: boolean;
+  repos?: string[];
+}
+
 export async function prepareTaskWorktreeWithResolvedWorkspace(
   workspaceRoot: string,
   resolvedWorkspace: ResolvedWorkspace,
   taskName: string,
-  options: { dryRun?: boolean; offline?: boolean; repos?: string[] },
-  context: { gitAdapter: ExecutionSupportGitAdapter },
+  options: TaskWorktreeCreateOptions,
+  context: { gitAdapter: ExecutionSupportGitAdapter; stderr?: NodeJS.WritableStream },
   concurrencyLimit: number,
 ): Promise<TaskWorktreeReport> {
   const { gitAdapter } = context;
+  const hookCommands =
+    options.hooks === false ? [] : listWorktreeHookCommands(resolvedWorkspace, "postCreate");
   const sanitizedTaskName = sanitizeSegment(taskName);
   const worktrees = resolvedWorkspace.execution.worktrees;
   const taskRoot = resolveSafePath(
@@ -78,12 +93,16 @@ export async function prepareTaskWorktreeWithResolvedWorkspace(
       taskName,
       taskRoot,
     });
+    if (hookCommands.length > 0) {
+      report.hooks = planWorktreeHooks(hookCommands, "postCreate");
+    }
     return report;
   }
 
+  const taskRootExisted = await pathExists(taskRoot);
   // Read before the overlay sync, which replaces the task's `.maestro/execution/`.
   const previousMetadata = await readTaskWorktreeMetadata(taskRoot);
-  const previousRepositories = (await pathExists(taskRoot))
+  const previousRepositories = taskRootExisted
     ? await listTaskRepositoryNames(taskRoot, previousMetadata)
     : [];
 
@@ -145,6 +164,30 @@ export async function prepareTaskWorktreeWithResolvedWorkspace(
     };
     await writeJson(getTaskWorktreeMetadataPath(taskRoot), metadata);
   });
+
+  // Setup runs for a new task and when checkouts were added, not on a create that changed nothing.
+  const checkoutsAdded = report.repositories.some(
+    (repository) => repository.status !== "unchanged",
+  );
+  if (hookCommands.length > 0 && (!taskRootExisted || checkoutsAdded)) {
+    const { failure, runs } = await runWorktreeHooks(hookCommands, {
+      hook: "postCreate",
+      stderr: context.stderr ?? process.stderr,
+      task: {
+        name: previousMetadata?.name ?? taskName,
+        repositories: taskRepositoryNames,
+        root: taskRoot,
+      },
+      trigger: "create",
+      workspaceRoot,
+    });
+    report.hooks = runs;
+    if (failure) {
+      // The worktree stays: it is usable, only its setup failed.
+      report.status = escalateStatus(report.status, "warning");
+      report.issues.push({ code: "HOOK_FAILED", message: failure.message, path: taskRoot });
+    }
+  }
 
   return report;
 }

@@ -49,8 +49,9 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         .option(
           "--offline",
           "do not fetch: base new task branches on the local reference branches instead of origin",
-        ),
-      "preview without writing",
+        )
+        .option("--no-hooks", "skip the postCreate hooks"),
+      "preview without writing (lists the hooks that would run)",
     ),
   ).action(
     async (
@@ -59,6 +60,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         task: string;
         repos?: string;
         offline?: boolean;
+        hooks: boolean;
         dryRun?: boolean;
       },
     ) => {
@@ -68,6 +70,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
           options.task,
           {
             dryRun: options.dryRun,
+            hooks: options.hooks,
             offline: options.offline,
             repos: parseNameList(options.repos),
           },
@@ -88,10 +91,11 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         .requiredOption("--task <name>", "task or worktree name")
         .option(
           "--force",
-          "force removal even if worktrees have uncommitted changes (discards them)",
+          "force removal even if worktrees have uncommitted changes (discards them); preRemove hooks still run",
           false,
-        ),
-      "preview without writing",
+        )
+        .option("--no-hooks", "skip the preRemove hooks"),
+      "preview without writing (lists the hooks that would run)",
     ),
   ).action(
     async (
@@ -99,6 +103,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         workspace: string;
         task: string;
         force?: boolean;
+        hooks: boolean;
         dryRun?: boolean;
       },
     ) => {
@@ -106,7 +111,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         removeTaskWorktree(
           resolveWorkspacePath(options.workspace),
           options.task,
-          { force: options.force, dryRun: options.dryRun },
+          { force: options.force, dryRun: options.dryRun, hooks: options.hooks },
           commandContext,
         ),
       );
@@ -149,8 +154,9 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
           "also prune clean branches whose upstream was deleted (a deleted remote branch is not proof the work landed)",
         )
         .option("--branches", "also delete orphan task branches that no task worktree holds")
-        .option("--no-fetch", "skip `git fetch --prune` on the workspace and each repository"),
-      "print the plan without removing anything",
+        .option("--no-fetch", "skip `git fetch --prune` on the workspace and each repository")
+        .option("--no-hooks", "skip the preRemove hooks of the removed tasks"),
+      "print the plan, hooks included, without removing anything",
     ),
   ).action(
     async (
@@ -160,6 +166,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         includeGone?: boolean;
         branches?: boolean;
         fetch: boolean;
+        hooks: boolean;
       },
     ) => {
       await runReportAction(options, "worktree-prune", () =>
@@ -169,6 +176,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
             branches: options.branches,
             dryRun: options.dryRun,
             fetch: options.fetch,
+            hooks: options.hooks,
             includeGone: options.includeGone,
           },
           commandContext,

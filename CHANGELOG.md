@@ -5,6 +5,14 @@ All notable changes to `@th3mouk/maestro` will be documented in this file.
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0]
+
+After 0.7.0, workspaces still wrapped Maestro in their own scripts to seed and tear down a task, open it, `cd` into it, list it readably, and clean it up. This release moves that workflow into Maestro, and leaves workspaces only their infrastructure, plugged in through hooks.
+
+### Added
+
+- Worktree lifecycle hooks: `spec.execution.worktrees.hooks.postCreate` and `hooks.preRemove` (and pack `provides.hooks.worktreePostCreate` / `worktreePreRemove`, which run first) are shell commands run with `sh -c` from the main workspace root, with `MAESTRO_TASK`, `MAESTRO_TASK_ROOT`, `MAESTRO_WORKSPACE_ROOT`, `MAESTRO_TASK_REPOSITORIES`, `MAESTRO_HOOK`, and `MAESTRO_TRIGGER` in their environment. `postCreate` runs after `create` writes the task metadata, including when `--repos` adds repositories; a failure is a `HOOK_FAILED` warning and the worktree stays. `preRemove` runs in `remove` and `prune` after the safety checks and before anything is removed; a failure aborts that task's removal (`remove` fails, `prune` keeps it with `preRemove hook failed (exit N)`), except under `remove --force`, where it is a warning. `--no-hooks` skips them, `--dry-run` lists them as planned, and their output goes to stderr prefixed with the hook name. This replaces running `prune --dry-run --json`, tearing down, then `prune`, where a task that became dirty in between lost its databases but kept its worktree.
+
 ## [0.7.0]
 
 Claude Code's `WorktreeCreate`/`WorktreeRemove` hooks and workspace navigators now route every agent and human worktree through `maestro worktree`, so its safety and its cost apply to every session and subagent. This release makes `remove` and `create` unable to lose work, lets a task check out only the repositories it touches, bases new task branches on fresh default refs, and adds `list --status` and `prune` to clean up the tasks whose work has landed.

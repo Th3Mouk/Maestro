@@ -118,6 +118,8 @@ export const packManifestSchema = z.object({
           .object({
             install: z.array(z.string()).optional(),
             validate: z.array(z.string()).optional(),
+            worktreePostCreate: z.array(z.string().min(1)).optional(),
+            worktreePreRemove: z.array(z.string().min(1)).optional(),
           })
           .optional(),
       })
