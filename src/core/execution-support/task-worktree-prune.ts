@@ -17,6 +17,13 @@ import {
 import { createTaskBranchName, sanitizeSegment } from "../execution/task-worktree.js";
 import type { TaskWorktreeRemoveGitAdapter } from "../execution/task-worktree-removal.js";
 import { listWorktreeHookCommands, planWorktreeHooks } from "../execution/worktree-hooks.js";
+import type { ForgeClient, ForgeName } from "../../adapters/forge/github-forge.js";
+import {
+  applyForgeIntegration,
+  needsForgeLookup,
+  resolveForge,
+  type ForgeLookup,
+} from "../execution/forge-integration.js";
 import {
   createForeignDirectoryIssue,
   inspectTaskWorktrees,
@@ -28,6 +35,8 @@ import { getTaskWorktreesRoot } from "./worktree-root.js";
 
 type PruneGitAdapter = CheckoutStateGitAdapter &
   TaskWorktreeRemoveGitAdapter & {
+    getRemoteUrl: (repoRoot: string) => Promise<string>;
+    readUpstreamBranch: (repoRoot: string, branchName: string) => Promise<string | undefined>;
     deleteBranch: (repoRoot: string, branchName: string) => Promise<void>;
     fetch: (repoRoot: string) => Promise<void>;
     listTaskBranches: (
@@ -42,6 +51,8 @@ export interface PruneOptions {
   dryRun?: boolean;
   /** `false` skips `git fetch --prune`. */
   fetch?: boolean;
+  /** Asks this forge about branches whose upstream is gone; `none` turns the manifest's off. */
+  forge?: ForgeName | "none";
   /** `false` skips the `preRemove` hooks. */
   hooks?: boolean;
   /** Also treat a clean branch whose upstream is gone as landed. */
@@ -59,6 +70,7 @@ interface BranchSource {
 
 interface PruneContext {
   concurrencyLimit: number;
+  forgeClients?: Partial<Record<ForgeName, ForgeClient>>;
   gitAdapter: PruneGitAdapter;
   stderr?: NodeJS.WritableStream;
   options: PruneOptions;
@@ -71,11 +83,16 @@ export async function pruneTaskWorktreesWithResolvedWorkspace(
   workspaceRoot: string,
   resolvedWorkspace: ResolvedWorkspace,
   options: PruneOptions,
-  context: { gitAdapter: PruneGitAdapter; stderr?: NodeJS.WritableStream },
+  context: {
+    forgeClients?: Partial<Record<ForgeName, ForgeClient>>;
+    gitAdapter: PruneGitAdapter;
+    stderr?: NodeJS.WritableStream;
+  },
   concurrencyLimit: number,
 ): Promise<WorktreePruneReport> {
   const prune: PruneContext = {
     concurrencyLimit,
+    forgeClients: context.forgeClients,
     gitAdapter: context.gitAdapter,
     stderr: context.stderr,
     options,
@@ -128,6 +145,16 @@ export async function pruneTaskWorktreesWithResolvedWorkspace(
     resolvedWorkspace,
     workspaceRoot,
   });
+  await applyForge(
+    prune,
+    checkouts
+      .flat()
+      .flatMap((state) =>
+        state.branch && needsForgeLookup(state)
+          ? [{ branch: state.branch, repoRoot: state.path, state }]
+          : [],
+      ),
+  );
 
   const keptTaskDirectories = new Set<string>();
   for (const [index, entry] of entries.entries()) {
@@ -256,7 +283,19 @@ async function pruneTask(
   }
 
   const branches = listVerifiedTaskBranches(prune, entry, checkouts);
+  const recordEvidence = () => {
+    for (const checkout of checkouts) {
+      if (checkout.integratedBy === "forge" && checkout.pr !== undefined) {
+        recordMergedPullRequest(report, {
+          item: entry.name,
+          checkout: checkout.name,
+          pr: checkout.pr,
+        });
+      }
+    }
+  };
   if (prune.options.dryRun) {
+    recordEvidence();
     report.removed.push(entry.name);
     report.deletedBranches.push(...branches.map(({ name, branch }) => ({ name, branch })));
     if (prune.options.hooks !== false) {
@@ -302,6 +341,7 @@ async function pruneTask(
     return false;
   }
 
+  recordEvidence();
   report.removed.push(entry.name);
   for (const branch of branches) {
     await deleteBranch(prune, branch);
@@ -387,17 +427,64 @@ async function pruneOrphanBranches(
     referenceBranch: source.referenceBranch,
     sourceRoot: source.root,
   });
+  const states: Array<{ branch: string; state: OrphanBranchState }> = [];
   for (const { branch } of orphans) {
-    const state = await prune.gitAdapter.inspectRef(source.root, referenceRef, branch);
-    const reason = describeUnprunableWork({ ...state, dirty: false }, source.name, {
+    const refState = await prune.gitAdapter.inspectRef(source.root, referenceRef, branch);
+    states.push({ branch, state: { ...refState, dirty: false } });
+  }
+  await applyForge(
+    prune,
+    states.flatMap(({ branch, state }) =>
+      needsForgeLookup(state) ? [{ branch, repoRoot: source.root, state }] : [],
+    ),
+  );
+
+  for (const { branch, state } of states) {
+    const reason = describeUnprunableWork(state, source.name, {
       includeGone: prune.options.includeGone ?? false,
     });
     if (reason) {
       prune.report.kept.push({ name: branch, reasons: [reason] });
-    } else if (prune.options.dryRun) {
+      continue;
+    }
+    if (state.integratedBy === "forge" && state.pr !== undefined) {
+      recordMergedPullRequest(prune.report, { item: branch, checkout: source.name, pr: state.pr });
+    }
+    if (prune.options.dryRun) {
       prune.report.deletedBranches.push({ name: source.name, branch });
     } else {
       await deleteBranch(prune, { branch, name: source.name, root: source.root });
     }
   }
+}
+
+type OrphanBranchState = Pick<
+  TaskCheckoutState,
+  "branch" | "dirty" | "integrated" | "integratedBy" | "localOnly" | "pr" | "upstream"
+>;
+
+/** Runs the forge lookups when a forge is configured, and reports it once if unavailable. */
+async function applyForge(prune: PruneContext, lookups: ForgeLookup[]): Promise<void> {
+  const forge = resolveForge(prune.options.forge, prune.resolvedWorkspace);
+  const client = forge ? prune.forgeClients?.[forge] : undefined;
+  if (!forge || !client || lookups.length === 0) {
+    return;
+  }
+  const issue = await applyForgeIntegration(lookups, {
+    client,
+    concurrencyLimit: prune.concurrencyLimit,
+    forge,
+    gitAdapter: prune.gitAdapter,
+  });
+  if (issue && !prune.report.issues.some((existing) => existing.code === issue.code)) {
+    prune.report.status = escalateStatus(prune.report.status, "warning");
+    prune.report.issues.push(issue);
+  }
+}
+
+function recordMergedPullRequest(
+  report: WorktreePruneReport,
+  entry: { checkout: string; item: string; pr: number },
+): void {
+  report.mergedPullRequests = [...(report.mergedPullRequests ?? []), entry];
 }

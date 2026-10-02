@@ -63,6 +63,16 @@ export class GitCheckoutInspector {
       .filter(({ branch }) => branch.split("/").length === 3);
   }
 
+  /** The remote branch `branch` tracks (`refs/heads/` stripped), even when it is gone. */
+  async upstreamBranch(repoRoot: string, branch: string): Promise<string | undefined> {
+    const output = await gitOutput(repoRoot, [
+      "for-each-ref",
+      "--format=%(upstream:remoteref)",
+      `refs/heads/${branch}`,
+    ]);
+    return output.replace(/^refs\/heads\//, "") || undefined;
+  }
+
   async #currentBranch(repoRoot: string): Promise<string | null> {
     const { exitCode, stdout } = await git(repoRoot, [
       "symbolic-ref",

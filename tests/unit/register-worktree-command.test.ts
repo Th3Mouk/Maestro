@@ -143,6 +143,36 @@ describe("registerWorktreeCommand", () => {
     );
   });
 
+  test("--forge is forwarded to list and prune, and rejects unknown forges", async () => {
+    const commandContext = createCommandContextFixture();
+    const program = buildProgram(commandContext);
+
+    await program.parseAsync(
+      ["worktree", "list", "--workspace", "./ws", "--status", "--forge", "github"],
+      { from: "user" },
+    );
+    await program.parseAsync(["worktree", "prune", "--workspace", "./ws", "--forge", "none"], {
+      from: "user",
+    });
+
+    expect(listTaskWorktrees).toHaveBeenCalledWith(
+      path.resolve(process.cwd(), "./ws"),
+      { forge: "github", status: true },
+      commandContext,
+    );
+    expect(pruneTaskWorktrees).toHaveBeenCalledWith(
+      path.resolve(process.cwd(), "./ws"),
+      expect.objectContaining({ forge: "none" }),
+      commandContext,
+    );
+    await expect(
+      buildProgram(commandContext).parseAsync(
+        ["worktree", "prune", "--workspace", "./ws", "--forge", "gitlab"],
+        { from: "user" },
+      ),
+    ).rejects.toThrow(/Allowed choices/);
+  });
+
   test("--no-hooks is forwarded as hooks: false", async () => {
     const commandContext = createCommandContextFixture();
     const program = buildProgram(commandContext);

@@ -4,6 +4,12 @@ import { execa } from "execa";
 import type { ForeignDirectory, TaskCheckoutState } from "../../report/types.js";
 import { listDirectories, mapWithConcurrency } from "../../utils/fs.js";
 import type { ResolvedWorkspace } from "../../workspace/types.js";
+import type { ForgeClient, ForgeName } from "../../adapters/forge/github-forge.js";
+import {
+  applyForgeIntegration,
+  needsForgeLookup,
+  type ForgeLookup,
+} from "../execution/forge-integration.js";
 import {
   computeCheckoutState,
   listTaskCheckoutTargets,
@@ -134,4 +140,30 @@ export async function inspectTaskWorktrees(
     }
   });
   return perTask;
+}
+
+/**
+ * Asks the forge about the checkouts whose upstream is gone and whose work Git could not
+ * find in the reference branch. Returns the `FORGE_UNAVAILABLE` issue, if any.
+ */
+export async function applyForgeToTaskCheckouts(
+  checkouts: TaskCheckoutState[][],
+  options: {
+    client: ForgeClient;
+    concurrencyLimit: number;
+    forge: ForgeName;
+    gitAdapter: Parameters<typeof applyForgeIntegration>[1]["gitAdapter"];
+  },
+): Promise<{ code: string; message: string } | undefined> {
+  const lookups: ForgeLookup[] = checkouts
+    .flat()
+    .flatMap((state) =>
+      state.branch && needsForgeLookup(state)
+        ? [{ branch: state.branch, repoRoot: state.path, state }]
+        : [],
+    );
+  if (lookups.length === 0) {
+    return undefined;
+  }
+  return applyForgeIntegration(lookups, options);
 }

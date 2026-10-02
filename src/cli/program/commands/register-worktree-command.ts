@@ -1,4 +1,4 @@
-import type { Command } from "commander";
+import { Option, type Command } from "commander";
 import {
   createTaskWorktree,
   listTaskWorktrees,
@@ -134,17 +134,31 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         .option(
           "--status",
           "inspect each checkout: branch, uncommitted changes, local-only commits, upstream, integration, and whether prune would remove the task",
+        )
+        .addOption(
+          new Option(
+            "--forge <name>",
+            "ask the forge whether branches whose upstream is gone were merged (github), or turn spec.execution.worktrees.forge off (none)",
+          ).choices(["github", "none"]),
         ),
     ),
-  ).action(async (options: OutputOptionValues & { workspace: string; status?: boolean }) => {
-    await runReportAction(options, "worktree-list", () =>
-      listTaskWorktrees(
-        resolveWorkspacePath(options.workspace),
-        { status: options.status },
-        commandContext,
-      ),
-    );
-  });
+  ).action(
+    async (
+      options: OutputOptionValues & {
+        workspace: string;
+        status?: boolean;
+        forge?: "github" | "none";
+      },
+    ) => {
+      await runReportAction(options, "worktree-list", () =>
+        listTaskWorktrees(
+          resolveWorkspacePath(options.workspace),
+          { forge: options.forge, status: options.status },
+          commandContext,
+        ),
+      );
+    },
+  );
 
   addOutputOptions(
     addWorkspaceAndDryRunOptions(
@@ -164,6 +178,12 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
           collectTaskName,
         )
         .option("--branches", "also delete orphan task branches that no task worktree holds")
+        .addOption(
+          new Option(
+            "--forge <name>",
+            "ask the forge whether branches whose upstream is gone were merged (github), or turn spec.execution.worktrees.forge off (none)",
+          ).choices(["github", "none"]),
+        )
         .option("--no-fetch", "skip `git fetch --prune` on the workspace and each repository")
         .option("--no-hooks", "skip the preRemove hooks of the removed tasks"),
       "print the plan, hooks included, without removing anything",
@@ -177,6 +197,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         branches?: boolean;
         fetch: boolean;
         hooks: boolean;
+        forge?: "github" | "none";
         task?: string[];
       },
     ) => {
@@ -187,6 +208,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
             branches: options.branches,
             dryRun: options.dryRun,
             fetch: options.fetch,
+            forge: options.forge,
             hooks: options.hooks,
             includeGone: options.includeGone,
             tasks: options.task,

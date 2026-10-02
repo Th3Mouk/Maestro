@@ -25,14 +25,22 @@ export function formatWorktreePruneReport(
   }
 
   const table = makeTable(["Item", "Action", "Detail"], [36, 16, 56]);
+  const mergedIn = (item: string, checkout?: string) =>
+    (report.mergedPullRequests ?? [])
+      .filter((entry) => entry.item === item && (!checkout || entry.checkout === checkout))
+      .map((entry) => `${checkout ? "" : `${entry.checkout} `}merged in #${entry.pr}`);
   for (const name of report.removed) {
-    table.push([name, paintStatus(report.dryRun ? "remove" : "removed", "ok", ctx), "task"]);
+    table.push([
+      name,
+      paintStatus(report.dryRun ? "remove" : "removed", "ok", ctx),
+      ["task", ...mergedIn(name)].join("; "),
+    ]);
   }
   for (const { name, branch } of report.deletedBranches) {
     table.push([
       branch,
       paintStatus(report.dryRun ? "delete" : "deleted", "ok", ctx),
-      `branch in ${name}`,
+      [`branch in ${name}`, ...mergedIn(branch, name)].join("; "),
     ]);
   }
   for (const { name, reasons } of report.kept) {

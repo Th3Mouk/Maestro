@@ -27,6 +27,8 @@ export const worktreeExecutionSchema = z.object({
   rootDir: z.string().optional(),
   branchPrefix: z.string().optional(),
   hooks: worktreeHooksSchema.optional(),
+  /** Asks this forge whether a branch whose upstream is gone was merged. */
+  forge: z.enum(["github"]).optional(),
 });
 
 export const workspaceExecutionSchema = z.object({

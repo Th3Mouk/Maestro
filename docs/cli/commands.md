@@ -329,7 +329,7 @@ maestro worktree list --status
 | `upstream`   | `tracking`, `gone` (an upstream is configured but its remote branch was deleted), or `none`.                                                                                                                                            |
 | `integrated` | The branch's work is in the reference branch: its tip is an ancestor of `origin/<reference>`, or the squash of `merge-base..tip` is patch-equivalent to a commit on it. The squash check catches branches merged by squash and deleted. |
 
-`prunable` applies the `worktree prune` rule below without `--include-gone`.
+`prunable` applies the `worktree prune` rule below without `--include-gone`. With `--forge github` (or `spec.execution.worktrees.forge: github`), the forge is also asked about checkouts whose upstream is gone, as described under [forge-backed integration](#forge-backed-integration).
 
 A directory under `rootDir` without `.maestro/execution/worktree.json` was not created by `maestro worktree create`. `list` reports it under `foreign: [{ path, kind, source }]`, where `kind` is `git-worktree` (with `source`, the repository it belongs to), `git-repository`, or `directory`, and never as a task. `remove` and `prune` never touch it and report a `WORKTREE_FOREIGN` issue instead.
 
@@ -362,11 +362,33 @@ maestro worktree prune --task release-prep --dry-run
 - `--include-gone` also treats a clean checkout whose `upstream` is `gone` as landed. This covers squash merges the patch comparison misses, for example after conflict resolution. It is off by default, because a deleted remote branch is not proof the work landed.
 - Prunable tasks are removed through the same path as `worktree remove`, then the task branches their checkouts had checked out are deleted with `git branch -D`.
 - `--branches` also deletes orphan task branches: branches matching `<branchPrefix>/*/*` that no worktree has checked out and whose task is gone, under the same rule. Branches holding unintegrated commits are kept and listed.
+- `--forge github` (or `spec.execution.worktrees.forge: github`) asks the forge about the branches Git could not place; see [forge-backed integration](#forge-backed-integration). `--forge none` turns the manifest setting off for one run.
 - `--task <name>` (repeatable) restricts `prune` to those tasks: only the workspace and their repositories are fetched, and the other tasks are neither inspected nor touched. With `--branches`, only the orphan branches of those task names (`<branchPrefix>/<name>/*`) are considered. A name with no task directory (and, with `--branches`, no task branch) fails the command with `WORKTREE_NOT_FOUND` before anything is fetched or removed. Use it to check or clean up one task, or to try a workspace's `preRemove` hooks on one task.
 - `--dry-run` prints the plan, writing nothing but the fetched remote-tracking refs: the tasks it would remove, the branches it would delete, and the kept items.
 - The primary clones' checked-out branches are never touched.
 
 The `worktree-prune` report has the shape `{ removed: [...], deletedBranches: [{ name, branch }], kept: [{ name, reasons: [...] }], hooks, issues }`, where reasons read like `dirty: foods` or `2 local-only commits in platform-api`. `prune` only handles worktrees and branches; workspaces that own containers, databases, or proxy routes per task tear them down from a `preRemove` hook (below), which `prune` runs for each task it removes.
+
+### Forge-backed integration
+
+The patch comparison misses a squash merge once the reference branch changed the same lines afterwards: the branch's upstream is gone, its work is on the reference branch, but no single commit there is patch-equivalent to it. Asking the forge settles it.
+
+```bash
+maestro worktree list --status --forge github
+maestro worktree prune --forge github
+```
+
+```yaml
+spec:
+  execution:
+    worktrees:
+      forge: github
+```
+
+- For each checkout (and, with `prune --branches`, each orphan branch) whose `upstream` is `gone`, that is not `integrated`, and that holds local-only commits, Maestro asks the forge for a merged pull request whose head was the upstream branch. With GitHub, it runs `gh pr list --repo <owner/repo> --head <branch> --state merged --json number,mergedAt`, using your own `gh` authentication; `owner/repo` comes from the repository's `origin` URL, and a remote that is not on GitHub is not looked up.
+- A merged pull request makes the checkout `integrated: true` with `integratedBy: "forge"` and `pr: <number>`. Git checks set `integratedBy: "git"`. The `worktree-prune` report lists them under `mergedPullRequests: [{ item, checkout, pr }]`, and the human output reads `merged in #2028`.
+- When `gh` is missing or unauthenticated, the report gets one `FORGE_UNAVAILABLE` warning and every verdict falls back to Git alone. It is never an error.
+- Lookups run concurrently, bounded like the fetch. `list --status` still never fetches.
 
 ### Lifecycle hooks
 
