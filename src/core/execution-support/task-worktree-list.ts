@@ -8,14 +8,24 @@ import {
 import type { ForgeClient, ForgeName } from "../../adapters/forge/github-forge.js";
 import { escalateStatus } from "../errors.js";
 import { resolveForge } from "../execution/forge-integration.js";
+import { runListColumns } from "../execution/list-columns.js";
 import {
   applyForgeToTaskCheckouts,
   inspectTaskWorktrees,
   listTaskWorktreeEntries,
+  type TaskWorktreeEntry,
 } from "./task-worktree-inventory.js";
+import { mainWorkspaceTaskName } from "./task-worktree-rows.js";
 import { getTaskWorktreesRoot } from "./worktree-root.js";
 
 const FORGE_CONCURRENCY_LIMIT = 4;
+
+export interface TaskWorktreeListOptions {
+  /** Cut-off for each `listColumns` command; 5 s by default. */
+  columnTimeoutMs?: number;
+  forge?: ForgeName | "none";
+  status?: boolean;
+}
 
 export type TaskWorktreeListGitAdapter = CheckoutStateGitAdapter & {
   getRemoteUrl: (repoRoot: string) => Promise<string>;
@@ -25,7 +35,7 @@ export type TaskWorktreeListGitAdapter = CheckoutStateGitAdapter & {
 export async function listTaskWorktreesWithResolvedWorkspace(
   workspaceRoot: string,
   resolvedWorkspace: ResolvedWorkspace,
-  options: { forge?: ForgeName | "none"; status?: boolean } = {},
+  options: TaskWorktreeListOptions = {},
   context?: {
     forgeClients?: Partial<Record<ForgeName, ForgeClient>>;
     gitAdapter: TaskWorktreeListGitAdapter;
@@ -39,11 +49,9 @@ export async function listTaskWorktreesWithResolvedWorkspace(
     issues: [],
   };
 
-  if (!(await pathExists(worktreesRoot))) {
-    return report;
-  }
-
-  const { entries, foreign } = await listTaskWorktreeEntries(worktreesRoot);
+  const { entries, foreign } = (await pathExists(worktreesRoot))
+    ? await listTaskWorktreeEntries(worktreesRoot)
+    : { entries: [], foreign: [] };
   if (foreign.length > 0) {
     report.foreign = foreign;
   }
@@ -56,32 +64,60 @@ export async function listTaskWorktreesWithResolvedWorkspace(
     });
   }
 
-  if (options.status && context) {
-    const checkouts = await inspectTaskWorktrees(entries, {
+  if (!options.status || !context) {
+    return report;
+  }
+
+  // The main workspace is inspected like a task whose checkouts are the primary clones.
+  const mainWorkspace: TaskWorktreeEntry = {
+    createdAt: "",
+    directoryName: "",
+    metadata: {},
+    name: mainWorkspaceTaskName,
+    repositories: resolvedWorkspace.repositories.map((repository) => repository.name),
+    root: workspaceRoot,
+  };
+  const [rootCheckouts = [], ...checkouts] = await inspectTaskWorktrees(
+    [mainWorkspace, ...entries],
+    { gitAdapter: context.gitAdapter, resolvedWorkspace, workspaceRoot },
+  );
+  const forge = resolveForge(options.forge, resolvedWorkspace);
+  const client = forge ? context.forgeClients?.[forge] : undefined;
+  if (forge && client) {
+    const issue = await applyForgeToTaskCheckouts(checkouts, {
+      client,
+      concurrencyLimit: FORGE_CONCURRENCY_LIMIT,
+      forge,
       gitAdapter: context.gitAdapter,
-      resolvedWorkspace,
+    });
+    if (issue) {
+      report.status = escalateStatus(report.status, "warning");
+      report.issues.push(issue);
+    }
+  }
+  report.root = { checkouts: rootCheckouts };
+  report.worktrees.forEach((worktree, index) => {
+    worktree.checkouts = checkouts[index];
+    worktree.prunable = evaluateTaskPrunability(checkouts[index] ?? [], {
+      includeGone: false,
+    }).prunable;
+  });
+
+  const listColumns = resolvedWorkspace.execution.worktrees?.listColumns ?? [];
+  if (listColumns.length > 0) {
+    const { issues, values } = await runListColumns(listColumns, {
+      taskNames: [mainWorkspaceTaskName, ...report.worktrees.map((worktree) => worktree.name)],
+      timeoutMs: options.columnTimeoutMs,
       workspaceRoot,
     });
-    const forge = resolveForge(options.forge, resolvedWorkspace);
-    const client = forge ? context.forgeClients?.[forge] : undefined;
-    if (forge && client) {
-      const issue = await applyForgeToTaskCheckouts(checkouts, {
-        client,
-        concurrencyLimit: FORGE_CONCURRENCY_LIMIT,
-        forge,
-        gitAdapter: context.gitAdapter,
-      });
-      if (issue) {
-        report.status = escalateStatus(report.status, "warning");
-        report.issues.push(issue);
-      }
+    if (issues.length > 0) {
+      report.status = escalateStatus(report.status, "warning");
+      report.issues.push(...issues);
     }
-    report.worktrees.forEach((worktree, index) => {
-      worktree.checkouts = checkouts[index];
-      worktree.prunable = evaluateTaskPrunability(checkouts[index], {
-        includeGone: false,
-      }).prunable;
-    });
+    report.root.columns = values.get(mainWorkspaceTaskName);
+    for (const worktree of report.worktrees) {
+      worktree.columns = values.get(worktree.name);
+    }
   }
 
   return report;

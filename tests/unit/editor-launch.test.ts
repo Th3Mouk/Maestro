@@ -84,7 +84,15 @@ describe("editor launches", () => {
 
 describe("task picker without fzf", () => {
   const rows: TaskRow[] = [
-    { name: "@root", repos: "all", uncommitted: "-", unlanded: "-", prunable: "-", age: "" },
+    {
+      name: "@root",
+      repos: "all",
+      uncommitted: "-",
+      unlanded: "-",
+      prunable: "-",
+      age: "",
+      extra: {},
+    },
     {
       name: "fix login",
       repos: "foods",
@@ -92,6 +100,7 @@ describe("task picker without fzf", () => {
       unlanded: "-",
       prunable: "-",
       age: "3d",
+      extra: {},
     },
   ];
 

@@ -16,6 +16,8 @@ export interface TaskRow {
   prunable: string;
   /** Since `createdAt`, such as `3d`; empty for the main workspace. */
   age: string;
+  /** Extra columns from `listColumns`, by column name. */
+  extra: Record<string, string>;
 }
 
 /** The main workspace first, then one row per task. */
@@ -24,14 +26,16 @@ export function buildTaskRows(
   options: { allRepositories: string[]; now?: Date },
 ): TaskRow[] {
   const now = options.now ?? new Date();
+  const rootCheckouts = report.root?.checkouts;
   return [
     {
       name: mainWorkspaceTaskName,
       repos: "all",
-      uncommitted: "-",
-      unlanded: "-",
+      uncommitted: rootCheckouts ? listNames(rootCheckouts, (state) => state.dirty) : "?",
+      unlanded: rootCheckouts ? listNames(rootCheckouts, isUnlanded) : "?",
       prunable: "-",
       age: "",
+      extra: report.root?.columns ?? {},
     },
     ...report.worktrees.map((worktree) => ({
       name: worktree.name,
@@ -42,6 +46,7 @@ export function buildTaskRows(
       unlanded: worktree.checkouts ? listNames(worktree.checkouts, isUnlanded) : "?",
       prunable: worktree.prunable === undefined ? "?" : worktree.prunable ? "yes" : "-",
       age: formatAge(worktree.createdAt, now),
+      extra: worktree.columns ?? {},
     })),
   ];
 }

@@ -145,7 +145,11 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         )
         .option(
           "--status",
-          "inspect each checkout: branch, uncommitted changes, local-only commits, upstream, integration, and whether prune would remove the task",
+          "inspect each checkout: one row per task (and @root) with uncommitted and unlanded checkouts, prunability, and age",
+        )
+        .option(
+          "--detail",
+          "with --status, one row per checkout: branch, uncommitted changes, local-only commits, upstream, integration",
         )
         .addOption(
           new Option(
@@ -159,15 +163,19 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
       options: OutputOptionValues & {
         workspace: string;
         status?: boolean;
+        detail?: boolean;
         forge?: "github" | "none";
       },
     ) => {
-      await runReportAction(options, "worktree-list", () =>
-        listTaskWorktrees(
-          resolveWorkspacePath(options.workspace),
-          { forge: options.forge, status: options.status },
-          commandContext,
-        ),
+      await runReportAction(
+        options,
+        options.detail ? "worktree-list-detail" : "worktree-list",
+        () =>
+          listTaskWorktrees(
+            resolveWorkspacePath(options.workspace),
+            { forge: options.forge, status: options.status },
+            commandContext,
+          ),
       );
     },
   );

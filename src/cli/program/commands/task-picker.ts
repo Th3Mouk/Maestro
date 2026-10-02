@@ -3,31 +3,35 @@ import { execa } from "execa";
 import { isExecutableOnPath } from "../../../utils/fs.js";
 import type { TaskRow } from "../../../core/execution-support/task-worktree-rows.js";
 
-const header: TaskRow = {
-  name: "TASK",
-  repos: "REPOS",
-  uncommitted: "UNCOMMITTED",
-  unlanded: "UNLANDED",
-  prunable: "PRUNABLE",
-  age: "AGE",
-};
-
-const columns: Array<keyof TaskRow> = [
-  "name",
-  "repos",
-  "uncommitted",
-  "unlanded",
-  "prunable",
-  "age",
-];
-
-/** Aligned text lines, the header first. */
+/** Aligned text lines, the header first; `listColumns` values follow the built-in columns. */
 export function formatTaskRowLines(rows: TaskRow[]): string[] {
-  const all = [header, ...rows];
-  const widths = columns.map((column) => Math.max(...all.map((row) => row[column].length)));
-  return all.map((row) =>
-    columns
-      .map((column, index) => row[column].padEnd(widths[index] ?? 0))
+  const extraNames = [...new Set(rows.flatMap((row) => Object.keys(row.extra)))];
+  const table = [
+    [
+      "TASK",
+      "REPOS",
+      "UNCOMMITTED",
+      "UNLANDED",
+      "PRUNABLE",
+      "AGE",
+      ...extraNames.map((name) => name.toUpperCase()),
+    ],
+    ...rows.map((row) => [
+      row.name,
+      row.repos,
+      row.uncommitted,
+      row.unlanded,
+      row.prunable,
+      row.age,
+      ...extraNames.map((name) => row.extra[name] ?? "-"),
+    ]),
+  ];
+  const widths =
+    table[0]?.map((_, column) => Math.max(...table.map((cells) => cells[column]?.length ?? 0))) ??
+    [];
+  return table.map((cells) =>
+    cells
+      .map((cell, column) => cell.padEnd(widths[column] ?? 0))
       .join("  ")
       .trimEnd(),
   );

@@ -22,6 +22,7 @@ After 0.7.0, workspaces still wrapped Maestro in their own scripts to seed and t
 
 ### Changed
 
+- The human output of `maestro worktree list --status` is now one row per task, the main workspace first as `@root`, with the columns Task, Repos, Uncommitted, Unlanded, Prunable, and Age, instead of one row per checkout (six per task). `--detail` keeps the 0.7 per-checkout table. The JSON gains the main workspace under `root: { checkouts }`, never under `worktrees`. Workspaces add columns with `spec.execution.worktrees.listColumns: [{ name, command }]`: each command runs once, gets the task names on stdin, and prints `task<TAB>value` lines; one slower than 5 s shows `?` with a `LIST_COLUMN_TIMEOUT` warning.
 - `maestro worktree` commands resolve the workspace upward: run from a subdirectory or a repository checkout of the workspace or of a task, `--workspace` (the current directory by default) now resolves to the closest enclosing workspace or task root instead of failing to find `maestro.yaml`.
 
 ### Fixed

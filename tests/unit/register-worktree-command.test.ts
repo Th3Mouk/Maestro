@@ -179,6 +179,15 @@ describe("registerWorktreeCommand", () => {
     ).rejects.toThrow(/Allowed choices/);
   });
 
+  test("list --status --detail reports as worktree-list-detail", async () => {
+    await buildProgram(createCommandContextFixture()).parseAsync(
+      ["worktree", "list", "--workspace", "./ws", "--status", "--detail"],
+      { from: "user" },
+    );
+
+    expect(runReportAction.mock.calls[0]?.[1]).toBe("worktree-list-detail");
+  });
+
   test("--no-hooks is forwarded as hooks: false", async () => {
     const commandContext = createCommandContextFixture();
     const program = buildProgram(commandContext);

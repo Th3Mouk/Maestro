@@ -447,3 +447,59 @@ describe("worktree path and open", () => {
     ]);
   });
 });
+
+describe("compact list --status", () => {
+  test("@root comes under root, never under worktrees, with the primary clones", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    await createTaskWorktree(workspaceRoot, "a", { repos: ["foods"] });
+    await writeFile(path.join(workspaceRoot, "repos", "foods", "LOCAL.txt"), "x\n", "utf8");
+
+    const report = await listTaskWorktrees(workspaceRoot, { status: true });
+
+    expect(report.worktrees.map((worktree) => worktree.name)).toEqual(["a"]);
+    expect(report.root?.checkouts.map((checkout) => [checkout.name, checkout.dirty])).toEqual([
+      ["lifecycle", false],
+      ["foods", true],
+      ["platform-api", false],
+    ]);
+    expect((await listTaskWorktrees(workspaceRoot)).root).toBeUndefined();
+  });
+
+  test("a list column gets the task names on stdin and its values land in the rows", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace({
+      executionLines: [
+        "listColumns:",
+        "  - name: PLATFORM",
+        `    command: 'tee columns-stdin.txt | while read -r task; do [ "$task" = a ] && printf "%s\\tup\\n" "$task"; done; true'`,
+      ],
+    });
+    await createTaskWorktree(workspaceRoot, "a", { repos: ["foods"] });
+    await createTaskWorktree(workspaceRoot, "b", { repos: ["foods"] });
+
+    const report = await listTaskWorktrees(workspaceRoot, { status: true });
+
+    expect(report.status).toBe("ok");
+    expect(await readFile(path.join(workspaceRoot, "columns-stdin.txt"), "utf8")).toBe(
+      "@root\na\nb\n",
+    );
+    expect(report.root?.columns).toEqual({ PLATFORM: "-" });
+    expect(report.worktrees.map((worktree) => [worktree.name, worktree.columns])).toEqual([
+      ["a", { PLATFORM: "up" }],
+      ["b", { PLATFORM: "-" }],
+    ]);
+  });
+
+  test("a list column that runs too long shows ? with a warning", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace({
+      executionLines: ["listColumns:", "  - name: SLOW", "    command: sleep 5"],
+    });
+    await createTaskWorktree(workspaceRoot, "a", { repos: ["foods"] });
+
+    const report = await listTaskWorktrees(workspaceRoot, { status: true, columnTimeoutMs: 300 });
+
+    expect(report.status).toBe("warning");
+    expect(report.issues).toEqual([expect.objectContaining({ code: "LIST_COLUMN_TIMEOUT" })]);
+    expect(report.worktrees[0]?.columns).toEqual({ SLOW: "?" });
+    expect(report.root?.columns).toEqual({ SLOW: "?" });
+  });
+});

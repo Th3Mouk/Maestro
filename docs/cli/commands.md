@@ -338,7 +338,7 @@ maestro worktree list
 maestro worktree list --status
 ```
 
-`--status` inspects every checkout of each task, concurrently, and adds `checkouts` (the workspace root first, named after the workspace, then each repository) and `prunable` to each worktree. Without it, `list` reads only the task metadata and stays fast. Each checkout reports:
+`--status` inspects every checkout of each task, concurrently, and adds `checkouts` (the workspace root first, named after the workspace, then each repository) and `prunable` to each worktree. It also inspects the main workspace, reported under `root: { checkouts: [...] }` (its root, then each primary clone) and never under `worktrees`, so consumers that iterate tasks are unchanged. Without `--status`, `list` reads only the task metadata and stays fast. `list --status` never fetches. Each checkout reports:
 
 | Field        | Meaning                                                                                                                                                                                                                                 |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -349,6 +349,32 @@ maestro worktree list --status
 | `integrated` | The branch's work is in the reference branch: its tip is an ancestor of `origin/<reference>`, or the squash of `merge-base..tip` is patch-equivalent to a commit on it. The squash check catches branches merged by squash and deleted. |
 
 `prunable` applies the `worktree prune` rule below without `--include-gone`. With `--forge github` (or `spec.execution.worktrees.forge: github`), the forge is also asked about checkouts whose upstream is gone, as described under [forge-backed integration](#forge-backed-integration).
+
+The human output of `list --status` answers "which task do I open, and which ones can go": one row per task, the main workspace first as `@root`.
+
+| Column      | Content                                                          |
+| ----------- | ---------------------------------------------------------------- |
+| Task        | task name                                                        |
+| Repos       | repositories with a worktree, or `all`                           |
+| Uncommitted | checkouts with `dirty: true`, comma-separated, or `-`            |
+| Unlanded    | checkouts with `localOnly > 0` that are not `integrated`, or `-` |
+| Prunable    | `yes` when `worktree prune` would remove the task, else `-`      |
+| Age         | time since the task was created, such as `3d`                    |
+
+`--detail` prints one row per checkout instead (branch, uncommitted changes, local-only commits, upstream, integration), as `list --status` did in 0.7.
+
+Workspaces add their own columns with `spec.execution.worktrees.listColumns`:
+
+```yaml
+spec:
+  execution:
+    worktrees:
+      listColumns:
+        - name: PLATFORM
+          command: ./scripts/platform-status # prints "task<TAB>up" for the running tasks
+```
+
+Each command runs once per `list --status`, with `sh -c` from the main workspace root, receiving the task names on stdin (one per line, `@root` first). It prints `task<TAB>value` lines; a task it does not mention shows `-`. The values land in the matching rows, and in the JSON under `worktrees[].columns` and `root.columns`. A command slower than 5 seconds is stopped: its column shows `?` and the report gets a `LIST_COLUMN_TIMEOUT` warning (`LIST_COLUMN_FAILED` for a non-zero exit).
 
 A directory under `rootDir` without `.maestro/execution/worktree.json` was not created by `maestro worktree create`. `list` reports it under `foreign: [{ path, kind, source }]`, where `kind` is `git-worktree` (with `source`, the repository it belongs to), `git-repository`, or `directory`, and never as a task. `remove` and `prune` never touch it and report a `WORKTREE_FOREIGN` issue instead.
 
