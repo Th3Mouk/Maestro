@@ -37,7 +37,22 @@ type PruneGitAdapter = CheckoutStateGitAdapter &
   TaskWorktreeRemoveGitAdapter & {
     getRemoteUrl: (repoRoot: string) => Promise<string>;
     readUpstreamBranch: (repoRoot: string, branchName: string) => Promise<string | undefined>;
-    deleteBranch: (repoRoot: string, branchName: string) => Promise<void>;
+    deleteBranches: (
+      repoRoot: string,
+      branchNames: string[],
+    ) => Promise<{ deleted: string[]; failed: Array<{ branch: string; message: string }> }>;
+    inspectTaskBranches: (
+      repoRoot: string,
+      prefix: string,
+      referenceRef: string,
+    ) => Promise<
+      Array<
+        Pick<TaskCheckoutState, "integrated" | "localOnly" | "upstream"> & {
+          branch: string;
+          checkedOut: boolean;
+        }
+      >
+    >;
     fetch: (repoRoot: string) => Promise<void>;
     listTaskBranches: (
       repoRoot: string,
@@ -69,6 +84,8 @@ interface BranchSource {
 }
 
 interface PruneContext {
+  /** Branches to delete once every task is handled, batched per repository. */
+  branchDeletions: Map<string, { branches: string[]; name: string }>;
   concurrencyLimit: number;
   forgeClients?: Partial<Record<ForgeName, ForgeClient>>;
   gitAdapter: PruneGitAdapter;
@@ -91,6 +108,7 @@ export async function pruneTaskWorktreesWithResolvedWorkspace(
   concurrencyLimit: number,
 ): Promise<WorktreePruneReport> {
   const prune: PruneContext = {
+    branchDeletions: new Map(),
     concurrencyLimit,
     forgeClients: context.forgeClients,
     gitAdapter: context.gitAdapter,
@@ -170,6 +188,7 @@ export async function pruneTaskWorktreesWithResolvedWorkspace(
     }
   }
 
+  await deleteQueuedBranches(prune);
   return prune.report;
 }
 
@@ -344,7 +363,7 @@ async function pruneTask(
   recordEvidence();
   report.removed.push(entry.name);
   for (const branch of branches) {
-    await deleteBranch(prune, branch);
+    queueBranchDeletion(prune, branch);
   }
   return true;
 }
@@ -383,27 +402,49 @@ function listVerifiedTaskBranches(
   });
 }
 
-async function deleteBranch(
+function queueBranchDeletion(
   prune: PruneContext,
   target: { branch: string; name: string; root: string },
-): Promise<void> {
-  try {
-    await prune.gitAdapter.deleteBranch(target.root, target.branch);
-    prune.report.deletedBranches.push({ name: target.name, branch: target.branch });
-  } catch (error) {
-    prune.report.status = escalateStatus(prune.report.status, "warning");
-    prune.report.issues.push({
-      code: "BRANCH_DELETE_FAILED",
-      message: `Could not delete ${target.branch} in ${target.name}: ${errorMessage(error)}`,
-      path: target.root,
-    });
+): void {
+  const queued = prune.branchDeletions.get(target.root) ?? { branches: [], name: target.name };
+  queued.branches.push(target.branch);
+  prune.branchDeletions.set(target.root, queued);
+}
+
+/** One `git branch -D` per repository (chunked), for every branch prune decided to delete. */
+async function deleteQueuedBranches(prune: PruneContext): Promise<void> {
+  for (const [root, { branches, name }] of prune.branchDeletions) {
+    try {
+      const { deleted, failed } = await prune.gitAdapter.deleteBranches(root, branches);
+      prune.report.deletedBranches.push(...deleted.map((branch) => ({ name, branch })));
+      for (const { branch, message } of failed) {
+        reportBranchDeleteFailure(prune, { branch, name, root }, message);
+      }
+    } catch (error) {
+      for (const branch of branches) {
+        reportBranchDeleteFailure(prune, { branch, name, root }, errorMessage(error));
+      }
+    }
   }
+}
+
+function reportBranchDeleteFailure(
+  prune: PruneContext,
+  target: { branch: string; name: string; root: string },
+  message: string,
+): void {
+  prune.report.status = escalateStatus(prune.report.status, "warning");
+  prune.report.issues.push({
+    code: "BRANCH_DELETE_FAILED",
+    message: `Could not delete ${target.branch} in ${target.name}: ${message}`,
+    path: target.root,
+  });
 }
 
 /**
  * Deletes task branches that no worktree has checked out and whose task is gone, when their
  * work is integrated (or, with `--include-gone`, their upstream is gone). The others are kept
- * and listed.
+ * and listed. All the branches of a repository are inspected in one batched pass.
  */
 async function pruneOrphanBranches(
   prune: PruneContext,
@@ -411,27 +452,31 @@ async function pruneOrphanBranches(
   keptTaskDirectories: Set<string>,
   taskNames: Set<string> | undefined,
 ): Promise<void> {
-  const orphans = (
-    await prune.gitAdapter.listTaskBranches(source.root, taskBranchPrefix(prune))
-  ).filter(({ branch, checkedOut }) => {
-    const taskName = branch.split("/")[1];
-    return (
-      !checkedOut && !keptTaskDirectories.has(taskName) && (!taskNames || taskNames.has(taskName))
-    );
-  });
-  if (orphans.length === 0) {
-    return;
-  }
-
   const referenceRef = await resolveCheckoutReferenceRef(prune.gitAdapter, {
     referenceBranch: source.referenceBranch,
     sourceRoot: source.root,
   });
-  const states: Array<{ branch: string; state: OrphanBranchState }> = [];
-  for (const { branch } of orphans) {
-    const refState = await prune.gitAdapter.inspectRef(source.root, referenceRef, branch);
-    states.push({ branch, state: { ...refState, dirty: false } });
+  const queued = new Set(prune.branchDeletions.get(source.root)?.branches ?? []);
+  const states = (
+    await prune.gitAdapter.inspectTaskBranches(source.root, taskBranchPrefix(prune), referenceRef)
+  )
+    .filter(({ branch, checkedOut }) => {
+      const taskName = branch.split("/")[1] ?? "";
+      return (
+        !checkedOut &&
+        !queued.has(branch) &&
+        !keptTaskDirectories.has(taskName) &&
+        (!taskNames || taskNames.has(taskName))
+      );
+    })
+    .map(({ branch, integrated, localOnly, upstream }) => ({
+      branch,
+      state: { branch, dirty: false, integrated, localOnly, upstream } as OrphanBranchState,
+    }));
+  if (states.length === 0) {
+    return;
   }
+
   await applyForge(
     prune,
     states.flatMap(({ branch, state }) =>
@@ -453,7 +498,7 @@ async function pruneOrphanBranches(
     if (prune.options.dryRun) {
       prune.report.deletedBranches.push({ name: source.name, branch });
     } else {
-      await deleteBranch(prune, { branch, name: source.name, root: source.root });
+      queueBranchDeletion(prune, { branch, name: source.name, root: source.root });
     }
   }
 }
