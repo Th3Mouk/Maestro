@@ -60,10 +60,10 @@ describe("CLI program assembly", () => {
     }
   });
 
-  test("worktree group exposes create, remove, list, prune", () => {
+  test("worktree group exposes create, remove, list, prune, hook", () => {
     const worktree = findCommand(createProgram(), "worktree");
     const names = worktree.commands.map((entry) => entry.name()).sort();
-    expect(names).toEqual(["create", "list", "prune", "remove"]);
+    expect(names).toEqual(["create", "hook", "list", "prune", "remove"]);
 
     expect(getFlags(findCommand(worktree, "create"))).toEqual(
       expect.arrayContaining([

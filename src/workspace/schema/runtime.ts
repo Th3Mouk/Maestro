@@ -41,6 +41,8 @@ export const standardRuntimeConfigSchema = runtimeBaseSchema.extend({
 export const claudeCodeRuntimeConfigSchema = runtimeBaseSchema.extend({
   skills: skillProjectionSchema.optional(),
   workflows: assetProjectionSchema.optional(),
+  // Routes Claude Code's WorktreeCreate/WorktreeRemove hooks to `maestro worktree hook`.
+  worktreeHooks: z.boolean().optional(),
 });
 
 export const agentOnlyRuntimeConfigSchema = runtimeBaseSchema;

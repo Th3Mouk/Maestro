@@ -61,6 +61,10 @@ function resolveRuntimeProjection(
     }
   }
 
+  if (runtime === "claude-code" && config.worktreeHooks === true) {
+    projection.worktreeHooks = true;
+  }
+
   return projection;
 }
 

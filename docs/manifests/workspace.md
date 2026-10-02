@@ -189,6 +189,7 @@ Each key under `spec.runtimes` turns on one runtime. Inside it:
 | `skills.strategy` | `claude-code`             | `symlink`, `copy`                        | `symlink`                                   |
 | `agents`          | every runtime             | `true`, `false`, or `{ mode }`           | **off**                                     |
 | `workflows`       | `claude-code`             | `true`, `false`, or `{ mode }`           | on                                          |
+| `worktreeHooks`   | `claude-code`             | `true`, `false`                          | `false`                                     |
 
 `true` and `{}` turn an asset on with its defaults; `false` turns it off. An asset `mode` overrides the runtime's `projectionMode`.
 
@@ -212,6 +213,8 @@ spec:
       agents:
         mode: replace # .github/agents/ is fully regenerated
 ```
+
+`worktreeHooks: true` routes Claude Code's own worktrees through Maestro: `workspace install` merges a `WorktreeCreate` and a `WorktreeRemove` command hook (`maestro worktree hook claude-create` / `claude-remove`, `timeout: 600`) into `.claude/settings.json`, without owning the file. See [`worktree hook`](../cli/commands.md#worktree-hook).
 
 `skills.strategy: symlink` links `.claude/skills/<name>` to `.agents/skills/<name>` so both runtimes read one tree. Maestro falls back to a real copy when `standard` does not project skills (the link target would not exist) and on Windows (directory symlinks need Developer Mode or elevated rights there). Set `strategy: copy` to always get a real directory.
 
@@ -288,7 +291,7 @@ Set `workflows: false` on `claude-code` to stop projecting them.
 Maestro prepares the workspace; each tool keeps its own configuration. Maestro does not generate, merge, or validate:
 
 - **MCP servers**: configure them in each tool's file, for example `.mcp.json` for Claude Code ([docs](https://code.claude.com/docs/en/mcp)), `.cursor/mcp.json`, `.vscode/mcp.json`, `.codex/config.toml`, or `opencode.json`. `spec.mcpServers` is no longer read.
-- **Hooks**: configure them in each tool's settings, for example `.claude/settings.json` for Claude Code ([docs](https://code.claude.com/docs/en/hooks)), `.cursor/hooks.json`, `.github/hooks/`, or `.gemini/settings.json`. Pack `hooks.install` and `hooks.validate`, and the worktree `postCreate`/`preRemove` hooks, are Maestro lifecycle scripts, not tool hooks.
+- **Hooks**: configure them in each tool's settings, for example `.claude/settings.json` for Claude Code ([docs](https://code.claude.com/docs/en/hooks)), `.cursor/hooks.json`, `.github/hooks/`, or `.gemini/settings.json`. Pack `hooks.install` and `hooks.validate`, and the worktree `postCreate`/`preRemove` hooks, are Maestro lifecycle scripts, not tool hooks. The one exception is `runtimes.claude-code.worktreeHooks`, which merges exactly two Claude Code hook entries and leaves every other hook alone.
 - **Instruction files other than `AGENTS.md`**, such as `CLAUDE.md`, `GEMINI.md`, `.cursor/rules/`, or `.github/copilot-instructions.md`.
 - **Runtime settings and permissions**.
 

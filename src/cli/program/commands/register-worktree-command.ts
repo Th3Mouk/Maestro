@@ -1,4 +1,9 @@
-import { Option, type Command } from "commander";
+import { Argument, Option, type Command } from "commander";
+import {
+  runClaudeWorktreeCreateHook,
+  runClaudeWorktreeRemoveHook,
+} from "../../../core/commands/claude-worktree-hook.js";
+import { createRenderer } from "../../output/index.js";
 import {
   createTaskWorktree,
   listTaskWorktrees,
@@ -14,6 +19,7 @@ import {
 } from "../shared-options.js";
 import type { CommandContext } from "./command-types.js";
 import { parseNameList, runReportAction } from "./command-helpers.js";
+import { readStdin } from "./stdin.js";
 
 function collectTaskName(value: string, previous: string[] | undefined): string[] {
   return [...(previous ?? []), value];
@@ -218,4 +224,48 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
       );
     },
   );
+
+  addWorkspaceOption(
+    worktree
+      .command("hook")
+      .summary("Claude Code WorktreeCreate/WorktreeRemove hook adapter")
+      .description(
+        [
+          "Run as a Claude Code command hook. Reads the hook input (JSON) on stdin.",
+          "claude-create: creates the task worktree named by `name` (postCreate hooks included) and prints only its absolute root on stdout.",
+          "claude-remove: removes the task at `worktree_path` without --force; exits 1 and keeps it when it holds uncommitted work or is not a task of this workspace.",
+          "Reports go to stderr. `runtimes.claude-code.worktreeHooks: true` wires both into .claude/settings.json.",
+        ].join("\n"),
+      )
+      .addArgument(
+        new Argument("<event>", "hook event").choices(["claude-create", "claude-remove"]),
+      ),
+  ).action(async (event: "claude-create" | "claude-remove", options: { workspace: string }) => {
+    const run =
+      event === "claude-create" ? runClaudeWorktreeCreateHook : runClaudeWorktreeRemoveHook;
+    try {
+      const result = await run(
+        resolveWorkspacePath(options.workspace),
+        await readStdin(),
+        commandContext,
+      );
+      if (result.report) {
+        createRenderer("human", {
+          reportKind: event === "claude-create" ? "worktree-create" : "worktree-remove",
+        }).render(result.report, process.stderr);
+      }
+      if (result.message) {
+        process.stderr.write(`maestro worktree hook ${event}: ${result.message}\n`);
+      }
+      if (result.stdout !== undefined) {
+        process.stdout.write(`${result.stdout}\n`);
+      }
+      process.exitCode = result.exitCode;
+    } catch (error) {
+      process.stderr.write(
+        `maestro worktree hook ${event}: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      process.exitCode = 1;
+    }
+  });
 }
