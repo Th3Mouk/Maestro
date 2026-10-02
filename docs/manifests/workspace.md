@@ -100,7 +100,7 @@ Maestro keeps workspace-authored inputs, pack inputs, generated outputs, and mat
 - `init` writes the workspace contract, `AGENTS.md`, `maestro.json`, `.gitignore`, and the internal `.maestro/` state root. It does not scaffold a fragment directory, a repo-local plugin marketplace, or an example repository, and it never writes `CLAUDE.md`.
 - `init` enables the `standard` and `claude-code` runtimes by default; `--runtimes` accepts any runtime listed in [Supported runtimes](#supported-runtimes).
 - `maestro editor-workspace` generates `maestro.code-workspace` on demand for editors that support named multi-root workspaces.
-- Pack-provided inputs come from `spec.packs`; packs are explicit and optional, and they can provide agents, skills, workflows, policies, templates, and install/validate hooks.
+- Pack-provided inputs come from `spec.packs`; packs are explicit and optional, and they can provide agents, skills, workflows, policies, templates, install/validate hooks, and worktree lifecycle hooks.
 - Maestro only resolves packs that the workspace declares in the manifest. If you want shared behavior, add the packs you want there.
 - Generated outputs are part of the managed workspace layout. Shared-state artifacts should stay inside the workspace and follow explicit locking rules when concurrent commands can touch them.
 
@@ -288,7 +288,7 @@ Set `workflows: false` on `claude-code` to stop projecting them.
 Maestro prepares the workspace; each tool keeps its own configuration. Maestro does not generate, merge, or validate:
 
 - **MCP servers**: configure them in each tool's file, for example `.mcp.json` for Claude Code ([docs](https://code.claude.com/docs/en/mcp)), `.cursor/mcp.json`, `.vscode/mcp.json`, `.codex/config.toml`, or `opencode.json`. `spec.mcpServers` is no longer read.
-- **Hooks**: configure them in each tool's settings, for example `.claude/settings.json` for Claude Code ([docs](https://code.claude.com/docs/en/hooks)), `.cursor/hooks.json`, `.github/hooks/`, or `.gemini/settings.json`. Pack `hooks.install` and `hooks.validate` are Maestro lifecycle scripts, not tool hooks, and keep working.
+- **Hooks**: configure them in each tool's settings, for example `.claude/settings.json` for Claude Code ([docs](https://code.claude.com/docs/en/hooks)), `.cursor/hooks.json`, `.github/hooks/`, or `.gemini/settings.json`. Pack `hooks.install` and `hooks.validate`, and the worktree `postCreate`/`preRemove` hooks, are Maestro lifecycle scripts, not tool hooks.
 - **Instruction files other than `AGENTS.md`**, such as `CLAUDE.md`, `GEMINI.md`, `.cursor/rules/`, or `.github/copilot-instructions.md`.
 - **Runtime settings and permissions**.
 
@@ -325,6 +325,7 @@ In practice:
   - `enabled`: turns on isolated task worktrees
   - `rootDir`: local root used for generated task worktrees
   - `branchPrefix`: prefix used when creating worktree branches per task and per repository
+  - `hooks.postCreate`, `hooks.preRemove`: shell commands run around the task lifecycle, from the main workspace root, with `MAESTRO_TASK`, `MAESTRO_TASK_ROOT`, and the other variables listed in [lifecycle hooks](../cli/commands.md#lifecycle-hooks). `postCreate` seeds a new task (dependencies, caches); `preRemove` stops what the workspace runs for it (containers, databases, routes) once `remove` or `prune` has checked the task is safe to remove. Packs provide them through `provides.hooks.worktreePostCreate` and `provides.hooks.worktreePreRemove`.
 
 `maestro worktree create --task <name>` creates `<rootDir>/<name>/`: a worktree of the workspace root on the branch `<branchPrefix>/<name>/<workspace>`, plus `repos/<repository>/` worktrees on `<branchPrefix>/<name>/<repository>`. `--repos` limits the task to some repositories. The task's `.maestro/execution/worktree.json` records its name, creation time, and the repositories it holds. `maestro worktree prune` removes the tasks whose work has landed and deletes their branches. See [`worktree`](../cli/commands.md#worktree) for the full lifecycle.
 

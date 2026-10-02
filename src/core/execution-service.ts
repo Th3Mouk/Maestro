@@ -8,12 +8,14 @@ import {
 import {
   prepareTaskWorktreeWithResolvedWorkspace,
   type ExecutionSupportGitAdapter,
+  type TaskWorktreeCreateOptions,
 } from "./execution-support/task-worktree.js";
 
 export type ExecutionGitAdapter = ExecutionSupportGitAdapter;
 
 interface ExecutionServiceContext {
   gitAdapter: ExecutionGitAdapter;
+  stderr?: NodeJS.WritableStream;
 }
 
 const REPOSITORY_CONCURRENCY_LIMIT = 4;
@@ -54,7 +56,7 @@ export async function bootstrapWorkspace(
 export async function prepareTaskWorktree(
   workspaceRoot: string,
   taskName: string,
-  options: { dryRun?: boolean; offline?: boolean; repos?: string[] } = {},
+  options: TaskWorktreeCreateOptions = {},
   context: ExecutionServiceContext,
 ): Promise<TaskWorktreeReport> {
   const { resolveWorkspace } = await import("./workspace-service.js");

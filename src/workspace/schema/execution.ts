@@ -17,10 +17,16 @@ export const devcontainerExecutionSchema = z.object({
     .optional(),
 });
 
+const worktreeHooksSchema = z.object({
+  postCreate: z.array(z.string().min(1)).optional(),
+  preRemove: z.array(z.string().min(1)).optional(),
+});
+
 export const worktreeExecutionSchema = z.object({
   enabled: z.boolean().default(true),
   rootDir: z.string().optional(),
   branchPrefix: z.string().optional(),
+  hooks: worktreeHooksSchema.optional(),
 });
 
 export const workspaceExecutionSchema = z.object({

@@ -2,6 +2,7 @@ import type { TaskWorktreeReport } from "../../../report/types.js";
 import {
   makeTable,
   paintStatus,
+  renderHookRuns,
   renderIssues,
   summaryLine,
   toneForMutationStatus,
@@ -20,7 +21,7 @@ export function formatWorktreeCreateReport(
   );
 
   if (report.repositories.length === 0) {
-    return `${summary}\n${report.root}\nok - nothing to do${renderIssues(report.issues, ctx)}\n`;
+    return `${summary}\n${report.root}\nok - nothing to do${renderHookRuns(report.hooks, ctx)}${renderIssues(report.issues, ctx)}\n`;
   }
 
   const table = makeTable(["Repository", "Status", "Branch", "Path"], [20, 12, 28, 48]);
@@ -33,5 +34,5 @@ export function formatWorktreeCreateReport(
     ]);
   }
 
-  return `${summary}\n${report.root}\n${table.toString()}${renderIssues(report.issues, ctx)}\n`;
+  return `${summary}\n${report.root}\n${table.toString()}${renderHookRuns(report.hooks, ctx)}${renderIssues(report.issues, ctx)}\n`;
 }

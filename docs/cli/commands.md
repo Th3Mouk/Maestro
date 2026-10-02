@@ -352,7 +352,38 @@ maestro worktree prune --include-gone --branches
 - `--dry-run` prints the plan, writing nothing but the fetched remote-tracking refs: the tasks it would remove, the branches it would delete, and the kept items.
 - The primary clones' checked-out branches are never touched.
 
-The `worktree-prune` report has the shape `{ removed: [...], deletedBranches: [{ name, branch }], kept: [{ name, reasons: [...] }], issues }`, where reasons read like `dirty: foods` or `2 local-only commits in platform-api`. `prune` only handles worktrees and branches; workspaces that own containers, databases, or proxy routes per task can read `maestro worktree prune --dry-run --json` to drive their own teardown before calling `remove`.
+The `worktree-prune` report has the shape `{ removed: [...], deletedBranches: [{ name, branch }], kept: [{ name, reasons: [...] }], hooks, issues }`, where reasons read like `dirty: foods` or `2 local-only commits in platform-api`. `prune` only handles worktrees and branches; workspaces that own containers, databases, or proxy routes per task tear them down from a `preRemove` hook (below), which `prune` runs for each task it removes.
+
+### Lifecycle hooks
+
+A workspace plugs its own setup and teardown into the task lifecycle with `spec.execution.worktrees.hooks`:
+
+```yaml
+spec:
+  execution:
+    worktrees:
+      hooks:
+        postCreate:
+          - ./scripts/seed-deps
+        preRemove:
+          - ./scripts/platform-down "$MAESTRO_TASK" --keep-worktree
+```
+
+Each command runs with `sh -c` from the main workspace root, one after the other in declaration order; the first failing command stops the others. Packs can provide the same hooks (`provides.hooks.worktreePostCreate` and `provides.hooks.worktreePreRemove`), which run before the manifest's, with `MAESTRO_PACK_ROOT` set to the pack root so a pack can call its own scripts (`"$MAESTRO_PACK_ROOT/scripts/seed"`).
+
+| Variable                    | Value                                             |
+| --------------------------- | ------------------------------------------------- |
+| `MAESTRO_TASK`              | task name, as created                             |
+| `MAESTRO_TASK_ROOT`         | absolute task root                                |
+| `MAESTRO_WORKSPACE_ROOT`    | absolute main workspace root                      |
+| `MAESTRO_TASK_REPOSITORIES` | space-separated repositories that have a worktree |
+| `MAESTRO_HOOK`              | `postCreate` or `preRemove`                       |
+| `MAESTRO_TRIGGER`           | `create`, `remove`, or `prune`                    |
+
+- `postCreate` runs once the task's metadata is written: on a new task, and when `create --repos` adds repositories to an existing one. A `create` that changed nothing does not run it. A failure makes the report a `warning` with a `HOOK_FAILED` issue (command, exit code, and the last lines of its stderr); the worktree stays, since only its setup failed.
+- `preRemove` runs after the safety checks of `remove` or `prune` passed, and before anything is removed, so a task that turns out dirty never loses its platform while keeping its worktree. A failure aborts the removal of that task: `remove` fails with `HOOK_FAILED`, and `prune` keeps the task with the reason `preRemove hook failed (exit N)`. `remove --force` still runs the hook; a failure under `--force` is a `warning` and the removal goes on.
+- `--no-hooks` on `create`, `remove`, and `prune` skips them. `--dry-run` never runs them and lists them as `planned`.
+- Hook output (stdout and stderr) goes to Maestro's stderr, each line prefixed with `[postCreate]` or `[preRemove]`, so `--json` output on stdout stays parseable. Reports list the commands that ran under `hooks: [{ hook, command, status, exitCode, task }]`.
 
 ## `self`
 

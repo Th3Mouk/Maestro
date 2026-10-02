@@ -2,6 +2,7 @@ import type { WorktreePruneReport } from "../../../report/types.js";
 import {
   makeTable,
   paintStatus,
+  renderHookRuns,
   renderIssues,
   summaryLine,
   type HumanFormatContext,
@@ -20,7 +21,7 @@ export function formatWorktreePruneReport(
   );
 
   if (report.removed.length + report.deletedBranches.length + report.kept.length === 0) {
-    return `${summary}\n${report.workspace}\nok - nothing to do${renderIssues(report.issues, ctx)}\n`;
+    return `${summary}\n${report.workspace}\nok - nothing to do${renderHookRuns(report.hooks, ctx)}${renderIssues(report.issues, ctx)}\n`;
   }
 
   const table = makeTable(["Item", "Action", "Detail"], [36, 16, 56]);
@@ -38,5 +39,5 @@ export function formatWorktreePruneReport(
     table.push([name, paintStatus("kept", "warning", ctx), reasons.join("; ")]);
   }
 
-  return `${summary}\n${report.workspace}\n${table.toString()}${renderIssues(report.issues, ctx)}\n`;
+  return `${summary}\n${report.workspace}\n${table.toString()}${renderHookRuns(report.hooks, ctx)}${renderIssues(report.issues, ctx)}\n`;
 }

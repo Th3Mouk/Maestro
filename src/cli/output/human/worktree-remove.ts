@@ -2,6 +2,7 @@ import type { WorktreeRemoveReport } from "../../../report/types.js";
 import {
   makeTable,
   paintStatus,
+  renderHookRuns,
   renderIssues,
   summaryLine,
   type HumanFormatContext,
@@ -39,7 +40,7 @@ export function formatWorktreeRemoveReport(
   if (report.repositories.length === 0) {
     // A refused removal (dirty task) touched nothing: the issues say why.
     const nothingToDo = report.status === "error" ? "" : "\nok - nothing to do";
-    return `${summary}\n${report.root}${nothingToDo}${renderIssues(report.issues, ctx)}\n`;
+    return `${summary}\n${report.root}${nothingToDo}${renderHookRuns(report.hooks, ctx)}${renderIssues(report.issues, ctx)}\n`;
   }
 
   const table = makeTable(["Repository", "Status", "Path", "Detail"], [20, 10, 48, 32]);
@@ -52,5 +53,5 @@ export function formatWorktreeRemoveReport(
     ]);
   }
 
-  return `${summary}\n${report.root}\n${table.toString()}${renderIssues(report.issues, ctx)}\n`;
+  return `${summary}\n${report.root}\n${table.toString()}${renderHookRuns(report.hooks, ctx)}${renderIssues(report.issues, ctx)}\n`;
 }

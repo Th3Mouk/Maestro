@@ -68,7 +68,7 @@ describe("registerWorktreeCommand", () => {
     expect(createTaskWorktree).toHaveBeenCalledWith(
       path.resolve(process.cwd(), "./ws"),
       "release-prep",
-      { dryRun: true },
+      { dryRun: true, hooks: true },
       commandContext,
     );
     expect(runReportAction.mock.calls[0]?.[1]).toBe("worktree-create");
@@ -95,7 +95,7 @@ describe("registerWorktreeCommand", () => {
     expect(createTaskWorktree).toHaveBeenCalledWith(
       path.resolve(process.cwd(), "./ws"),
       "t",
-      { dryRun: false, repos: ["foods", "platform-api"] },
+      { dryRun: false, hooks: true, repos: ["foods", "platform-api"] },
       commandContext,
     );
   });
@@ -121,10 +121,27 @@ describe("registerWorktreeCommand", () => {
     expect(removeTaskWorktree).toHaveBeenCalledWith(
       path.resolve(process.cwd(), "./ws"),
       "release-prep",
-      { force: true, dryRun: false },
+      { force: true, dryRun: false, hooks: true },
       commandContext,
     );
     expect(runReportAction.mock.calls[0]?.[1]).toBe("worktree-remove");
+  });
+
+  test("--no-hooks is forwarded as hooks: false", async () => {
+    const commandContext = createCommandContextFixture();
+    const program = buildProgram(commandContext);
+
+    await program.parseAsync(
+      ["worktree", "remove", "--workspace", "./ws", "--task", "release-prep", "--no-hooks"],
+      { from: "user" },
+    );
+
+    expect(removeTaskWorktree).toHaveBeenCalledWith(
+      path.resolve(process.cwd(), "./ws"),
+      "release-prep",
+      { force: false, dryRun: false, hooks: false },
+      commandContext,
+    );
   });
 
   test("list resolves the workspace path and reports as worktree-list", async () => {
@@ -163,7 +180,7 @@ describe("registerWorktreeCommand", () => {
 
     expect(pruneTaskWorktrees).toHaveBeenCalledWith(
       path.resolve(process.cwd(), "./ws"),
-      { branches: true, dryRun: true, fetch: false, includeGone: true },
+      { branches: true, dryRun: true, fetch: false, hooks: true, includeGone: true },
       commandContext,
     );
     expect(runReportAction.mock.calls[0]?.[1]).toBe("worktree-prune");
