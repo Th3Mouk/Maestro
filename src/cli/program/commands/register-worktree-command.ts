@@ -15,6 +15,10 @@ import {
 import type { CommandContext } from "./command-types.js";
 import { parseNameList, runReportAction } from "./command-helpers.js";
 
+function collectTaskName(value: string, previous: string[] | undefined): string[] {
+  return [...(previous ?? []), value];
+}
+
 export function registerWorktreeCommand(program: Command, commandContext: CommandContext): void {
   const worktree = program
     .command("worktree")
@@ -30,6 +34,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         "  maestro worktree list --status",
         "  maestro worktree remove --task release-prep",
         "  maestro worktree prune --dry-run",
+        "  maestro worktree prune --task release-prep",
       ].join("\n"),
     );
 
@@ -153,6 +158,11 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
           "--include-gone",
           "also prune clean branches whose upstream was deleted (a deleted remote branch is not proof the work landed)",
         )
+        .option(
+          "--task <name>",
+          "only check and prune this task (repeatable); with --branches, only its orphan branches",
+          collectTaskName,
+        )
         .option("--branches", "also delete orphan task branches that no task worktree holds")
         .option("--no-fetch", "skip `git fetch --prune` on the workspace and each repository")
         .option("--no-hooks", "skip the preRemove hooks of the removed tasks"),
@@ -167,6 +177,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
         branches?: boolean;
         fetch: boolean;
         hooks: boolean;
+        task?: string[];
       },
     ) => {
       await runReportAction(options, "worktree-prune", () =>
@@ -178,6 +189,7 @@ export function registerWorktreeCommand(program: Command, commandContext: Comman
             fetch: options.fetch,
             hooks: options.hooks,
             includeGone: options.includeGone,
+            tasks: options.task,
           },
           commandContext,
         ),

@@ -45,6 +45,8 @@ export interface PruneOptions {
   hooks?: boolean;
   /** Also treat a clean branch whose upstream is gone as landed. */
   includeGone?: boolean;
+  /** Restricts the fetch and the evaluation to these tasks and their repositories. */
+  tasks?: string[];
 }
 
 /** The workspace root or a managed repository: where task branches live. */
@@ -90,14 +92,32 @@ export async function pruneTaskWorktreesWithResolvedWorkspace(
   };
 
   const sources = await listBranchSources(prune);
-  if (options.fetch !== false) {
-    await fetchSources(prune, sources);
-  }
-
   const worktreesRoot = getTaskWorktreesRoot(workspaceRoot, resolvedWorkspace);
-  const entries = (await pathExists(worktreesRoot))
+  let entries = (await pathExists(worktreesRoot))
     ? await listTaskWorktreeEntries(worktreesRoot)
     : [];
+
+  let scope: TaskScope | undefined;
+  if (options.tasks) {
+    scope = await resolveTaskScope(prune, sources, entries, options.tasks);
+    if (scope.unknown.length > 0) {
+      prune.report.status = "error";
+      prune.report.issues.push(
+        ...scope.unknown.map((name) => ({
+          code: "WORKTREE_NOT_FOUND",
+          message: `No task worktree found for "${name}".`,
+          path: resolveSafePath(worktreesRoot, name, "task worktree root"),
+        })),
+      );
+      return prune.report;
+    }
+    entries = scope.entries;
+  }
+
+  if (options.fetch !== false) {
+    await fetchSources(prune, scope ? sources.filter(scope.includesSource) : sources);
+  }
+
   const checkouts = await inspectTaskWorktrees(entries, {
     gitAdapter: context.gitAdapter,
     resolvedWorkspace,
@@ -113,12 +133,72 @@ export async function pruneTaskWorktreesWithResolvedWorkspace(
   }
 
   if (options.branches) {
-    for (const source of sources) {
-      await pruneOrphanBranches(prune, source, keptTaskDirectories);
+    for (const source of scope ? sources.filter(scope.includesSource) : sources) {
+      await pruneOrphanBranches(prune, source, keptTaskDirectories, scope?.names);
     }
   }
 
   return prune.report;
+}
+
+interface TaskScope {
+  entries: TaskWorktreeEntry[];
+  includesSource: (source: BranchSource) => boolean;
+  /** Task directory names in scope. */
+  names: Set<string>;
+  unknown: string[];
+}
+
+/**
+ * The tasks named by `--task`, and the sources that concern them: the workspace root, the
+ * repositories the tasks hold, and, with `--branches`, those holding one of their branches.
+ * A name is known when its task directory exists or, with `--branches`, when a task branch
+ * of that name is left.
+ */
+async function resolveTaskScope(
+  prune: PruneContext,
+  sources: BranchSource[],
+  allEntries: TaskWorktreeEntry[],
+  tasks: string[],
+): Promise<TaskScope> {
+  const names = new Set(tasks.map((task) => sanitizeSegment(task)));
+  const entries = allEntries.filter((entry) => names.has(entry.directoryName));
+  const scopedSources = new Set<string>([
+    prune.workspaceRoot,
+    ...entries.flatMap((entry) =>
+      entry.repositories.map((name) =>
+        resolveSafePath(prune.workspaceRoot, path.join("repos", name), "workspace repository path"),
+      ),
+    ),
+  ]);
+
+  const withBranches = new Set<string>();
+  if (prune.options.branches) {
+    const prefix = taskBranchPrefix(prune);
+    await Promise.all(
+      sources.map(async (source) => {
+        for (const { branch } of await prune.gitAdapter.listTaskBranches(source.root, prefix)) {
+          const taskName = branch.split("/")[1];
+          if (names.has(taskName)) {
+            withBranches.add(taskName);
+            scopedSources.add(source.root);
+          }
+        }
+      }),
+    );
+  }
+
+  const found = new Set(entries.map((entry) => entry.directoryName));
+  return {
+    entries,
+    includesSource: (source) => scopedSources.has(source.root),
+    names,
+    unknown: [...names].filter((name) => !found.has(name) && !withBranches.has(name)),
+  };
+}
+
+function taskBranchPrefix(prune: PruneContext): string {
+  return sanitizeSegment(prune.resolvedWorkspace.execution.worktrees?.branchPrefix ?? "task");
 }
 
 async function listBranchSources(prune: PruneContext): Promise<BranchSource[]> {
@@ -284,13 +364,16 @@ async function pruneOrphanBranches(
   prune: PruneContext,
   source: BranchSource,
   keptTaskDirectories: Set<string>,
+  taskNames: Set<string> | undefined,
 ): Promise<void> {
-  const prefix = sanitizeSegment(
-    prune.resolvedWorkspace.execution.worktrees?.branchPrefix ?? "task",
-  );
-  const orphans = (await prune.gitAdapter.listTaskBranches(source.root, prefix)).filter(
-    ({ branch, checkedOut }) => !checkedOut && !keptTaskDirectories.has(branch.split("/")[1]),
-  );
+  const orphans = (
+    await prune.gitAdapter.listTaskBranches(source.root, taskBranchPrefix(prune))
+  ).filter(({ branch, checkedOut }) => {
+    const taskName = branch.split("/")[1];
+    return (
+      !checkedOut && !keptTaskDirectories.has(taskName) && (!taskNames || taskNames.has(taskName))
+    );
+  });
   if (orphans.length === 0) {
     return;
   }
