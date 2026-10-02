@@ -340,6 +340,17 @@ describe("worktree path and open", () => {
     expect(missing.issues.map((issue) => issue.code)).toEqual(["WORKTREE_NOT_FOUND"]);
   });
 
+  test("resolves the workspace from any directory inside it, a task's repositories included", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const task = await createTaskWorktree(workspaceRoot, "deep", { repos: ["foods"] });
+
+    const fromClone = await getTaskWorktreePath(path.join(workspaceRoot, "repos", "foods"), "deep");
+    const fromTaskRepo = await getTaskWorktreePath(path.join(task.root, "repos", "foods"), "@root");
+
+    expect(fromClone.root).toBe(task.root);
+    expect(await realpath(fromTaskRepo.root)).toBe(await realpath(workspaceRoot));
+  });
+
   test("without a task, the picker chooses from @root and the task rows; without one, the task is required", async () => {
     const { workspaceRoot } = await createLifecycleWorkspace();
     const task = await createTaskWorktree(workspaceRoot, "picked", { repos: ["foods"] });

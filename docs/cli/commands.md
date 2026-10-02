@@ -14,7 +14,7 @@ maestro repo bootstrap
 maestro workspace doctor
 ```
 
-The CLI is organized into grouped verbs. Top-level commands delegate to subcommands under `workspace`, `repo`, `worktree`, `editor-workspace`, and `self`. The only ungrouped verb is `init`.
+The CLI is organized into grouped verbs. Top-level commands delegate to subcommands under `workspace`, `repo`, `worktree`, `editor-workspace`, and `self`. The ungrouped verbs are `init` and `shell-init`.
 
 The core lifecycle is:
 `init` creates the workspace contract, you edit `maestro.yaml` to declare repositories, `workspace install` initializes the workspace root Git repository when needed, creates the `🪄 booted by Maestro` commit when the repository is unborn, and materializes the workspace and runtime projections, `editor-workspace` generates the optional VS Code multi-root file, `repo bootstrap` prepares repository dependencies, and `workspace doctor` validates the installed result. The root help screen also shows the currently installed Maestro version and the supported upgrade commands for npm and Homebrew installs.
@@ -198,6 +198,25 @@ Use this command after `workspace install` when you want the explicit editor pro
 
 Manifest-relative paths are expected to remain inside the workspace root. Path resolution should reject escapes rather than silently writing outside the workspace.
 
+## `shell-init`
+
+Print a shell function that switches to task worktrees. A child process cannot change its parent shell's directory, so `cd` into a task needs a function in the shell itself:
+
+```bash
+eval "$(maestro shell-init)"          # zsh or bash, in ~/.zshrc or ~/.bashrc
+maestro shell-init fish | source      # fish, in ~/.config/fish/config.fish
+```
+
+`maestro shell-init [zsh|bash|fish]` defaults to the basename of `$SHELL` and prints a function named `mw` (`--name <name>` to change it). It is a thin wrapper:
+
+- `mw <args>` runs `maestro worktree open <args> --format human`: the editor opens, the report goes to stderr, and the function `cd`s into the task root printed on stdout. `mw` alone opens the picker; `mw @root` goes back to the main workspace.
+- `mw -l` runs `maestro worktree list --status`.
+- `mw --prune …` runs `maestro worktree prune …`.
+
+The function calls `maestro` from `PATH` and embeds no workspace path, so the rc line is the same on every machine. The workspace is the one around the current directory: worktree commands resolve it upward from any directory inside the workspace, a task root, or one of their repository checkouts.
+
+`maestro shell-init --install` adds the loading line to the shell's rc file (`${ZDOTDIR:-$HOME}/.zshrc`, `~/.bashrc`, or `~/.config/fish/config.fish`) between `# >>> maestro shell-init >>>` and `# <<< maestro shell-init <<<`. Running it again replaces that block and keeps the rest of the file byte for byte; `--uninstall` removes it.
+
 ## `repo`
 
 Commands that operate across the managed repositories in the workspace.
@@ -282,7 +301,7 @@ The generated task root is the unit to open in the editor. It contains the works
 
 When shared workspace state or report files are involved, worktree and related commands should prefer explicit lock discipline over implicit last-writer-wins behavior.
 
-Every `worktree` subcommand can run from inside a task root. When the resolved `--workspace` (the current directory by default) contains `.maestro/execution/worktree.json`, Maestro resolves the main workspace through `git rev-parse --git-common-dir`, operates on it, and reports a `WORKSPACE_RESOLVED_FROM_TASK` issue naming both paths. A task worktree is never created under another task. If the main workspace cannot be resolved, the command fails with `WORKSPACE_IS_TASK_WORKTREE`.
+Every `worktree` subcommand resolves the workspace upward: from a subdirectory or a repository checkout, `--workspace` (the current directory by default) resolves to the closest enclosing workspace or task root. Every `worktree` subcommand can also run from inside a task root. When the resolved `--workspace` (the current directory by default) contains `.maestro/execution/worktree.json`, Maestro resolves the main workspace through `git rev-parse --git-common-dir`, operates on it, and reports a `WORKSPACE_RESOLVED_FROM_TASK` issue naming both paths. A task worktree is never created under another task. If the main workspace cannot be resolved, the command fails with `WORKSPACE_IS_TASK_WORKTREE`.
 
 ### `worktree create`
 

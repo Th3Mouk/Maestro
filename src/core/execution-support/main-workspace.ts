@@ -16,14 +16,16 @@ type MainWorkspaceResolution =
   | { error: WorkspaceIssue };
 
 /**
- * `--workspace` defaults to the current directory, so a command run from inside a task root
- * would treat the task as a workspace and nest worktrees under it. A task root carries
+ * `--workspace` defaults to the current directory, which may sit below the workspace root
+ * (resolved upward first) or inside a task root, which would treat the task as a workspace
+ * and nest worktrees under it. A task root carries
  * `.maestro/execution/worktree.json`; resolve the main workspace through the Git common
  * directory the task's workspace-root worktree shares with it.
  */
 export async function resolveMainWorkspaceRoot(
-  workspaceRoot: string,
+  startDirectory: string,
 ): Promise<MainWorkspaceResolution> {
+  const workspaceRoot = await findEnclosingWorkspaceRoot(startDirectory);
   if (!(await pathExists(getTaskWorktreeMetadataPath(workspaceRoot)))) {
     return { workspaceRoot };
   }
@@ -47,6 +49,28 @@ export async function resolveMainWorkspaceRoot(
       path: workspaceRoot,
     },
   };
+}
+
+/**
+ * The closest directory, `startDirectory` included, that is a workspace (it has the manifest)
+ * or a task root, so worktree commands work from anywhere inside one: a repository checkout,
+ * a subdirectory. `startDirectory` itself when no parent qualifies.
+ */
+async function findEnclosingWorkspaceRoot(startDirectory: string): Promise<string> {
+  let current = startDirectory;
+  for (;;) {
+    if (
+      (await pathExists(path.join(current, workspaceManifestFileName))) ||
+      (await pathExists(getTaskWorktreeMetadataPath(current)))
+    ) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return startDirectory;
+    }
+    current = parent;
+  }
 }
 
 async function findMainWorktreeRoot(taskRoot: string): Promise<string | undefined> {

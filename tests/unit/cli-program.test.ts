@@ -25,6 +25,7 @@ describe("CLI program assembly", () => {
       "init",
       "repo",
       "self",
+      "shell-init",
       "workspace",
       "worktree",
     ]);

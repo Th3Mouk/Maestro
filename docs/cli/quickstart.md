@@ -148,13 +148,21 @@ For task-scoped work, create a task worktree after install and open that folder 
 
 ```bash
 maestro worktree create --task release-prep
-code .maestro/worktrees/release-prep
+maestro worktree open release-prep --editor vscode
 ```
 
-That task folder contains the workspace-root worktree plus one worktree for each managed repository, or only the ones you list with `--repos foods,platform-api`.
-That is the normal day-to-day entrypoint for a task, whether you use VS Code or JetBrains.
+That task folder contains the workspace-root worktree plus one worktree for each managed repository, or only the ones you list with `--repos foods,platform-api`, and a `release-prep.code-workspace` file listing exactly those. That is the normal day-to-day entrypoint for a task, whether you use VS Code, Cursor, or JetBrains (`--editor phpstorm`).
 
-When the work has landed, `maestro worktree prune --dry-run` shows which tasks are safe to remove and why the others are kept; `maestro worktree prune` removes them.
+To switch tasks from the terminal, load the `mw` shell function once in your rc file:
+
+```bash
+eval "$(maestro shell-init)"   # or: maestro shell-init --install
+mw release-prep                # opens the editor and cds into the task
+mw                             # picks a task interactively
+mw -l                          # one row per task: uncommitted, unlanded, prunable
+```
+
+When the work has landed, `maestro worktree prune --dry-run` shows which tasks are safe to remove and why the others are kept; `maestro worktree prune` removes them. Workspaces that run containers or databases per task stop them from a `preRemove` hook, which `prune` runs only for the tasks it removes.
 
 ## 8. Bootstrap repository dependencies
 
