@@ -1,7 +1,11 @@
 import path from "node:path";
 import { execa } from "execa";
 import { GitBranchGuard } from "./internal/git-branch-guard.js";
-import { GitCheckoutInspector, type GitRefState } from "./internal/git-checkout-inspector.js";
+import {
+  GitCheckoutInspector,
+  type GitRefState,
+  type TaskBranchState,
+} from "./internal/git-checkout-inspector.js";
 import { GitCommandExecutor } from "./internal/git-command-executor.js";
 import { GitRepositoryConfigurer } from "./internal/git-repository-configurer.js";
 import { GitSparseCheckout } from "./internal/git-sparse-checkout.js";
@@ -398,9 +402,63 @@ export class GitAdapter {
     return this.#checkoutInspector.upstreamBranch(repoRoot, branchName);
   }
 
-  async deleteBranch(repoRoot: string, branchName: string): Promise<void> {
-    await this.#branchGuard.ensureValidBranchName(repoRoot, branchName);
-    await this.run(repoRoot, ["branch", "-D", "--", branchName]);
+  /** Every `<prefix>/<task>/<scope>` branch with its upstream, worktree, and integration. */
+  async inspectTaskBranches(
+    repoRoot: string,
+    prefix: string,
+    referenceRef: string,
+  ): Promise<TaskBranchState[]> {
+    return this.#checkoutInspector.inspectTaskBranches(repoRoot, prefix, referenceRef);
+  }
+
+  /**
+   * Deletes branches with one `git branch -D` per chunk instead of one per branch. When a
+   * chunk fails (a branch checked out somewhere, say), the branches still present are
+   * reported as failed with Git's message; the others were deleted.
+   */
+  async deleteBranches(
+    repoRoot: string,
+    branchNames: string[],
+  ): Promise<{ deleted: string[]; failed: Array<{ branch: string; message: string }> }> {
+    const deleted: string[] = [];
+    const failed: Array<{ branch: string; message: string }> = [];
+    for (const chunk of chunkByArgumentLength(branchNames)) {
+      for (const branchName of chunk) {
+        this.#branchGuard.assertNotOptionLike(branchName, "branch name");
+      }
+      const result = await execa("git", ["branch", "-D", "--", ...chunk], {
+        cwd: repoRoot,
+        reject: false,
+      });
+      if (result.exitCode === 0) {
+        deleted.push(...chunk);
+        continue;
+      }
+      const remaining = new Set(
+        (
+          await execa(
+            "git",
+            [
+              "for-each-ref",
+              "--format=%(refname:short)",
+              ...chunk.map((branchName) => `refs/heads/${branchName}`),
+            ],
+            { cwd: repoRoot, reject: false },
+          )
+        ).stdout
+          .split("\n")
+          .filter(Boolean),
+      );
+      const message = String(result.stderr).trim() || `git branch -D exited ${result.exitCode}`;
+      for (const branchName of chunk) {
+        if (remaining.has(branchName)) {
+          failed.push({ branch: branchName, message });
+        } else {
+          deleted.push(branchName);
+        }
+      }
+    }
+    return { deleted, failed };
   }
 
   async #refExists(repoRoot: string, ref: string): Promise<boolean> {
@@ -466,4 +524,26 @@ export class GitAdapter {
   async run(repoRoot: string, args: string[]) {
     return this.#commandExecutor.runWithFriendlyErrors(repoRoot, args);
   }
+}
+
+// Keeps each `git branch -D` command line well under the smallest common argv limits.
+const MAX_BRANCH_ARGUMENT_CHARACTERS = 32_000;
+
+function chunkByArgumentLength(values: string[]): string[][] {
+  const chunks: string[][] = [];
+  let current: string[] = [];
+  let length = 0;
+  for (const value of values) {
+    if (current.length > 0 && length + value.length + 1 > MAX_BRANCH_ARGUMENT_CHARACTERS) {
+      chunks.push(current);
+      current = [];
+      length = 0;
+    }
+    current.push(value);
+    length += value.length + 1;
+  }
+  if (current.length > 0) {
+    chunks.push(current);
+  }
+  return chunks;
 }

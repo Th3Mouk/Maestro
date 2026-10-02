@@ -15,7 +15,11 @@ export function createGitCommandAdapterFixture(
     ensureWorkspaceRepository: mockFn().mockResolvedValue("unchanged"),
     ensureRepository: mockFn().mockResolvedValue("unchanged"),
     ensureWorktree: mockFn().mockResolvedValue("unchanged"),
-    deleteBranch: mockFn().mockResolvedValue(undefined),
+    deleteBranches: mockFn().mockImplementation(async (_repoRoot: string, branches: string[]) => ({
+      deleted: branches,
+      failed: [],
+    })),
+    inspectTaskBranches: mockFn().mockResolvedValue([]),
     fetch: mockFn().mockResolvedValue(undefined),
     fetchBranch: mockFn().mockResolvedValue(undefined),
     inspectRef: mockFn().mockResolvedValue({
