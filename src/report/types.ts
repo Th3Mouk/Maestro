@@ -120,7 +120,17 @@ export interface WorktreeListReport {
     checkouts?: TaskCheckoutState[];
     /** With `--status`: whether `worktree prune` would remove the task. */
     prunable?: boolean;
+    /** With `--status` and `listColumns`: the workspace's extra columns, by name. */
+    columns?: Record<string, string>;
   }>;
+  /**
+   * With `--status`: the main workspace (`@root`), its root first, then each primary clone.
+   * It is never listed under `worktrees`.
+   */
+  root?: {
+    checkouts: TaskCheckoutState[];
+    columns?: Record<string, string>;
+  };
   /** Directories under the worktrees root that are not task worktrees; Maestro never touches them. */
   foreign?: ForeignDirectory[];
   issues: Array<{ code: string; message: string; path?: string }>;

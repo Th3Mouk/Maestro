@@ -7,10 +7,12 @@ import {
   summaryLine,
   type HumanFormatContext,
 } from "./shared.js";
+import { buildTaskRows } from "../../../core/execution-support/task-worktree-rows.js";
 
 export function formatWorktreeListReport(
   report: WorktreeListReport,
   ctx: HumanFormatContext,
+  options: { detail?: boolean } = {},
 ): string {
   const summary = summaryLine(
     "worktree list",
@@ -23,8 +25,9 @@ export function formatWorktreeListReport(
     return `${summary}\n${report.workspace}\nok - nothing to do${renderForeign(report, ctx)}${renderIssues(report.issues, ctx)}\n`;
   }
 
-  if (report.worktrees.some((worktree) => worktree.checkouts)) {
-    return `${summary}\n${report.workspace}\n${formatCheckoutTable(report, ctx)}${renderForeign(report, ctx)}${renderIssues(report.issues, ctx)}\n`;
+  if (report.root || report.worktrees.some((worktree) => worktree.checkouts)) {
+    const table = options.detail ? formatCheckoutTable(report, ctx) : formatTaskTable(report, ctx);
+    return `${summary}\n${report.workspace}\n${table}${renderForeign(report, ctx)}${renderIssues(report.issues, ctx)}\n`;
   }
 
   const table = makeTable(["Name", "Repositories", "Root", "Created"], [24, 24, 48, 26]);
@@ -38,6 +41,33 @@ export function formatWorktreeListReport(
   }
 
   return `${summary}\n${report.workspace}\n${table.toString()}${renderForeign(report, ctx)}${renderIssues(report.issues, ctx)}\n`;
+}
+
+/** `list --status`: one row per task, the main workspace first. */
+function formatTaskTable(report: WorktreeListReport, ctx: HumanFormatContext): string {
+  const rows = buildTaskRows(report, {
+    // The primary clones the main workspace holds: a task holding all of them shows `all`.
+    allRepositories: (report.root?.checkouts ?? []).slice(1).map((checkout) => checkout.name),
+  });
+  const extraNames = [...new Set(rows.flatMap((row) => Object.keys(row.extra)))];
+  const table = makeTable(
+    ["Task", "Repos", "Uncommitted", "Unlanded", "Prunable", "Age", ...extraNames],
+    [24, 20, 22, 22, 10, 6, ...extraNames.map(() => 12)],
+  );
+  // A space after each comma lets long checkout lists wrap instead of being cut off.
+  const wrap = (value: string) => value.replaceAll(",", ", ");
+  for (const row of rows) {
+    table.push([
+      row.name,
+      wrap(row.repos),
+      row.uncommitted === "-" ? dim("-", ctx) : paintStatus(wrap(row.uncommitted), "warning", ctx),
+      row.unlanded === "-" ? dim("-", ctx) : paintStatus(wrap(row.unlanded), "warning", ctx),
+      row.prunable === "yes" ? paintStatus("yes", "ok", ctx) : dim(row.prunable, ctx),
+      row.age,
+      ...extraNames.map((name) => row.extra[name] ?? "-"),
+    ]);
+  }
+  return table.toString();
 }
 
 function renderForeign(report: WorktreeListReport, ctx: HumanFormatContext): string {

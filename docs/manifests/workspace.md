@@ -329,6 +329,7 @@ In practice:
   - `rootDir`: local root used for generated task worktrees
   - `branchPrefix`: prefix used when creating worktree branches per task and per repository
   - `editor`: the editor `worktree open` launches when neither `--editor` nor `$MAESTRO_EDITOR` is set (`vscode`, `cursor`, `devin`, `phpstorm`, `idea`, `webstorm`, `none`, or `custom`). See [`worktree open`](../cli/commands.md#worktree-path-and-worktree-open).
+  - `listColumns`: extra `worktree list --status` columns, `[{ name, command }]`. Each command receives the task names on stdin and prints `task<TAB>value` lines, for example a PLATFORM column from `docker compose ls`. See [`worktree list`](../cli/commands.md#worktree-list).
   - `forge`: `github` makes `worktree list --status` and `worktree prune` ask GitHub (through `gh`) whether a branch whose upstream is gone was merged by pull request. See [forge-backed integration](../cli/commands.md#forge-backed-integration).
   - `hooks.postCreate`, `hooks.preRemove`: shell commands run around the task lifecycle, from the main workspace root, with `MAESTRO_TASK`, `MAESTRO_TASK_ROOT`, and the other variables listed in [lifecycle hooks](../cli/commands.md#lifecycle-hooks). `postCreate` seeds a new task (dependencies, caches); `preRemove` stops what the workspace runs for it (containers, databases, routes) once `remove` or `prune` has checked the task is safe to remove. Packs provide them through `provides.hooks.worktreePostCreate` and `provides.hooks.worktreePreRemove`.
 

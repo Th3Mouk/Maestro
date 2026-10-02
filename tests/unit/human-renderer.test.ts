@@ -414,8 +414,8 @@ describe("HumanRenderer", () => {
     expect(buffer).not.toContain("at ");
   });
 
-  test("formats a WorktreeListReport with --status as one row per checkout", () => {
-    const report: WorktreeListReport = {
+  function statusReport(): WorktreeListReport {
+    return {
       status: "ok",
       workspace: "ws",
       worktrees: [
@@ -449,8 +449,11 @@ describe("HumanRenderer", () => {
       ],
       issues: [],
     };
+  }
+
+  test("formats a WorktreeListReport with --status --detail as one row per checkout, as in 0.7", () => {
     const output = capture((stream) =>
-      new HumanRenderer("worktree-list", { color: false }).render(report, stream),
+      new HumanRenderer("worktree-list-detail", { color: false }).render(statusReport(), stream),
     );
 
     expect(output).toContain("Checkout");
@@ -486,6 +489,54 @@ describe("HumanRenderer", () => {
     expect(pathOutput).toContain("worktree path: error");
     expect(pathOutput).toContain("TASK_REQUIRED");
     expect(openOutput).toBe("worktree open a: ok (none)\n");
+  });
+
+  test("formats a WorktreeListReport with --status as one row per task, @root first", () => {
+    const report = statusReport();
+    report.root = {
+      checkouts: [
+        {
+          name: "ws",
+          path: "/tmp/ws",
+          branch: "main",
+          dirty: true,
+          localOnly: 0,
+          upstream: "tracking",
+          integrated: true,
+        },
+        {
+          name: "foods",
+          path: "/tmp/ws/repos/foods",
+          branch: "main",
+          dirty: false,
+          localOnly: 0,
+          upstream: "tracking",
+          integrated: true,
+        },
+      ],
+      columns: { PLATFORM: "-" },
+    };
+    const [worktree] = report.worktrees;
+    if (worktree) {
+      worktree.columns = { PLATFORM: "up" };
+    }
+
+    const output = capture((stream) =>
+      new HumanRenderer("worktree-list", { color: false }).render(report, stream),
+    );
+    const lines = output.split("\n");
+
+    expect(output).toMatch(
+      /Task\s+│ Repos\s+│ Uncommitted\s+│ Unlanded\s+│ Prunable\s+│ Age\s+│ PLATFORM/,
+    );
+    expect(output).not.toContain("Checkout");
+    expect(lines.findIndex((line) => line.includes("@root"))).toBeLessThan(
+      lines.findIndex((line) => line.includes("fix-login")),
+    );
+    expect(rowContaining(output, "@root")).toMatch(/@root\s+│ all\s+│ ws\s+│ -\s+│ -/);
+    expect(rowContaining(output, "fix-login")).toMatch(
+      /fix-login\s+│ all\s+│ foods\s+│ foods\s+│ -\s+│ \d+d\s+│ up/,
+    );
   });
 
   test("formats a WorktreePruneReport with removed tasks, deleted branches, and kept items", () => {

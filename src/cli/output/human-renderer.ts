@@ -31,6 +31,7 @@ export type HumanReportKind =
   | "worktree-create"
   | "worktree-remove"
   | "worktree-list"
+  | "worktree-list-detail"
   | "worktree-prune"
   | "worktree-open"
   | "worktree-path"
@@ -85,6 +86,8 @@ export class HumanRenderer implements Renderer {
         return formatWorktreeRemoveReport(report as WorktreeRemoveReport, this.ctx);
       case "worktree-list":
         return formatWorktreeListReport(report as WorktreeListReport, this.ctx);
+      case "worktree-list-detail":
+        return formatWorktreeListReport(report as WorktreeListReport, this.ctx, { detail: true });
       case "worktree-prune":
         return formatWorktreePruneReport(report as WorktreePruneReport, this.ctx);
       case "worktree-open":

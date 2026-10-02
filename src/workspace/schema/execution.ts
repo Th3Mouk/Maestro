@@ -29,6 +29,10 @@ export const worktreeExecutionSchema = z.object({
   hooks: worktreeHooksSchema.optional(),
   /** The editor `worktree open` launches when neither --editor nor $MAESTRO_EDITOR is set. */
   editor: z.string().min(1).optional(),
+  /** Extra `list --status` columns: each command prints `task<TAB>value` for the names on stdin. */
+  listColumns: z
+    .array(z.object({ name: z.string().min(1), command: z.string().min(1) }))
+    .optional(),
   /** Asks this forge whether a branch whose upstream is gone was merged. */
   forge: z.enum(["github"]).optional(),
 });

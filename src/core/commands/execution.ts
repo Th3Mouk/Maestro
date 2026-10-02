@@ -17,7 +17,10 @@ import {
   type TaskWorktreeRemoveOptions,
 } from "../execution-support/task-worktree-remove.js";
 import type { TaskWorktreeCreateOptions } from "../execution-support/task-worktree.js";
-import { listTaskWorktreesWithResolvedWorkspace } from "../execution-support/task-worktree-list.js";
+import {
+  listTaskWorktreesWithResolvedWorkspace,
+  type TaskWorktreeListOptions,
+} from "../execution-support/task-worktree-list.js";
 import {
   pruneTaskWorktreesWithResolvedWorkspace,
   type PruneOptions,
@@ -30,7 +33,6 @@ import {
   type TaskPicker,
 } from "../execution-support/task-worktree-open.js";
 import type { ResolvedWorkspace } from "../../workspace/types.js";
-import type { ForgeName } from "../../adapters/forge/github-forge.js";
 import type { CommandContext } from "../command-context.js";
 import { createCommandContext } from "../command-context.js";
 
@@ -134,7 +136,7 @@ export async function removeTaskWorktree(
 
 export async function listTaskWorktrees(
   workspaceRoot: string,
-  options: { forge?: ForgeName | "none"; status?: boolean } = {},
+  options: TaskWorktreeListOptions = {},
   context: CommandContext = createCommandContext(),
 ): Promise<WorktreeListReport> {
   const resolution = await resolveMainWorkspaceRoot(workspaceRoot);
