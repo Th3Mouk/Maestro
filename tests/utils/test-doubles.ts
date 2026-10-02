@@ -26,6 +26,7 @@ export function createGitCommandAdapterFixture(
     }),
     listTaskBranches: mockFn().mockResolvedValue([]),
     listWorktrees: mockFn().mockResolvedValue([]),
+    readUpstreamBranch: mockFn().mockResolvedValue(undefined),
     pruneWorktrees: mockFn().mockResolvedValue(undefined),
     localBranchExists: mockFn().mockResolvedValue(false),
     remoteBranchExists: mockFn().mockResolvedValue(true),
@@ -53,6 +54,9 @@ export function createCommandContextFixture(
   } = {},
 ): CommandContext {
   return {
+    forgeClients: {
+      github: { findMergedPullRequest: mockFn().mockResolvedValue(undefined) },
+    },
     gitAdapter: createGitCommandAdapterFixture(overrides.gitAdapter),
     stderr: overrides.stderr ?? process.stderr,
     renderer: overrides.renderer ?? new JsonRenderer(),

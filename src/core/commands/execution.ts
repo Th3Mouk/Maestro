@@ -22,6 +22,7 @@ import {
   type PruneOptions,
 } from "../execution-support/task-worktree-prune.js";
 import { listWorkspaceRepositoriesWithResolvedWorkspace } from "../execution-support/repository-list.js";
+import type { ForgeName } from "../../adapters/forge/github-forge.js";
 import type { CommandContext } from "../command-context.js";
 import { createCommandContext } from "../command-context.js";
 
@@ -125,7 +126,7 @@ export async function removeTaskWorktree(
 
 export async function listTaskWorktrees(
   workspaceRoot: string,
-  options: { status?: boolean } = {},
+  options: { forge?: ForgeName | "none"; status?: boolean } = {},
   context: CommandContext = createCommandContext(),
 ): Promise<WorktreeListReport> {
   const resolution = await resolveMainWorkspaceRoot(workspaceRoot);
@@ -143,7 +144,7 @@ export async function listTaskWorktrees(
     resolution.workspaceRoot,
     resolvedWorkspace,
     options,
-    { gitAdapter: context.gitAdapter },
+    { forgeClients: context.forgeClients, gitAdapter: context.gitAdapter },
   );
   return withResolutionIssue(report, resolution.issue);
 }
@@ -171,7 +172,7 @@ export async function pruneTaskWorktrees(
     resolution.workspaceRoot,
     resolvedWorkspace,
     options,
-    { gitAdapter: context.gitAdapter, stderr: context.stderr },
+    { forgeClients: context.forgeClients, gitAdapter: context.gitAdapter, stderr: context.stderr },
     4,
   );
   return withResolutionIssue(report, resolution.issue);

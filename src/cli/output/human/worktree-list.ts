@@ -61,7 +61,11 @@ function describeCheckout(checkout: TaskCheckoutState): string {
     `upstream ${checkout.upstream}`,
   ];
   if (checkout.integrated) {
-    parts.push("integrated");
+    parts.push(
+      checkout.integratedBy === "forge" && checkout.pr !== undefined
+        ? `integrated (merged in #${checkout.pr})`
+        : "integrated",
+    );
   }
   return parts.join(", ");
 }

@@ -392,6 +392,12 @@ export class GitAdapter {
     return this.#checkoutInspector.listTaskBranches(repoRoot, prefix);
   }
 
+  /** The remote branch `branchName` tracks, even when it was deleted on the remote. */
+  async readUpstreamBranch(repoRoot: string, branchName: string): Promise<string | undefined> {
+    await this.#branchGuard.ensureValidBranchName(repoRoot, branchName);
+    return this.#checkoutInspector.upstreamBranch(repoRoot, branchName);
+  }
+
   async deleteBranch(repoRoot: string, branchName: string): Promise<void> {
     await this.#branchGuard.ensureValidBranchName(repoRoot, branchName);
     await this.run(repoRoot, ["branch", "-D", "--", branchName]);

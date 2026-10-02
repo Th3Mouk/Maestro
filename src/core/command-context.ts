@@ -1,3 +1,8 @@
+import {
+  GitHubForgeClient,
+  type ForgeClient,
+  type ForgeName,
+} from "../adapters/forge/github-forge.js";
 import { GitAdapter } from "../adapters/git/git-adapter.js";
 import type { Renderer } from "../cli/output/renderer.js";
 import { createRenderer } from "../cli/output/index.js";
@@ -21,6 +26,7 @@ export type GitCommandAdapter = Pick<
   | "inspectRef"
   | "listTaskBranches"
   | "deleteBranch"
+  | "readUpstreamBranch"
   | "localBranchExists"
   | "remoteBranchExists"
   | "resolveDefaultBranchRef"
@@ -32,6 +38,8 @@ export type GitCommandAdapter = Pick<
 >;
 
 export interface CommandContext {
+  /** Forges `worktree list --status` and `prune` can ask about merged pull requests. */
+  forgeClients: Record<ForgeName, ForgeClient>;
   gitAdapter: GitCommandAdapter;
   stderr: NodeJS.WriteStream;
   renderer: Renderer;
@@ -39,6 +47,7 @@ export interface CommandContext {
 
 export function createCommandContext(overrides: Partial<CommandContext> = {}): CommandContext {
   return {
+    forgeClients: overrides.forgeClients ?? { github: new GitHubForgeClient() },
     gitAdapter: overrides.gitAdapter ?? new GitAdapter(),
     stderr: overrides.stderr ?? process.stderr,
     renderer: overrides.renderer ?? createRenderer("json", { reportKind: "install" }),

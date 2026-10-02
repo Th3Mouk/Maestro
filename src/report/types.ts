@@ -91,6 +91,10 @@ export interface TaskCheckoutState {
   upstream: "tracking" | "gone" | "none";
   /** The branch's work is in the reference branch, merged or squash-merged. */
   integrated: boolean;
+  /** How `integrated` was established: Git ancestry or patch, or a merged pull request. */
+  integratedBy?: "git" | "forge";
+  /** With `integratedBy: "forge"`: the merged pull request. */
+  pr?: number;
   /** Set when Git could not inspect the checkout; the other fields are then meaningless. */
   error?: string;
 }
@@ -132,6 +136,8 @@ export interface WorktreePruneReport {
   deletedBranches: Array<{ name: string; branch: string }>;
   /** Tasks and orphan branches left in place, each with why. */
   kept: Array<{ name: string; reasons: string[] }>;
+  /** Merged pull requests that proved a removed task or deleted branch landed (`--forge`). */
+  mergedPullRequests?: Array<{ item: string; checkout: string; pr: number }>;
   /** `preRemove` hooks run (or planned) for the removed tasks. */
   hooks?: WorktreeHookRun[];
   issues: Array<{ code: string; message: string; path?: string }>;

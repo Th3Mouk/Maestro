@@ -11,7 +11,13 @@ import {
   pruneTaskWorktrees,
   removeTaskWorktree,
 } from "../../src/core/commands/execution.js";
-import { branchExists, createLifecycleWorkspace, git } from "../utils/worktree-workspace.js";
+import { ForgeUnavailableError, type ForgeClient } from "../../src/adapters/forge/github-forge.js";
+import {
+  branchExists,
+  commitAndPushTaskWork,
+  createLifecycleWorkspace,
+  git,
+} from "../utils/worktree-workspace.js";
 
 /** A real Git adapter that records the calls made to the given methods. */
 function createRecordingGitAdapter(methods: Array<keyof GitCommandAdapter>): {
@@ -167,5 +173,139 @@ describe("workspace doctor and task worktrees", () => {
     expect(fixed.issues.map((issue) => issue.code)).not.toContain("WORKTREE_PRUNABLE");
     expect(fixed.fixes).toEqual([expect.objectContaining({ code: "WORKTREE_PRUNABLE" })]);
     expect(await git(foodsClone, ["worktree", "list"])).not.toContain("deleted-worktree");
+  });
+});
+
+/** A forge that knows the given merged pull requests, keyed by head branch. */
+function createFakeForge(merged: Record<string, number>): {
+  client: ForgeClient;
+  lookups: Array<{ branch: string; remoteUrl: string }>;
+} {
+  const lookups: Array<{ branch: string; remoteUrl: string }> = [];
+  return {
+    lookups,
+    client: {
+      findMergedPullRequest: async (remoteUrl, branch) => {
+        lookups.push({ branch, remoteUrl });
+        return merged[branch] === undefined ? undefined : { number: merged[branch] };
+      },
+    },
+  };
+}
+
+/** A task whose foods branch was pushed, then deleted on the remote without being merged there. */
+async function createGoneTask(
+  workspaceRoot: string,
+  name: string,
+): Promise<{ branch: string; root: string }> {
+  const task = await createTaskWorktree(workspaceRoot, name, { repos: ["foods"] });
+  const branch = await commitAndPushTaskWork(task.root, `${name}.txt`);
+  await git(path.join(task.root, "repos", "foods"), ["push", "origin", "--delete", branch]);
+  return { branch, root: task.root };
+}
+
+describe("forge-backed integration", () => {
+  test("a gone branch whose pull request was merged is prunable, with the pull request", async () => {
+    const { remotes, workspaceRoot } = await createLifecycleWorkspace();
+    const { branch, root } = await createGoneTask(workspaceRoot, "merged-elsewhere");
+    const forge = createFakeForge({ [branch]: 2028 });
+    const context = createCommandContext({ forgeClients: { github: forge.client } });
+
+    const listed = await listTaskWorktrees(
+      workspaceRoot,
+      { status: true, forge: "github" },
+      context,
+    );
+    expect(listed.worktrees[0]?.prunable).toBe(true);
+    expect(listed.worktrees[0]?.checkouts?.[1]).toMatchObject({
+      name: "foods",
+      upstream: "gone",
+      integrated: true,
+      integratedBy: "forge",
+      pr: 2028,
+    });
+    expect(forge.lookups).toEqual([{ branch, remoteUrl: remotes.foods }]);
+
+    const report = await pruneTaskWorktrees(workspaceRoot, { forge: "github" }, context);
+
+    expect(report.status).toBe("ok");
+    expect(report.removed).toEqual(["merged-elsewhere"]);
+    expect(report.mergedPullRequests).toEqual([
+      { item: "merged-elsewhere", checkout: "foods", pr: 2028 },
+    ]);
+    expect(existsSync(root)).toBe(false);
+  });
+
+  test("a gone branch without a merged pull request is kept", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const { root } = await createGoneTask(workspaceRoot, "abandoned");
+    const forge = createFakeForge({});
+
+    const report = await pruneTaskWorktrees(
+      workspaceRoot,
+      { forge: "github" },
+      createCommandContext({ forgeClients: { github: forge.client } }),
+    );
+
+    expect(report.removed).toEqual([]);
+    expect(report.kept).toEqual([
+      {
+        name: "abandoned",
+        reasons: ["1 local-only commit in foods (upstream gone; --include-gone prunes it)"],
+      },
+    ]);
+    expect(existsSync(root)).toBe(true);
+  });
+
+  test("an unavailable forge is a warning, and the verdict falls back to Git", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const { root } = await createGoneTask(workspaceRoot, "offline");
+    const client: ForgeClient = {
+      findMergedPullRequest: async () => {
+        throw new ForgeUnavailableError("the GitHub CLI (gh) is not installed");
+      },
+    };
+
+    const report = await pruneTaskWorktrees(
+      workspaceRoot,
+      { forge: "github" },
+      createCommandContext({ forgeClients: { github: client } }),
+    );
+
+    expect(report.status).toBe("warning");
+    expect(report.issues).toEqual([expect.objectContaining({ code: "FORGE_UNAVAILABLE" })]);
+    expect(report.kept.map((item) => item.name)).toEqual(["offline"]);
+    expect(existsSync(root)).toBe(true);
+  });
+
+  test("spec.execution.worktrees.forge turns the lookup on, and --forge none off", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace({ executionLines: ["forge: github"] });
+    const { branch } = await createGoneTask(workspaceRoot, "configured");
+    const forge = createFakeForge({ [branch]: 7 });
+    const context = createCommandContext({ forgeClients: { github: forge.client } });
+
+    const off = await pruneTaskWorktrees(workspaceRoot, { forge: "none", dryRun: true }, context);
+    expect(off.removed).toEqual([]);
+    expect(forge.lookups).toEqual([]);
+
+    const on = await pruneTaskWorktrees(workspaceRoot, { dryRun: true }, context);
+    expect(on.removed).toEqual(["configured"]);
+  });
+
+  test("an orphan branch whose pull request was merged is deleted with --branches", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const { branch } = await createGoneTask(workspaceRoot, "orphaned");
+    expect((await removeTaskWorktree(workspaceRoot, "orphaned")).status).toBe("ok");
+    const forge = createFakeForge({ [branch]: 99 });
+
+    const report = await pruneTaskWorktrees(
+      workspaceRoot,
+      { branches: true, forge: "github" },
+      createCommandContext({ forgeClients: { github: forge.client } }),
+    );
+
+    expect(report.deletedBranches).toEqual(expect.arrayContaining([{ name: "foods", branch }]));
+    expect(report.mergedPullRequests).toEqual([{ item: branch, checkout: "foods", pr: 99 }]);
+    expect(await branchExists(path.join(workspaceRoot, "repos", "foods"), branch)).toBe(false);
   });
 });

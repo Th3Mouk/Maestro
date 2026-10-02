@@ -95,7 +95,12 @@ export async function computeCheckoutState(
     ]);
     const userChanges = await excludeGeneratedChanges(target.path, changes, target.generatedFiles);
     const refState = await gitAdapter.inspectRef(target.path, referenceRef);
-    return { ...unknown, ...refState, dirty: userChanges.length > 0 };
+    return {
+      ...unknown,
+      ...refState,
+      dirty: userChanges.length > 0,
+      ...(refState.integrated ? { integratedBy: "git" as const } : {}),
+    };
   } catch (error) {
     return { ...unknown, error: errorMessage(error) };
   }
