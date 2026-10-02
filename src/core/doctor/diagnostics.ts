@@ -7,12 +7,19 @@ import { runLockAndStateChecks } from "./lock-state-checks.js";
 import { runPluginMarketplaceChecks } from "./plugin-marketplace-checks.js";
 import { runRepositoryChecks } from "./repository-checks.js";
 import { runRuntimeArtifactChecks } from "./runtime-artifact-checks.js";
+import { runWorktreeChecks } from "./worktree-checks.js";
 
 interface DoctorPipelineState {
   workspaceRoot: string;
   context: CommandContext;
+  options: DoctorOptions;
   report: DoctorReport;
   resolvedWorkspace?: ResolvedWorkspace;
+}
+
+export interface DoctorOptions {
+  /** Repair what doctor can repair safely: stale worktree registrations. */
+  fix?: boolean;
 }
 
 type DoctorPipelineStep = (state: DoctorPipelineState) => Promise<void>;
@@ -42,16 +49,26 @@ const doctorPipelineSteps: DoctorPipelineStep[] = [
   async (state) => runPluginMarketplaceChecks(state.workspaceRoot, state.report),
   async (state) =>
     runExecutionArtifactChecks(state.workspaceRoot, requireResolvedWorkspace(state), state.report),
+  async (state) =>
+    runWorktreeChecks(
+      state.workspaceRoot,
+      requireResolvedWorkspace(state),
+      state.context.gitAdapter,
+      state.report,
+      state.options,
+    ),
 ];
 
 export async function runDoctorDiagnostics(
   workspaceRoot: string,
   context: CommandContext,
   report: DoctorReport,
+  options: DoctorOptions = {},
 ): Promise<void> {
   const state: DoctorPipelineState = {
     workspaceRoot,
     context,
+    options,
     report,
   };
 

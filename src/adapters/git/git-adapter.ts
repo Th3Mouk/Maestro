@@ -19,6 +19,16 @@ interface GitDiffStats {
   deleted: number;
 }
 
+interface GitWorktreeEntry {
+  path: string;
+  /** `null` when detached or bare. */
+  branch: string | null;
+  /** The first entry: the repository's main worktree. */
+  main: boolean;
+  /** Registered, but its directory is gone. */
+  prunable: boolean;
+}
+
 interface GitOperationResult {
   branch: string;
   status: "updated" | "unchanged";
@@ -393,6 +403,40 @@ export class GitAdapter {
       reject: false,
     });
     return exitCode === 0;
+  }
+
+  /** `git worktree list --porcelain`, the main worktree first. */
+  async listWorktrees(repoRoot: string): Promise<GitWorktreeEntry[]> {
+    const { stdout } = await execa("git", ["worktree", "list", "--porcelain", "-z"], {
+      cwd: repoRoot,
+    });
+    const entries: GitWorktreeEntry[] = [];
+    for (const field of stdout.split("\0")) {
+      if (field.startsWith("worktree ")) {
+        entries.push({
+          path: field.slice("worktree ".length),
+          branch: null,
+          main: entries.length === 0,
+          prunable: false,
+        });
+        continue;
+      }
+      const current = entries.at(-1);
+      if (!current) {
+        continue;
+      }
+      if (field.startsWith("branch ")) {
+        current.branch = field.slice("branch ".length).replace(/^refs\/heads\//, "");
+      } else if (field === "prunable" || field.startsWith("prunable ")) {
+        current.prunable = true;
+      }
+    }
+    return entries;
+  }
+
+  /** Forgets worktree registrations whose directory is gone. */
+  async pruneWorktrees(repoRoot: string): Promise<void> {
+    await this.run(repoRoot, ["worktree", "prune"]);
   }
 
   async removeWorktree(

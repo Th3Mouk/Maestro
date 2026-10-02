@@ -25,6 +25,8 @@ export function createGitCommandAdapterFixture(
       upstream: "tracking",
     }),
     listTaskBranches: mockFn().mockResolvedValue([]),
+    listWorktrees: mockFn().mockResolvedValue([]),
+    pruneWorktrees: mockFn().mockResolvedValue(undefined),
     localBranchExists: mockFn().mockResolvedValue(false),
     remoteBranchExists: mockFn().mockResolvedValue(true),
     resolveDefaultBranchRef: mockFn().mockResolvedValue("origin/main"),

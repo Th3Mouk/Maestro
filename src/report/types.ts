@@ -57,6 +57,8 @@ export interface DoctorReport {
   status: ReportStatus;
   workspace: string;
   issues: Array<{ code: string; message: string; path?: string }>;
+  /** With `--fix`: what doctor repaired. */
+  fixes?: Array<{ code: string; message: string; path?: string }>;
 }
 
 export interface WorktreeRemoveReport {
@@ -93,6 +95,14 @@ export interface TaskCheckoutState {
   error?: string;
 }
 
+/** A directory under the worktrees root that `maestro worktree create` did not create. */
+export interface ForeignDirectory {
+  path: string;
+  kind: "git-worktree" | "git-repository" | "directory";
+  /** For a `git-worktree`: the repository it belongs to. */
+  source?: string;
+}
+
 export interface WorktreeListReport {
   status: ReportStatus;
   workspace: string;
@@ -107,6 +117,8 @@ export interface WorktreeListReport {
     /** With `--status`: whether `worktree prune` would remove the task. */
     prunable?: boolean;
   }>;
+  /** Directories under the worktrees root that are not task worktrees; Maestro never touches them. */
+  foreign?: ForeignDirectory[];
   issues: Array<{ code: string; message: string; path?: string }>;
 }
 

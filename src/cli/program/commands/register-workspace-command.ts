@@ -20,7 +20,7 @@ type WorkspaceLifecycleOptions = OutputOptionValues & {
   dryRun?: boolean;
 };
 
-type WorkspaceDoctorOptions = OutputOptionValues & { workspace: string };
+type WorkspaceDoctorOptions = OutputOptionValues & { workspace: string; fix?: boolean };
 
 export function registerWorkspaceCommand(program: Command, commandContext: CommandContext): void {
   const workspace = program
@@ -103,12 +103,18 @@ export function registerWorkspaceCommand(program: Command, commandContext: Comma
         .command("doctor")
         .summary("Validate workspace contract, repositories, and generated artifacts")
         .description(
-          "Validate the workspace contract, managed repositories, and generated artifacts",
+          "Validate the workspace contract, managed repositories, generated artifacts, and task worktrees",
+        )
+        .option(
+          "--fix",
+          "repair what can be repaired safely: `git worktree prune` stale registrations",
         ),
     ),
   ).action(async (options: WorkspaceDoctorOptions) => {
     await runReportAction(options, "doctor", () =>
-      doctorWorkspace(resolveWorkspacePath(options.workspace), commandContext),
+      doctorWorkspace(resolveWorkspacePath(options.workspace), commandContext, {
+        fix: options.fix,
+      }),
     );
   });
 }

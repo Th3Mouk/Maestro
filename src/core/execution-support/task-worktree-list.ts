@@ -1,12 +1,10 @@
 import type { WorktreeListReport } from "../../report/types.js";
 import { pathExists } from "../../utils/fs.js";
 import type { ResolvedWorkspace } from "../../workspace/types.js";
-import { escalateStatus } from "../errors.js";
 import {
   evaluateTaskPrunability,
   type CheckoutStateGitAdapter,
 } from "../execution/checkout-state.js";
-import { getTaskWorktreeMetadataPath } from "../execution/task-worktree-metadata.js";
 import { inspectTaskWorktrees, listTaskWorktreeEntries } from "./task-worktree-inventory.js";
 import { getTaskWorktreesRoot } from "./worktree-root.js";
 
@@ -28,16 +26,11 @@ export async function listTaskWorktreesWithResolvedWorkspace(
     return report;
   }
 
-  const entries = await listTaskWorktreeEntries(worktreesRoot);
+  const { entries, foreign } = await listTaskWorktreeEntries(worktreesRoot);
+  if (foreign.length > 0) {
+    report.foreign = foreign;
+  }
   for (const entry of entries) {
-    if (!entry.metadata) {
-      report.status = escalateStatus(report.status, "warning");
-      report.issues.push({
-        code: "WORKTREE_METADATA_MISSING",
-        message: `No metadata found for worktree "${entry.directoryName}".`,
-        path: getTaskWorktreeMetadataPath(entry.root),
-      });
-    }
     report.worktrees.push({
       name: entry.name,
       root: entry.root,

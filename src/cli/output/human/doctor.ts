@@ -22,8 +22,12 @@ export function formatDoctorReport(report: DoctorReport, ctx: HumanFormatContext
     ctx,
   );
 
+  const fixes = report.fixes?.length
+    ? `\n\n${paintStatus("FIXED", "ok", ctx)}\n${report.fixes.map((fix) => formatIssueLine(fix, ctx)).join("\n")}`
+    : "";
+
   if (report.issues.length === 0) {
-    return `${summary}\n${report.workspace}\nok - nothing to report\n`;
+    return `${summary}\n${report.workspace}\nok - nothing to report${fixes}\n`;
   }
 
   const grouped: Record<IssueSeverity, DoctorReport["issues"]> = {
@@ -46,5 +50,5 @@ export function formatDoctorReport(report: DoctorReport, ctx: HumanFormatContext
     sections.push(`${header}\n${lines.join("\n")}`);
   }
 
-  return `${summary}\n${report.workspace}\n${sections.join("\n\n")}\n`;
+  return `${summary}\n${report.workspace}\n${sections.join("\n\n")}${fixes}\n`;
 }

@@ -121,7 +121,23 @@ describe("registerWorkspaceCommand", () => {
     expect(doctorWorkspace).toHaveBeenCalledWith(
       path.resolve(process.cwd(), "./ws"),
       commandContext,
+      { fix: undefined },
     );
     expect(runReportAction.mock.calls[0]?.[1]).toBe("doctor");
+  });
+
+  test("doctor forwards --fix", async () => {
+    const commandContext = createCommandContextFixture();
+    const program = buildProgram(commandContext);
+
+    await program.parseAsync(["workspace", "doctor", "--workspace", "./ws", "--fix"], {
+      from: "user",
+    });
+
+    expect(doctorWorkspace).toHaveBeenCalledWith(
+      path.resolve(process.cwd(), "./ws"),
+      commandContext,
+      { fix: true },
+    );
   });
 });

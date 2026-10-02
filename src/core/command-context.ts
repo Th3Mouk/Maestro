@@ -25,6 +25,8 @@ export type GitCommandAdapter = Pick<
   | "remoteBranchExists"
   | "resolveDefaultBranchRef"
   | "removeWorktree"
+  | "listWorktrees"
+  | "pruneWorktrees"
   | "checkoutBranch"
   | "pullCurrentBranch"
 >;

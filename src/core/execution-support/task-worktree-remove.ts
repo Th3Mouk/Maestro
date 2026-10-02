@@ -22,6 +22,10 @@ import {
   runWorktreeHooks,
   type WorktreeHookTrigger,
 } from "../execution/worktree-hooks.js";
+import {
+  createForeignDirectoryIssue,
+  describeForeignDirectory,
+} from "./task-worktree-inventory.js";
 import { getTaskWorktreesRoot } from "./worktree-root.js";
 
 export interface TaskWorktreeRemoveOptions {
@@ -68,6 +72,12 @@ export async function removeTaskWorktreeWithResolvedWorkspace(
 
   // The repositories the task actually holds, which may be a subset of the manifest.
   const metadata = await readTaskWorktreeMetadata(taskRoot);
+  if (!metadata) {
+    // Not created by `maestro worktree create`: whatever it is, it is not Maestro's to delete.
+    report.status = "warning";
+    report.issues.push(createForeignDirectoryIssue(await describeForeignDirectory(taskRoot)));
+    return report;
+  }
   const repositoryNames = await listTaskRepositoryNames(taskRoot, metadata);
   const force = options.force ?? false;
 
@@ -75,7 +85,7 @@ export async function removeTaskWorktreeWithResolvedWorkspace(
   if (!force) {
     const dirtyCheckouts = await findDirtyCheckouts({
       concurrencyLimit,
-      generatedFiles: metadata?.generatedFiles,
+      generatedFiles: metadata.generatedFiles,
       gitAdapter: context.gitAdapter,
       repositoryNames,
       taskRoot,
@@ -97,7 +107,7 @@ export async function removeTaskWorktreeWithResolvedWorkspace(
       report.hooks = planWorktreeHooks(
         hookCommands,
         "preRemove",
-        trigger === "prune" ? (metadata?.name ?? taskName) : undefined,
+        trigger === "prune" ? (metadata.name ?? taskName) : undefined,
       );
     }
     for (const name of repositoryNames) {
@@ -116,7 +126,7 @@ export async function removeTaskWorktreeWithResolvedWorkspace(
     const { failure, runs } = await runWorktreeHooks(hookCommands, {
       hook: "preRemove",
       stderr: context.stderr ?? process.stderr,
-      task: { name: metadata?.name ?? taskName, repositories: repositoryNames, root: taskRoot },
+      task: { name: metadata.name ?? taskName, repositories: repositoryNames, root: taskRoot },
       trigger,
       workspaceRoot,
     });
