@@ -390,6 +390,32 @@ spec:
 - When `gh` is missing or unauthenticated, the report gets one `FORGE_UNAVAILABLE` warning and every verdict falls back to Git alone. It is never an error.
 - Lookups run concurrently, bounded like the fetch. `list --status` still never fetches.
 
+### `worktree path` and `worktree open`
+
+```bash
+maestro worktree path [<task>]                            # absolute task root on stdout
+maestro worktree open [<task>] [--editor <id>] [--create] # opens the editor, then prints the root
+cd "$(maestro worktree path fix-login)"
+```
+
+- `<task>` is a task name, or `@root` for the main workspace (the primary clones).
+- Without a task, and when stdin and stderr are a terminal, a picker lists `@root` and every task with its repositories, uncommitted and unlanded checkouts, prunability, and age (the `list --status` rows): `fzf` when it is on `PATH`, otherwise a numbered menu on stderr. Without a terminal and without a task, the command fails with `TASK_REQUIRED`.
+- stdout carries only the task root, so the commands compose with `cd` and shell functions. `open` writes its report (editor, launch command, and the `create` report with `--create`) to stderr, in human form unless `--format json` is passed.
+- `open` on a missing task fails with `WORKTREE_NOT_FOUND`, unless `--create` creates it first with `worktree create` (`postCreate` hooks included).
+
+The editor is `--editor`, else `$MAESTRO_EDITOR`, else `spec.execution.worktrees.editor`, else `vscode`:
+
+| id                             | Launch (macOS / Linux)                                                                       | Target                     |
+| ------------------------------ | -------------------------------------------------------------------------------------------- | -------------------------- |
+| `vscode`                       | `open -a "Visual Studio Code"` / `code`                                                      | task editor workspace file |
+| `cursor`                       | `open -a Cursor` / `cursor`                                                                  | task editor workspace file |
+| `devin`                        | `open -a Devin` / `devin-desktop`                                                            | task editor workspace file |
+| `phpstorm`, `idea`, `webstorm` | the JetBrains CLI launcher when it is on `PATH`, else `open -na <App>`                       | task root                  |
+| `none`                         | nothing                                                                                      | —                          |
+| `custom`                       | `$MAESTRO_EDITOR_COMMAND`, with `{root}` and `{workspaceFile}` substituted, run with `sh -c` | —                          |
+
+`worktree create` writes `<task>.code-workspace` in the task root, with the same generator as `maestro editor-workspace`, listing the workspace root and only the repositories the task has. Maestro records it like the task's other generated files, so it does not make the task dirty. A task created before 0.8 has no such file and opens on its root. An editor that cannot be launched fails with `EDITOR_UNAVAILABLE`, naming the launch command.
+
 ### `worktree hook`
 
 Adapters for Claude Code's `WorktreeCreate` and `WorktreeRemove` command hooks. Claude Code replaces its own `git worktree` with these hooks for `claude --worktree <name>`, subagents with `isolation: worktree`, and background sessions. Wired to Maestro, every agent worktree becomes a task worktree, with the workspace's skills, `AGENTS.md`, and lifecycle hooks.

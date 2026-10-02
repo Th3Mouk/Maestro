@@ -459,6 +459,35 @@ describe("HumanRenderer", () => {
     expect(output).toContain("kept");
   });
 
+  test("formats worktree path and open reports for stderr, without repeating the root", () => {
+    const report = {
+      status: "error" as const,
+      workspace: "ws",
+      name: "",
+      root: "",
+      issues: [{ code: "TASK_REQUIRED", message: "Name the task." }],
+    };
+    const opened = {
+      ...report,
+      status: "ok" as const,
+      name: "a",
+      root: "/ws/worktrees/a",
+      editor: "none",
+      issues: [],
+    };
+
+    const pathOutput = capture((stream) =>
+      new HumanRenderer("worktree-path", { color: false }).render(report, stream),
+    );
+    const openOutput = capture((stream) =>
+      new HumanRenderer("worktree-open", { color: false }).render(opened, stream),
+    );
+
+    expect(pathOutput).toContain("worktree path: error");
+    expect(pathOutput).toContain("TASK_REQUIRED");
+    expect(openOutput).toBe("worktree open a: ok (none)\n");
+  });
+
   test("formats a WorktreePruneReport with removed tasks, deleted branches, and kept items", () => {
     const report: WorktreePruneReport = {
       status: "ok",

@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
 import { GitAdapter } from "../../src/adapters/git/git-adapter.js";
@@ -7,10 +7,13 @@ import { createCommandContext, type GitCommandAdapter } from "../../src/core/com
 import { doctorWorkspace } from "../../src/core/commands.js";
 import {
   createTaskWorktree,
+  getTaskWorktreePath,
   listTaskWorktrees,
+  openTaskWorktree,
   pruneTaskWorktrees,
   removeTaskWorktree,
 } from "../../src/core/commands/execution.js";
+import type { EditorLaunch } from "../../src/core/execution/editor-launch.js";
 import { ForgeUnavailableError, type ForgeClient } from "../../src/adapters/forge/github-forge.js";
 import {
   branchExists,
@@ -307,5 +310,129 @@ describe("forge-backed integration", () => {
     expect(report.deletedBranches).toEqual(expect.arrayContaining([{ name: "foods", branch }]));
     expect(report.mergedPullRequests).toEqual([{ item: branch, checkout: "foods", pr: 99 }]);
     expect(await branchExists(path.join(workspaceRoot, "repos", "foods"), branch)).toBe(false);
+  });
+});
+
+describe("worktree path and open", () => {
+  function recordingLauncher(): {
+    context: ReturnType<typeof createCommandContext>;
+    launches: EditorLaunch[];
+  } {
+    const launches: EditorLaunch[] = [];
+    return {
+      launches,
+      context: createCommandContext({
+        launchEditor: async (launch) => {
+          launches.push(launch);
+        },
+      }),
+    };
+  }
+
+  test("path prints the task root, @root the main workspace, and an unknown task fails", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const task = await createTaskWorktree(workspaceRoot, "a", { repos: ["foods"] });
+
+    expect((await getTaskWorktreePath(workspaceRoot, "a")).root).toBe(task.root);
+    expect((await getTaskWorktreePath(workspaceRoot, "@root")).root).toBe(workspaceRoot);
+    const missing = await getTaskWorktreePath(workspaceRoot, "ghost");
+    expect(missing.status).toBe("error");
+    expect(missing.issues.map((issue) => issue.code)).toEqual(["WORKTREE_NOT_FOUND"]);
+  });
+
+  test("without a task, the picker chooses from @root and the task rows; without one, the task is required", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const task = await createTaskWorktree(workspaceRoot, "picked", { repos: ["foods"] });
+    let offered: string[] = [];
+
+    const picked = await getTaskWorktreePath(workspaceRoot, undefined, {
+      pick: async (rows) => {
+        offered = rows.map((row) => `${row.name} ${row.repos} ${row.prunable}`);
+        return rows[1]?.name;
+      },
+    });
+    const required = await getTaskWorktreePath(workspaceRoot, undefined);
+
+    expect(offered).toEqual(["@root all -", "picked foods yes"]);
+    expect(picked.root).toBe(task.root);
+    expect(required.status).toBe("error");
+    expect(required.issues.map((issue) => issue.code)).toEqual(["TASK_REQUIRED"]);
+  });
+
+  test("create writes a task editor workspace file listing only the task's repositories", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const task = await createTaskWorktree(workspaceRoot, "narrow", { repos: ["platform-api"] });
+
+    const workspaceFile = JSON.parse(
+      await readFile(path.join(task.root, "narrow.code-workspace"), "utf8"),
+    ) as { folders: Array<{ name: string; path: string }> };
+
+    expect(workspaceFile.folders).toEqual([
+      { name: "lifecycle", path: "." },
+      { name: "platform-api", path: "repos/platform-api" },
+    ]);
+    // The generated file does not make the task dirty.
+    expect((await removeTaskWorktree(workspaceRoot, "narrow")).status).toBe("ok");
+  });
+
+  test("open launches the editor on the task workspace file, then reports the root", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const task = await createTaskWorktree(workspaceRoot, "edit", { repos: ["foods"] });
+    const { context, launches } = recordingLauncher();
+
+    const report = await openTaskWorktree(
+      workspaceRoot,
+      "edit",
+      { editor: "cursor", env: {}, platform: "linux" },
+      context,
+    );
+
+    expect(report).toMatchObject({ status: "ok", root: task.root, editor: "cursor" });
+    expect(launches).toEqual([
+      { command: "cursor", args: [path.join(task.root, "edit.code-workspace")] },
+    ]);
+  });
+
+  test("open --create creates a missing task first; without it the task must exist", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    const { context, launches } = recordingLauncher();
+
+    const refused = await openTaskWorktree(workspaceRoot, "new-one", { editor: "none" }, context);
+    const created = await openTaskWorktree(
+      workspaceRoot,
+      "new-one",
+      { create: true, editor: "none" },
+      context,
+    );
+
+    expect(refused.issues.map((issue) => issue.code)).toEqual(["WORKTREE_NOT_FOUND"]);
+    expect(created.status).toBe("ok");
+    expect(created.created?.status).toBe("ok");
+    expect(existsSync(path.join(created.root, "repos", "foods", ".git"))).toBe(true);
+    expect(launches).toEqual([]);
+  });
+
+  test("an editor that cannot be launched is EDITOR_UNAVAILABLE, naming the command", async () => {
+    const { workspaceRoot } = await createLifecycleWorkspace();
+    await createTaskWorktree(workspaceRoot, "no-editor", { repos: ["foods"] });
+
+    const report = await openTaskWorktree(
+      workspaceRoot,
+      "no-editor",
+      { editor: "vscode", env: {}, platform: "darwin" },
+      createCommandContext({
+        launchEditor: async () => {
+          throw new Error("Unable to find application named 'Visual Studio Code'");
+        },
+      }),
+    );
+
+    expect(report.status).toBe("error");
+    expect(report.issues).toEqual([
+      expect.objectContaining({
+        code: "EDITOR_UNAVAILABLE",
+        message: expect.stringContaining("open -a 'Visual Studio Code'"),
+      }),
+    ]);
   });
 });

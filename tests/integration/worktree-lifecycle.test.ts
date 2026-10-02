@@ -1,4 +1,4 @@
-import { mkdir, readFile, realpath, writeFile } from "node:fs/promises";
+import { mkdir, readFile, realpath, unlink, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
@@ -177,8 +177,9 @@ describe("partial worktrees with --repos", () => {
 
   test("remove falls back to the directories under repos/ for metadata without the list", async () => {
     const { workspaceRoot } = await createLifecycleWorkspace();
-    // Metadata written by 0.6: no repository list, no generated-file fingerprints.
+    // A 0.6 task: no repository list, no generated-file fingerprints, no editor workspace file.
     const created = await createTaskWorktree(workspaceRoot, "legacy");
+    await unlink(path.join(created.root, "legacy.code-workspace"));
     await writeFile(
       path.join(created.root, ".maestro", "execution", "worktree.json"),
       JSON.stringify({ name: "legacy", createdAt: "2026-01-01T00:00:00.000Z" }),
