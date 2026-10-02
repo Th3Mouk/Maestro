@@ -342,6 +342,7 @@ Remove every task whose work has landed, and delete its task branches.
 maestro worktree prune --dry-run
 maestro worktree prune
 maestro worktree prune --include-gone --branches
+maestro worktree prune --task release-prep --dry-run
 ```
 
 - Maestro first runs `git fetch --prune` on the workspace and each repository, so `upstream` and `integrated` reflect the remote. `--no-fetch` skips it.
@@ -349,6 +350,7 @@ maestro worktree prune --include-gone --branches
 - `--include-gone` also treats a clean checkout whose `upstream` is `gone` as landed. This covers squash merges the patch comparison misses, for example after conflict resolution. It is off by default, because a deleted remote branch is not proof the work landed.
 - Prunable tasks are removed through the same path as `worktree remove`, then the task branches their checkouts had checked out are deleted with `git branch -D`.
 - `--branches` also deletes orphan task branches: branches matching `<branchPrefix>/*/*` that no worktree has checked out and whose task is gone, under the same rule. Branches holding unintegrated commits are kept and listed.
+- `--task <name>` (repeatable) restricts `prune` to those tasks: only the workspace and their repositories are fetched, and the other tasks are neither inspected nor touched. With `--branches`, only the orphan branches of those task names (`<branchPrefix>/<name>/*`) are considered. A name with no task directory (and, with `--branches`, no task branch) fails the command with `WORKTREE_NOT_FOUND` before anything is fetched or removed. Use it to check or clean up one task, or to try a workspace's `preRemove` hooks on one task.
 - `--dry-run` prints the plan, writing nothing but the fetched remote-tracking refs: the tasks it would remove, the branches it would delete, and the kept items.
 - The primary clones' checked-out branches are never touched.
 

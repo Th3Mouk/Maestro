@@ -12,6 +12,7 @@ After 0.7.0, workspaces still wrapped Maestro in their own scripts to seed and t
 ### Added
 
 - Worktree lifecycle hooks: `spec.execution.worktrees.hooks.postCreate` and `hooks.preRemove` (and pack `provides.hooks.worktreePostCreate` / `worktreePreRemove`, which run first) are shell commands run with `sh -c` from the main workspace root, with `MAESTRO_TASK`, `MAESTRO_TASK_ROOT`, `MAESTRO_WORKSPACE_ROOT`, `MAESTRO_TASK_REPOSITORIES`, `MAESTRO_HOOK`, and `MAESTRO_TRIGGER` in their environment. `postCreate` runs after `create` writes the task metadata, including when `--repos` adds repositories; a failure is a `HOOK_FAILED` warning and the worktree stays. `preRemove` runs in `remove` and `prune` after the safety checks and before anything is removed; a failure aborts that task's removal (`remove` fails, `prune` keeps it with `preRemove hook failed (exit N)`), except under `remove --force`, where it is a warning. `--no-hooks` skips them, `--dry-run` lists them as planned, and their output goes to stderr prefixed with the hook name. This replaces running `prune --dry-run --json`, tearing down, then `prune`, where a task that became dirty in between lost its databases but kept its worktree.
+- `maestro worktree prune --task <name>` (repeatable) checks and prunes only the named tasks: the fetch is limited to the workspace and their repositories, the other tasks are not inspected, and `--branches` only considers the orphan branches of those task names. An unknown name fails with `WORKTREE_NOT_FOUND`.
 
 ## [0.7.0]
 

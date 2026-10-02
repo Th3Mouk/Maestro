@@ -127,6 +127,22 @@ describe("registerWorktreeCommand", () => {
     expect(runReportAction.mock.calls[0]?.[1]).toBe("worktree-remove");
   });
 
+  test("prune --task is repeatable", async () => {
+    const commandContext = createCommandContextFixture();
+    const program = buildProgram(commandContext);
+
+    await program.parseAsync(
+      ["worktree", "prune", "--workspace", "./ws", "--task", "a", "--task", "b"],
+      { from: "user" },
+    );
+
+    expect(pruneTaskWorktrees).toHaveBeenCalledWith(
+      path.resolve(process.cwd(), "./ws"),
+      expect.objectContaining({ tasks: ["a", "b"] }),
+      commandContext,
+    );
+  });
+
   test("--no-hooks is forwarded as hooks: false", async () => {
     const commandContext = createCommandContextFixture();
     const program = buildProgram(commandContext);
