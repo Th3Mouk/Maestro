@@ -31,7 +31,7 @@ importers:
         version: 4.1.2
       safe-regex2:
         specifier: ^5.0.0
-        version: 5.1.1
+        version: 5.1.2
       semver:
         specifier: ^7.7.2
         version: 7.8.5
@@ -1232,8 +1232,8 @@ packages:
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
 
-  safe-regex2@5.1.1:
-    resolution: {integrity: sha512-mOSBvHGDZMuIEZMdOz/aCEYDCv0E7nfcNsIhUF+/P+xC7Hyf3FkvymqgPbg9D1EdSGu+uKbJgy09K/RKKc7kJA==}
+  safe-regex2@5.1.2:
+    resolution: {integrity: sha512-tAtCGFPPP02VroDVzp4daGi6bC7jWG+41D47GKf18FeH/ubvKQHT9VmhAkvtjNOmJwqtApzWeUpEhkyEYULvmw==}
     hasBin: true
 
   satori@0.47.1:
@@ -2329,7 +2329,7 @@ snapshots:
       '@rolldown/binding-win32-arm64-msvc': 1.2.13
       '@rolldown/binding-win32-x64-msvc': 1.2.13
 
-  safe-regex2@5.1.1:
+  safe-regex2@5.1.2:
     dependencies:
       ret: 0.5.0
 
